@@ -12,24 +12,14 @@ import {
 } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '../components/ui/hover-card';
-import { useProjects } from '../hooks/useProjectData';
+import { useProjects, useTeamData } from '../hooks/useProjectData';
 
 export default function Projects() {
   const { projects: filteredProjects, searchTerm, setSearchTerm, statusFilter, setStatusFilter } = useProjects();
+  const { projectTeams } = useTeamData();
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const getProgressColor = (v: number) => v >= 75 ? 'bg-success' : v >= 50 ? 'bg-warning' : 'bg-destructive';
-
-  const teamByProject: Record<number, { name: string; role: string }[]> = {
-    1: [{ name: 'María González', role: 'Project Manager' }, { name: 'Carlos Ruiz', role: 'Tech Lead' }, { name: 'Ana López', role: 'Senior Developer' }, { name: 'Luis Bermúdez', role: 'Backend Developer' }, { name: 'Sofía Fernández', role: 'Frontend Developer' }, { name: 'Pedro Quiroga', role: 'QA Engineer' }],
-    2: [{ name: 'Carlos Ramírez', role: 'Project Manager' }, { name: 'Sandra López', role: 'Cloud Architect' }, { name: 'Miguel Torres', role: 'DevOps Engineer' }, { name: 'Diana Gómez', role: 'DBA Senior' }],
-    3: [{ name: 'Ana Martínez', role: 'Project Manager' }, { name: 'Javier Mora', role: 'React Native Lead' }, { name: 'Camila Ríos', role: 'UX Designer' }, { name: 'Tomás Vargas', role: 'Mobile Developer' }],
-    4: [{ name: 'Roberto Silva', role: 'Project Manager' }, { name: 'Elena Vargas', role: 'Security Lead' }, { name: 'Andrés Muñoz', role: 'Pentester Senior' }, { name: 'Patricia León', role: 'Compliance Analyst' }],
-    5: [{ name: 'Laura Torres', role: 'Project Manager' }, { name: 'Ricardo Peña', role: 'Data Engineer Lead' }, { name: 'Natalia Cruz', role: 'Data Scientist' }, { name: 'Fernando Díaz', role: 'ML Engineer' }, { name: 'Valentina Soto', role: 'BI Analyst' }],
-    6: [{ name: 'Diego Mendoza', role: 'Project Manager' }, { name: 'Alejandro Ríos', role: 'Backend Lead' }, { name: 'Isabela Correa', role: 'Platform Engineer' }],
-    7: [{ name: 'Sandra López', role: 'Project Manager' }, { name: 'Hugo Castillo', role: 'DevOps Lead' }, { name: 'Daniela Vega', role: 'SRE Engineer' }, { name: 'Marcos Ruiz', role: 'DevOps Engineer' }],
-    8: [{ name: 'Paula Herrera', role: 'Project Manager' }, { name: 'Gabriel Ortiz', role: 'UX Lead' }, { name: 'Lucía Paredes', role: 'UI Designer' }, { name: 'Martín Acosta', role: 'UX Researcher' }],
-  };
 
   const statusFilters = [
     { key: 'all', label: 'Todos' },
@@ -159,7 +149,7 @@ export default function Projects() {
                   <h4 className="text-xs font-semibold text-foreground uppercase tracking-wide">Equipo del proyecto</h4>
                 </div>
                 <div className="space-y-2">
-                  {(teamByProject[project.id] ?? []).map((member, idx) => (
+                  {(projectTeams[project.id] ?? []).map((member, idx) => (
                     <div key={idx} className="flex items-center gap-2.5">
                       <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-semibold shrink-0">
                         {member.name.charAt(0)}

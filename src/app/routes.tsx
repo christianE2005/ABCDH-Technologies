@@ -24,6 +24,7 @@ const Alerts = lazy(() => import('./pages/Alerts'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Executive = lazy(() => import('./pages/Executive'));
 const Profile = lazy(() => import('./pages/Profile'));
+const MemberProfile = lazy(() => import('./pages/MemberProfile'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Logs = lazy(() => import('./pages/Logs'));
 
@@ -60,6 +61,7 @@ export const router = createBrowserRouter([
       { path: 'reports', element: withSuspense(Reports) },
       { path: 'executive', element: withSuspense(Executive) },
       { path: 'profile', element: withSuspense(Profile) },
+      { path: 'profile/:memberId', element: withSuspense(MemberProfile) },
       { path: 'settings', element: withSuspense(Settings) },
       { path: 'logs', element: withSuspense(Logs) },
     ],

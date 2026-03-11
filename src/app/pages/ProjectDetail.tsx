@@ -12,11 +12,12 @@ import {
   Sparkles,
   MessageCircle,
   Send,
-  Bot
+  Bot,
+  ChevronRight
 } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
 import { KPICard } from '../components/KPICard';
-import { useProjects } from '../hooks/useProjectData';
+import { useProjects, useTeamData } from '../hooks/useProjectData';
 import { motion } from 'motion/react';
 import { useState } from 'react';
 
@@ -24,6 +25,7 @@ export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { getProjectById } = useProjects();
+  const { getProjectTeam } = useTeamData();
   const hookProject = getProjectById(Number(id) || 1);
 
   const project = {
@@ -222,7 +224,7 @@ export default function ProjectDetail() {
   const projectId = project.id;
   const data = projectDataMap[projectId] ?? projectDataMap[1];
   const milestones = data.milestones;
-  const resources = data.resources;
+  const resources = getProjectTeam(projectId);
   const aiAnalysis = data.aiAnalysis;
 
   // Calculate days remaining dynamically
@@ -252,6 +254,8 @@ export default function ProjectDetail() {
 
   // AI Chat mock
   const [chatInput, setChatInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [extraMessages, setExtraMessages] = useState<{ role: 'ai' | 'user'; text: string }[]>([]);
   const projectChatMap: Record<number, { role: 'ai' | 'user'; text: string }[]> = {
     1: [
       { role: 'ai', text: `He analizado ${project.name}. El proyecto avanza un 8% por encima del plan con presupuesto controlado al 85%. ¿En qué puedo ayudarte?` },
@@ -295,6 +299,28 @@ export default function ProjectDetail() {
     ],
   };
   const chatMessages = projectChatMap[project.id] ?? projectChatMap[1];
+
+  const quickResponseMap: Record<string, string> = {
+    '¿Quién está bloqueado?': resources.filter(r => r.status === 'blocked').length > 0
+      ? `Actualmente ${resources.filter(r => r.status === 'blocked').map(r => r.name).join(' y ')} ${resources.filter(r => r.status === 'blocked').length === 1 ? 'está' : 'están'} bloqueado${resources.filter(r => r.status === 'blocked').length > 1 ? 's' : ''}. Recomiendo escalar las dependencias que los bloquean.`
+      : 'No hay miembros bloqueados actualmente. El equipo puede continuar sin impedimentos.',
+    '¿Llegamos a tiempo?': aiAnalysis.delayProbability <= 25
+      ? `Sí, la probabilidad de retraso es solo del ${aiAnalysis.delayProbability}%. El proyecto mantiene buen ritmo.`
+      : `Hay un ${aiAnalysis.delayProbability}% de probabilidad de retraso. ${aiAnalysis.recommendations[0] ?? 'Recomiendo tomar acciones preventivas.'}`,
+    'Resumen ejecutivo': `${project.name}: ${project.progress}% de avance, presupuesto al ${project.budget}%. Salud: ${aiAnalysis.healthScore}%. ${aiAnalysis.insights[0] ?? ''} Próximo hito: ${milestones.find(m => m.status === 'in_progress')?.name ?? 'N/A'}.`,
+  };
+
+  const handleSendMessage = (text: string) => {
+    if (!text.trim()) return;
+    setExtraMessages(prev => [...prev, { role: 'user', text }]);
+    setChatInput('');
+    setIsTyping(true);
+    setTimeout(() => {
+      setIsTyping(false);
+      const response = quickResponseMap[text] ?? `He analizado tu pregunta sobre "${text}". Basado en los datos actuales de ${project.name}, el proyecto avanza al ${project.progress}% con una salud del ${aiAnalysis.healthScore}%. ¿Necesitas más detalles sobre algún aspecto específico?`;
+      setExtraMessages(prev => [...prev, { role: 'ai', text: response }]);
+    }, 1500);
+  };
 
   return (
     <div className="px-6 pb-6 pt-2 space-y-5 max-w-[1400px]">
@@ -450,9 +476,9 @@ export default function ProjectDetail() {
                   initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.5 + index * 0.05, ease: 'easeOut' }}
-                  onClick={() => navigate(`/backlog?project=${project.id}`)}
+                  onClick={() => navigate(`/profile/${resource.memberId}`)}
                   className="flex items-center justify-between py-2.5 px-3 rounded-md hover:bg-accent/50 transition-colors cursor-pointer group/member"
-                  title={`Ver tareas de ${resource.name} en Backlog`}
+                  title={`Ver perfil de ${resource.name}`}
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="relative">
@@ -478,6 +504,7 @@ export default function ProjectDetail() {
                       </div>
                     </div>
                     <span className="text-xs font-medium text-muted-foreground w-9 text-right">{resource.allocation}</span>
+                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover/member:opacity-100 transition-opacity" />
                   </div>
                 </motion.div>
               ))}
@@ -584,13 +611,13 @@ export default function ProjectDetail() {
         </div>
 
         {/* Chat Messages */}
-        <div className="space-y-3 mb-4 max-h-[320px] overflow-y-auto">
-          {chatMessages.map((msg, i) => (
+        <div className="space-y-3 mb-4 max-h-[320px] overflow-y-auto" ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}>
+          {[...chatMessages, ...extraMessages].map((msg, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.6 + i * 0.1 }}
+              transition={{ duration: 0.3, delay: i < chatMessages.length ? 0.6 + i * 0.1 : 0 }}
               className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
             >
               <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-medium ${
@@ -607,6 +634,24 @@ export default function ProjectDetail() {
               </div>
             </motion.div>
           ))}
+          {isTyping && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex gap-2.5"
+            >
+              <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Sparkles className="w-3.5 h-3.5" />
+              </div>
+              <div className="rounded-lg px-3 py-2 bg-secondary/60">
+                <div className="flex gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </motion.div>
+          )}
         </div>
 
         {/* Chat Input */}
@@ -617,11 +662,12 @@ export default function ProjectDetail() {
             onChange={e => setChatInput(e.target.value)}
             placeholder="Ej: ¿Cuál es el mayor riesgo? ¿Quién está bloqueado?"
             className="flex-1 bg-secondary/50 border border-border rounded-md px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
-            onKeyDown={e => { if (e.key === 'Enter') setChatInput(''); }}
+            onKeyDown={e => { if (e.key === 'Enter') handleSendMessage(chatInput); }}
           />
           <button
-            onClick={() => setChatInput('')}
-            className="w-8 h-8 bg-primary rounded-md flex items-center justify-center hover:bg-primary/90 transition-colors shrink-0"
+            onClick={() => handleSendMessage(chatInput)}
+            disabled={isTyping}
+            className="w-8 h-8 bg-primary rounded-md flex items-center justify-center hover:bg-primary/90 transition-colors shrink-0 disabled:opacity-50"
           >
             <Send className="w-3.5 h-3.5 text-primary-foreground" />
           </button>
@@ -630,8 +676,9 @@ export default function ProjectDetail() {
           {['¿Quién está bloqueado?', '¿Llegamos a tiempo?', 'Resumen ejecutivo'].map(q => (
             <button
               key={q}
-              onClick={() => setChatInput(q)}
-              className="text-[10px] text-muted-foreground bg-secondary/50 hover:bg-secondary px-2 py-1 rounded-md transition-colors"
+              onClick={() => handleSendMessage(q)}
+              disabled={isTyping}
+              className="text-[10px] text-muted-foreground bg-secondary/50 hover:bg-secondary px-2 py-1 rounded-md transition-colors disabled:opacity-50"
             >
               {q}
             </button>
