@@ -68,6 +68,18 @@ export default function Dashboard() {
   const delayed = allProjects.filter(p => p.status === 'delayed').length;
   const totalMembers = allProjects.reduce((sum, p) => sum + p.members, 0);
 
+  // Find closest upcoming deadline
+  const monthMapDash: Record<string, number> = { Ene: 0, Feb: 1, Mar: 2, Abr: 3, May: 4, Jun: 5, Jul: 6, Ago: 7, Sep: 8, Oct: 9, Nov: 10, Dic: 11 };
+  const now = Date.now();
+  const closestDeadline = allProjects
+    .map(p => {
+      const parts = p.deadline.split(' ');
+      const d = new Date(parseInt(parts[2]), monthMapDash[parts[1]] ?? 0, parseInt(parts[0]));
+      return { name: p.name, date: d, dateStr: p.deadline, diff: d.getTime() - now };
+    })
+    .filter(d => d.diff > 0)
+    .sort((a, b) => a.diff - b.diff)[0] ?? { name: 'N/A', dateStr: '--' };
+
   const kpiIcons = [<TrendingUp className="w-5 h-5" />, <DollarSign className="w-5 h-5" />, <AlertTriangle className="w-5 h-5" />, <Target className="w-5 h-5" />];
 
   const getProgressColor = (value: number) => {
@@ -260,8 +272,8 @@ export default function Dashboard() {
                   <Clock className="w-5 h-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground leading-none">28 Feb</p>
-                  <p className="text-[11px] text-muted-foreground mt-1 font-medium">Próximo deadline</p>
+                  <p className="text-2xl font-bold text-foreground leading-none">{closestDeadline.dateStr.split(' ').slice(0, 2).join(' ')}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 font-medium truncate max-w-[120px]" title={closestDeadline.name}>{closestDeadline.name}</p>
                 </div>
               </div>
               <div className="absolute -right-2 -bottom-2 w-16 h-16 rounded-full bg-warning/5" />

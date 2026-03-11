@@ -9,8 +9,6 @@ import {
   Users,
   DollarSign,
   X,
-  TrendingUp,
-  Clock
 } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '../components/ui/hover-card';
@@ -21,6 +19,17 @@ export default function Projects() {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const getProgressColor = (v: number) => v >= 75 ? 'bg-success' : v >= 50 ? 'bg-warning' : 'bg-destructive';
+
+  const teamByProject: Record<number, { name: string; role: string }[]> = {
+    1: [{ name: 'María González', role: 'Project Manager' }, { name: 'Carlos Ruiz', role: 'Tech Lead' }, { name: 'Ana López', role: 'Senior Developer' }, { name: 'Luis Bermúdez', role: 'Backend Developer' }, { name: 'Sofía Fernández', role: 'Frontend Developer' }, { name: 'Pedro Quiroga', role: 'QA Engineer' }],
+    2: [{ name: 'Carlos Ramírez', role: 'Project Manager' }, { name: 'Sandra López', role: 'Cloud Architect' }, { name: 'Miguel Torres', role: 'DevOps Engineer' }, { name: 'Diana Gómez', role: 'DBA Senior' }],
+    3: [{ name: 'Ana Martínez', role: 'Project Manager' }, { name: 'Javier Mora', role: 'React Native Lead' }, { name: 'Camila Ríos', role: 'UX Designer' }, { name: 'Tomás Vargas', role: 'Mobile Developer' }],
+    4: [{ name: 'Roberto Silva', role: 'Project Manager' }, { name: 'Elena Vargas', role: 'Security Lead' }, { name: 'Andrés Muñoz', role: 'Pentester Senior' }, { name: 'Patricia León', role: 'Compliance Analyst' }],
+    5: [{ name: 'Laura Torres', role: 'Project Manager' }, { name: 'Ricardo Peña', role: 'Data Engineer Lead' }, { name: 'Natalia Cruz', role: 'Data Scientist' }, { name: 'Fernando Díaz', role: 'ML Engineer' }, { name: 'Valentina Soto', role: 'BI Analyst' }],
+    6: [{ name: 'Diego Mendoza', role: 'Project Manager' }, { name: 'Alejandro Ríos', role: 'Backend Lead' }, { name: 'Isabela Correa', role: 'Platform Engineer' }],
+    7: [{ name: 'Sandra López', role: 'Project Manager' }, { name: 'Hugo Castillo', role: 'DevOps Lead' }, { name: 'Daniela Vega', role: 'SRE Engineer' }, { name: 'Marcos Ruiz', role: 'DevOps Engineer' }],
+    8: [{ name: 'Paula Herrera', role: 'Project Manager' }, { name: 'Gabriel Ortiz', role: 'UX Lead' }, { name: 'Lucía Paredes', role: 'UI Designer' }, { name: 'Martín Acosta', role: 'UX Researcher' }],
+  };
 
   const statusFilters = [
     { key: 'all', label: 'Todos' },
@@ -145,32 +154,28 @@ export default function Projects() {
             </HoverCardTrigger>
             <HoverCardContent side="right" align="start" className="w-72 p-0">
               <div className="p-4 space-y-3">
-                <div className="flex items-start justify-between">
-                  <h4 className="text-sm font-semibold text-foreground">{project.name}</h4>
-                  <StatusBadge status={project.status} size="sm" />
+                <div className="flex items-center gap-2">
+                  <Users className="w-3.5 h-3.5 text-primary" />
+                  <h4 className="text-xs font-semibold text-foreground uppercase tracking-wide">Equipo del proyecto</h4>
                 </div>
-                <p className="text-xs text-muted-foreground">{project.description}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <TrendingUp className="w-3 h-3" />
-                    <span>Avance: <span className="font-medium text-foreground">{project.progress}%</span></span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <DollarSign className="w-3 h-3" />
-                    <span>Presupuesto: <span className="font-medium text-foreground">{project.budget}%</span></span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Users className="w-3 h-3" />
-                    <span>{project.members} miembros</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Clock className="w-3 h-3" />
-                    <span>{project.deadline}</span>
-                  </div>
+                <div className="space-y-2">
+                  {(teamByProject[project.id] ?? []).map((member, idx) => (
+                    <div key={idx} className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-semibold shrink-0">
+                        {member.name.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground truncate">{member.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{member.role}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="pt-2 border-t border-border flex items-center justify-between">
-                  <span className="text-[11px] text-muted-foreground">PM: {project.manager}</span>
-                  <span className="text-[11px] text-muted-foreground">Inicio: {project.startDate}</span>
+                <div className="pt-2 border-t border-border">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>PM: {project.manager}</span>
+                    <span className="text-primary font-medium">Ver proyecto →</span>
+                  </div>
                 </div>
               </div>
             </HoverCardContent>
