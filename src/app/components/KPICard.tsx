@@ -1,5 +1,4 @@
 import { ReactNode } from 'react';
-import { motion } from 'motion/react';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -23,58 +22,48 @@ export function KPICard({
   trend, 
   trendValue,
   icon,
-  status = 'neutral'
+  status: _status = 'neutral'
 }: KPICardProps) {
+  void _status;
   const getTrendIcon = () => {
-    if (trend === 'up') return <TrendingUp className="w-4 h-4" />;
-    if (trend === 'down') return <TrendingDown className="w-4 h-4" />;
-    return <Minus className="w-4 h-4" />;
+    if (trend === 'up') return <TrendingUp className="w-3.5 h-3.5" />;
+    if (trend === 'down') return <TrendingDown className="w-3.5 h-3.5" />;
+    return <Minus className="w-3.5 h-3.5" />;
   };
 
   const getTrendColor = () => {
-    if (trend === 'up') return 'text-[#00C853]';
-    if (trend === 'down') return 'text-[#FF3D3D]';
+    if (trend === 'up') return 'text-success';
+    if (trend === 'down') return 'text-destructive';
     return 'text-muted-foreground';
   };
 
-  const getStatusColor = () => {
-    switch (status) {
-      case 'success': return 'border-l-[#00C853]';
-      case 'warning': return 'border-l-[#FFC107]';
-      case 'danger': return 'border-l-[#FF3D3D]';
-      case 'info': return 'border-l-[#2196F3]';
-      default: return 'border-l-transparent';
-    }
-  };
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`bg-card border border-border rounded-xl p-6 hover:border-primary/30 transition-all duration-300 border-l-4 ${getStatusColor()}`}
-    >
-      <div className="flex items-start justify-between mb-4">
+    <div className="group relative overflow-hidden bg-card border border-border rounded-lg p-5 transition-all duration-300 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5">
+      <div className="flex items-start justify-between">
         <div className="flex-1">
-          <p className="text-muted-foreground text-sm mb-1">{title}</p>
+          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide mb-2">{title}</p>
           <div className="flex items-baseline gap-2">
-            <h3 className="text-3xl font-bold text-foreground">{value}</h3>
+            <h3 className="text-2xl font-bold text-foreground tracking-tight">{value}</h3>
             {trendValue && (
-              <span className={`flex items-center gap-1 text-sm ${getTrendColor()}`}>
+              <span className={`flex items-center gap-0.5 text-xs font-semibold ${getTrendColor()} px-1.5 py-0.5 rounded-full ${
+                trend === 'up' ? 'bg-success/10' : trend === 'down' ? 'bg-destructive/10' : 'bg-muted'
+              }`}>
                 {getTrendIcon()}
                 {trendValue}
               </span>
             )}
           </div>
           {subtitle && (
-            <p className="text-muted-foreground text-xs mt-1">{subtitle}</p>
+            <p className="text-muted-foreground text-xs mt-1.5">{subtitle}</p>
           )}
         </div>
         {icon && (
-          <div className="text-primary opacity-80">
+          <div className="w-10 h-10 rounded-lg bg-primary/8 flex items-center justify-center text-primary/70 group-hover:bg-primary/15 group-hover:text-primary transition-all duration-300">
             {icon}
           </div>
         )}
       </div>
-    </motion.div>
+      <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-primary/20 via-primary/40 to-primary/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+    </div>
   );
 }

@@ -1,388 +1,404 @@
-import { motion } from 'motion/react';
 import { Link } from 'react-router';
 import { 
   TrendingUp, 
   DollarSign, 
   AlertTriangle, 
   Target,
-  ExternalLink,
-  Brain,
+  ArrowRight,
+  Sparkles,
   Calendar,
-  Users
+  Users,
+  CheckCircle,
+  Clock,
+  Briefcase,
 } from 'lucide-react';
 import { KPICard } from '../components/KPICard';
 import { StatusBadge } from '../components/StatusBadge';
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer
 } from 'recharts';
 import { useState } from 'react';
+import { motion } from 'motion/react';
+import { useDashboard, useProjects } from '../hooks/useProjectData';
+import { useAuth } from '../context/AuthContext';
+
+type Period = 'mensual' | 'semestral' | 'anual';
+
+const chartDataByPeriod: Record<Period, { name: string; avance: number; planificado: number }[]> = {
+  mensual: [
+    { name: 'Sem 1', avance: 58, planificado: 60 },
+    { name: 'Sem 2', avance: 62, planificado: 65 },
+    { name: 'Sem 3', avance: 68, planificado: 70 },
+    { name: 'Sem 4', avance: 72, planificado: 75 },
+  ],
+  semestral: [
+    { name: 'Ene', avance: 65, planificado: 70 },
+    { name: 'Feb', avance: 72, planificado: 75 },
+    { name: 'Mar', avance: 78, planificado: 80 },
+    { name: 'Abr', avance: 85, planificado: 85 },
+    { name: 'May', avance: 88, planificado: 90 },
+    { name: 'Jun', avance: 90, planificado: 95 },
+  ],
+  anual: [
+    { name: 'Q1', avance: 45, planificado: 50 },
+    { name: 'Q2', avance: 62, planificado: 65 },
+    { name: 'Q3', avance: 78, planificado: 80 },
+    { name: 'Q4', avance: 90, planificado: 95 },
+  ],
+};
 
 export default function Dashboard() {
-  const [chartType, setChartType] = useState<'line' | 'bar'>('line');
+  const [chartType, setChartType] = useState<'area' | 'bar'>('area');
+  const [period, setPeriod] = useState<Period>('semestral');
+  const { kpis, aiInsights, topProjects } = useDashboard();
+  const { allProjects } = useProjects();
+  const { user } = useAuth();
 
-  // Mock data
-  const chartData = [
-    { name: 'Ene', avance: 65, presupuesto: 58, planificado: 70 },
-    { name: 'Feb', avance: 72, presupuesto: 68, planificado: 75 },
-    { name: 'Mar', avance: 78, presupuesto: 75, planificado: 80 },
-    { name: 'Abr', avance: 85, presupuesto: 82, planificado: 85 },
-    { name: 'May', avance: 88, presupuesto: 87, planificado: 90 },
-    { name: 'Jun', avance: 90, presupuesto: 91, planificado: 95 },
-  ];
+  // Portfolio summary stats
+  const onTrack = allProjects.filter(p => p.status === 'on_track').length;
+  const atRisk = allProjects.filter(p => p.status === 'at_risk').length;
+  const delayed = allProjects.filter(p => p.status === 'delayed').length;
+  const totalMembers = allProjects.reduce((sum, p) => sum + p.members, 0);
 
-  const projects = [
-    {
-      id: 1,
-      name: 'Proyecto Alpha - ERP Modernization',
-      manager: 'María González',
-      progress: 78,
-      budget: 85,
-      status: 'on_track' as const,
-      members: 12,
-      deadline: '15 Mar 2026'
-    },
-    {
-      id: 2,
-      name: 'Proyecto Beta - Cloud Migration',
-      manager: 'Carlos Ramírez',
-      progress: 45,
-      budget: 92,
-      status: 'at_risk' as const,
-      members: 8,
-      deadline: '28 Feb 2026'
-    },
-    {
-      id: 3,
-      name: 'Proyecto Gamma - Mobile App',
-      manager: 'Ana Martínez',
-      progress: 92,
-      budget: 78,
-      status: 'on_track' as const,
-      members: 6,
-      deadline: '10 Abr 2026'
-    },
-    {
-      id: 4,
-      name: 'Proyecto Delta - Security Audit',
-      manager: 'Roberto Silva',
-      progress: 32,
-      budget: 98,
-      status: 'delayed' as const,
-      members: 5,
-      deadline: '05 Mar 2026'
-    },
-  ];
+  const kpiIcons = [<TrendingUp className="w-5 h-5" />, <DollarSign className="w-5 h-5" />, <AlertTriangle className="w-5 h-5" />, <Target className="w-5 h-5" />];
 
-  const aiInsights = [
-    {
-      type: 'warning',
-      title: 'Riesgo Presupuestal Detectado',
-      description: 'Proyecto Beta tiene 92% de probabilidad de exceder presupuesto en las próximas 2 semanas',
-      action: 'Revisar asignación de recursos'
-    },
-    {
-      type: 'danger',
-      title: 'Alto Riesgo de Retraso',
-      description: 'Proyecto Delta muestra 78% de probabilidad de retraso mayor a 2 semanas',
-      action: 'Escalar a dirección'
-    },
-    {
-      type: 'success',
-      title: 'Oportunidad de Optimización',
-      description: 'Proyecto Alpha puede completarse 5 días antes con la redistribución actual',
-      action: 'Aplicar recomendación'
-    }
-  ];
+  const getProgressColor = (value: number) => {
+    if (value >= 75) return 'bg-success';
+    if (value >= 50) return 'bg-warning';
+    return 'bg-destructive';
+  };
+
+  const getBudgetColor = (value: number) => {
+    if (value >= 90) return 'text-destructive';
+    if (value >= 75) return 'text-warning';
+    return 'text-success';
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="px-6 pb-6 pt-2 space-y-6 max-w-[1400px]">
       {/* Header */}
-      <div className="p-6">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard General</h1>
-        <p className="text-muted-foreground">Vista ejecutiva de todos los proyectos activos</p>
+      <div>
+        <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
+        <p className="text-sm text-muted-foreground mt-1">Vista general de proyectos activos</p>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-6 pt-0">
-        <KPICard
-          title="Avance Promedio"
-          value="76.5%"
-          trend="up"
-          trendValue="+8.2%"
-          subtitle="vs mes anterior"
-          status="success"
-          icon={<TrendingUp className="w-8 h-8" />}
-        />
-        <KPICard
-          title="Presupuesto Consumido"
-          value="84.2%"
-          trend="up"
-          trendValue="+5.1%"
-          subtitle="de $2.5M asignados"
-          status="warning"
-          icon={<DollarSign className="w-8 h-8" />}
-        />
-        <KPICard
-          title="Proyectos en Riesgo"
-          value="2"
-          trend="down"
-          trendValue="-1"
-          subtitle="de 8 proyectos activos"
-          status="danger"
-          icon={<AlertTriangle className="w-8 h-8" />}
-        />
-        <KPICard
-          title="Desviación Promedio"
-          value="-3.2%"
-          trend="neutral"
-          trendValue="±1.5%"
-          subtitle="respecto a plan original"
-          status="info"
-          icon={<Target className="w-8 h-8" />}
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpis.map((kpi, i) => (
+          <motion.div
+            key={kpi.title}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: i * 0.08, ease: 'easeOut' }}
+          >
+            <KPICard
+              title={kpi.title}
+              value={kpi.value}
+              trend={kpi.trend}
+              trendValue={kpi.trendValue}
+              subtitle={kpi.subtitle}
+              icon={kpiIcons[i]}
+            />
+          </motion.div>
+        ))}
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Chart Section */}
-        <div className="lg:col-span-2">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-card border border-border rounded-xl p-6"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-foreground mb-1">Evolución de Proyectos</h2>
-                <p className="text-sm text-muted-foreground">Últimos 6 meses</p>
+      {/* Main Grid */}
+      <div className="grid lg:grid-cols-3 gap-4">
+        {/* Chart */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.3, ease: 'easeOut' }}
+          className="lg:col-span-2 bg-card border border-border rounded-lg p-5"
+        >
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">Evolución de Proyectos</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {period === 'mensual' ? 'Último mes' : period === 'semestral' ? 'Últimos 6 meses' : 'Último año'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex border border-border rounded-md overflow-hidden">
+                {(['mensual', 'semestral', 'anual'] as Period[]).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPeriod(p)}
+                    className={`px-2.5 py-1.5 text-[11px] font-medium transition-colors capitalize border-r border-border last:border-r-0 ${
+                      period === p
+                        ? 'bg-secondary text-foreground'
+                        : 'bg-card text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
               </div>
-              <div className="flex gap-2">
+              <div className="flex border border-border rounded-md overflow-hidden">
                 <button
-                  onClick={() => setChartType('line')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    chartType === 'line'
-                      ? 'bg-primary text-white'
-                      : 'bg-secondary text-muted-foreground hover:text-foreground'
+                  onClick={() => setChartType('area')}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    chartType === 'area'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-card text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  Línea
+                  Área
                 </button>
                 <button
                   onClick={() => setChartType('bar')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-border ${
                     chartType === 'bar'
-                      ? 'bg-primary text-white'
-                      : 'bg-secondary text-muted-foreground hover:text-foreground'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-card text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   Barra
                 </button>
               </div>
             </div>
+          </div>
 
-            <ResponsiveContainer width="100%" height={300}>
-              {chartType === 'line' ? (
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                  <XAxis dataKey="name" stroke="#AAB3C0" />
-                  <YAxis stroke="#AAB3C0" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#1C2430',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#FFFFFF'
-                    }}
-                  />
-                  <Legend />
-                  <Line type="monotone" dataKey="avance" stroke="#00C853" strokeWidth={2} name="Avance Real" />
-                  <Line type="monotone" dataKey="planificado" stroke="#2196F3" strokeWidth={2} name="Planificado" />
-                  <Line type="monotone" dataKey="presupuesto" stroke="#FF2E2E" strokeWidth={2} name="Presupuesto" />
-                </LineChart>
-              ) : (
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                  <XAxis dataKey="name" stroke="#AAB3C0" />
-                  <YAxis stroke="#AAB3C0" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#1C2430',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#FFFFFF'
-                    }}
-                  />
-                  <Legend />
-                  <Bar dataKey="avance" fill="#00C853" name="Avance Real" />
-                  <Bar dataKey="planificado" fill="#2196F3" name="Planificado" />
-                  <Bar dataKey="presupuesto" fill="#FF2E2E" name="Presupuesto" />
-                </BarChart>
-              )}
-            </ResponsiveContainer>
-          </motion.div>
+          <ResponsiveContainer width="100%" height={300}>
+            {chartType === 'area' ? (
+              <AreaChart data={chartDataByPeriod[period]}>
+                <defs>
+                  <linearGradient id="avanceGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-chart-1)" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="var(--color-chart-1)" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="planGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-chart-2)" stopOpacity={0.1} />
+                    <stop offset="95%" stopColor="var(--color-chart-2)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    color: 'var(--foreground)',
+                    fontSize: '12px'
+                  }}
+                />
+                <Area type="monotone" dataKey="avance" stroke="var(--color-chart-1)" strokeWidth={2} fill="url(#avanceGrad)" name="Avance Real" />
+                <Area type="monotone" dataKey="planificado" stroke="var(--color-chart-2)" strokeWidth={1.5} fill="url(#planGrad)" name="Planificado" strokeDasharray="4 4" />
+              </AreaChart>
+            ) : (
+              <BarChart data={chartDataByPeriod[period]}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    color: 'var(--foreground)',
+                    fontSize: '12px'
+                  }}
+                />
+                <Bar dataKey="avance" fill="var(--color-chart-1)" name="Avance Real" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="planificado" fill="var(--color-chart-2)" name="Planificado" radius={[3, 3, 0, 0]} opacity={0.5} />
+              </BarChart>
+            )}
+          </ResponsiveContainer>
 
-          {/* Projects Table */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-card border border-border rounded-xl p-6 mt-6"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-foreground">Proyectos Activos</h2>
-              <Link
-                to="/projects"
-                className="text-primary hover:text-[#FF4C4C] text-sm font-medium flex items-center gap-1 transition-colors"
+          {/* Portfolio Summary Strip */}
+          <div className="mt-4 pt-4 border-t border-border grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="relative overflow-hidden rounded-lg border border-border bg-gradient-to-br from-primary/5 to-primary/10 p-3.5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center shadow-sm">
+                  <Briefcase className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground leading-none">{allProjects.length}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 font-medium">Proyectos activos</p>
+                </div>
+              </div>
+              <div className="absolute -right-2 -bottom-2 w-16 h-16 rounded-full bg-primary/5" />
+            </div>
+            <div className="relative overflow-hidden rounded-lg border border-border bg-gradient-to-br from-success/5 to-success/10 p-3.5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-success/15 flex items-center justify-center shadow-sm">
+                  <CheckCircle className="w-5 h-5 text-success" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground leading-none">{onTrack} <span className="text-sm font-normal text-muted-foreground">/ {atRisk + delayed}</span></p>
+                  <p className="text-[11px] text-muted-foreground mt-1 font-medium">En tiempo / Riesgo</p>
+                </div>
+              </div>
+              <div className="absolute -right-2 -bottom-2 w-16 h-16 rounded-full bg-success/5" />
+            </div>
+            <div className="relative overflow-hidden rounded-lg border border-border bg-gradient-to-br from-info/5 to-info/10 p-3.5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-info/15 flex items-center justify-center shadow-sm">
+                  <Users className="w-5 h-5 text-info" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground leading-none">{totalMembers}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 font-medium">{user?.role === 'executive' ? 'Personas en portafolio' : 'Miembros en equipo'}</p>
+                </div>
+              </div>
+              <div className="absolute -right-2 -bottom-2 w-16 h-16 rounded-full bg-info/5" />
+            </div>
+            <div className="relative overflow-hidden rounded-lg border border-border bg-gradient-to-br from-warning/5 to-warning/10 p-3.5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-warning/15 flex items-center justify-center shadow-sm">
+                  <Clock className="w-5 h-5 text-warning" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground leading-none">28 Feb</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 font-medium">Próximo deadline</p>
+                </div>
+              </div>
+              <div className="absolute -right-2 -bottom-2 w-16 h-16 rounded-full bg-warning/5" />
+            </div>
+          </div>
+        </motion.div>
+
+        {/* AI Insights */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.4, ease: 'easeOut' }}
+          className="bg-card border border-border rounded-lg p-5"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-semibold text-foreground">Análisis IA</h2>
+          </div>
+
+          <div className="space-y-3">
+            {aiInsights.map((insight, index) => (
+              <div
+                key={index}
+                className="border border-border rounded-md p-3"
               >
-                Ver todos
-                <ExternalLink className="w-4 h-4" />
-              </Link>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Proyecto</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Responsable</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Avance</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Presupuesto</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Estado</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Acción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {projects.map((project) => (
-                    <tr key={project.id} className="border-b border-border hover:bg-accent transition-colors">
-                      <td className="py-4 px-4">
-                        <div>
-                          <p className="font-medium text-foreground">{project.name}</p>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Users className="w-3 h-3" />
-                              {project.members}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {project.deadline}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 text-muted-foreground">{project.manager}</td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-secondary rounded-full h-2 max-w-24">
-                            <div
-                              className={`h-full rounded-full ${
-                                project.progress >= 75 ? 'bg-[#00C853]' : 
-                                project.progress >= 50 ? 'bg-[#FFC107]' : 'bg-[#FF3D3D]'
-                              }`}
-                              style={{ width: `${project.progress}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-sm font-medium text-foreground">{project.progress}%</span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <span className={`text-sm font-medium ${
-                          project.budget >= 90 ? 'text-[#FF3D3D]' : 
-                          project.budget >= 75 ? 'text-[#FFC107]' : 'text-[#00C853]'
-                        }`}>
-                          {project.budget}%
-                        </span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <StatusBadge status={project.status} size="sm" />
-                      </td>
-                      <td className="py-4 px-4">
-                        <Link
-                          to={`/projects/${project.id}`}
-                          className="text-primary hover:text-[#FF4C4C] text-sm font-medium transition-colors"
-                        >
-                          Ver
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* AI Insights Panel */}
-        <div className="lg:col-span-1">
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-gradient-to-br from-primary/10 to-info/10 border border-primary/30 rounded-xl p-6 sticky top-6"
-          >
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
-                <Brain className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-foreground">Análisis Inteligente</h2>
-                <p className="text-xs text-muted-foreground">Powered by IA</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {aiInsights.map((insight, index) => (
-                <div
-                  key={index}
-                  className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-4 hover:border-primary/30 transition-all"
-                >
-                  <div className="flex items-start gap-3 mb-2">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      insight.type === 'danger' ? 'bg-[#FF3D3D]/20 text-[#FF3D3D]' :
-                      insight.type === 'warning' ? 'bg-[#FFC107]/20 text-[#FFC107]' :
-                      'bg-[#00C853]/20 text-[#00C853]'
-                    }`}>
-                      {insight.type === 'success' ? (
-                        <TrendingUp className="w-5 h-5" />
-                      ) : (
-                        <AlertTriangle className="w-5 h-5" />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-medium text-foreground text-sm mb-1">{insight.title}</h3>
-                      <p className="text-xs text-muted-foreground mb-3">{insight.description}</p>
-                      <button className="text-xs text-primary hover:text-[#FF4C4C] font-medium flex items-center gap-1 transition-colors">
-                        {insight.action}
-                        <ExternalLink className="w-3 h-3" />
-                      </button>
-                    </div>
+                <div className="flex items-start gap-2.5">
+                  <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
+                    insight.type === 'danger' ? 'bg-destructive' :
+                    insight.type === 'warning' ? 'bg-warning' :
+                    'bg-success'
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xs font-medium text-foreground">{insight.title}</h3>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{insight.description}</p>
+                    <button className="text-xs text-primary hover:underline font-medium mt-2 inline-flex items-center gap-1">
+                      {insight.action}
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
-
-            <div className="mt-6 pt-6 border-t border-border">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-card/50 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-[#00C853]">92%</p>
-                  <p className="text-xs text-muted-foreground mt-1">Precisión IA</p>
-                </div>
-                <div className="bg-card/50 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-[#2196F3]">15</p>
-                  <p className="text-xs text-muted-foreground mt-1">Alertas activas</p>
-                </div>
               </div>
+            ))}
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-border grid grid-cols-2 gap-3">
+            <div className="bg-background rounded-md p-3 text-center">
+              <p className="text-lg font-semibold text-success">92%</p>
+              <p className="text-[11px] text-muted-foreground">Precisión IA</p>
             </div>
-          </motion.div>
-        </div>
+            <div className="bg-background rounded-md p-3 text-center">
+              <p className="text-lg font-semibold text-info">7</p>
+              <p className="text-[11px] text-muted-foreground">Alertas activas</p>
+            </div>
+          </div>
+        </motion.div>
       </div>
+
+      {/* Projects Table */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.5, ease: 'easeOut' }}
+        className="bg-card border border-border rounded-lg"
+      >
+        <div className="flex items-center justify-between p-5 pb-0">
+          <h2 className="text-sm font-semibold text-foreground">Proyectos Activos</h2>
+          <Link
+            to="/projects"
+            className="text-xs text-primary hover:underline font-medium inline-flex items-center gap-1"
+          >
+            Ver todos
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+
+        <div className="overflow-x-auto mt-4">
+          <table className="w-full min-w-[600px]">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left py-2.5 px-5 text-xs font-medium text-muted-foreground">Proyecto</th>
+                <th className="text-left py-2.5 px-5 text-xs font-medium text-muted-foreground">Responsable</th>
+                <th className="text-left py-2.5 px-5 text-xs font-medium text-muted-foreground">Avance</th>
+                <th className="text-left py-2.5 px-5 text-xs font-medium text-muted-foreground">Presupuesto</th>
+                <th className="text-left py-2.5 px-5 text-xs font-medium text-muted-foreground">Estado</th>
+                <th className="text-right py-2.5 px-5 text-xs font-medium text-muted-foreground"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {topProjects.map((project) => (
+                <tr key={project.id} className="border-b border-border last:border-0 hover:bg-accent/50 transition-colors">
+                  <td className="py-3 px-5">
+                    <p className="text-sm font-medium text-foreground">{project.name}</p>
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Users className="w-3 h-3" />
+                        {project.members}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {project.deadline}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="py-3 px-5 text-sm text-muted-foreground">{project.manager}</td>
+                  <td className="py-3 px-5">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-secondary rounded-full h-1.5 max-w-20">
+                        <div
+                          className={`h-full rounded-full ${getProgressColor(project.progress)}`}
+                          style={{ width: `${project.progress}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-foreground w-8">{project.progress}%</span>
+                    </div>
+                  </td>
+                  <td className="py-3 px-5">
+                    <span className={`text-xs font-medium ${getBudgetColor(project.budget)}`}>
+                      {project.budget}%
+                    </span>
+                  </td>
+                  <td className="py-3 px-5">
+                    <StatusBadge status={project.status} size="sm" />
+                  </td>
+                  <td className="py-3 px-5 text-right">
+                    <Link
+                      to={`/projects/${project.id}`}
+                      className="text-xs text-primary hover:underline font-medium"
+                    >
+                      Ver detalle
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </motion.div>
     </div>
   );
 }

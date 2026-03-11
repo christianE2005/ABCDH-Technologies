@@ -1,8 +1,8 @@
-import { motion } from 'motion/react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { User, Mail, Shield, Award, Trophy, Medal, Moon, Sun } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Profile() {
   const { user } = useAuth();
@@ -14,110 +14,99 @@ export default function Profile() {
   });
 
   const handleSave = () => {
-    // Mock save
     setEditing(false);
+    toast.success('Perfil actualizado exitosamente');
   };
 
   const achievements = [
-    { title: 'Primer Proyecto Completado', icon: <Trophy className="w-6 h-6" />, level: 'gold', date: '15 Ene 2026' },
-    { title: '10 Proyectos Gestionados', icon: <Medal className="w-6 h-6" />, level: 'silver', date: '22 Ene 2026' },
-    { title: 'Sin Retrasos en el Mes', icon: <Award className="w-6 h-6" />, level: 'bronze', date: '01 Feb 2026' },
+    { title: 'Primer Proyecto Completado', icon: <Trophy className="w-4 h-4" />, level: 'gold', date: '15 Ene 2026' },
+    { title: '10 Proyectos Gestionados', icon: <Medal className="w-4 h-4" />, level: 'silver', date: '22 Ene 2026' },
+    { title: 'Sin Retrasos en el Mes', icon: <Award className="w-4 h-4" />, level: 'bronze', date: '01 Feb 2026' },
   ];
 
   const history = [
-    { action: 'Completó Proyecto Alpha', date: '20 Feb 2026', type: 'success' },
-    { action: 'Creó Proyecto Omega', date: '18 Feb 2026', type: 'info' },
+    { action: 'Completó Mobile App', date: '20 Feb 2026', type: 'success' },
+    { action: 'Creó UX Redesign', date: '18 Feb 2026', type: 'info' },
     { action: 'Actualizó perfil', date: '15 Feb 2026', type: 'neutral' },
     { action: 'Generó reporte trimestral', date: '10 Feb 2026', type: 'info' },
   ];
 
   const getLevelColor = (level: string) => {
     switch (level) {
-      case 'gold':
-        return 'bg-[#FFC107]/20 border-[#FFC107]/50 text-[#FFC107]';
-      case 'silver':
-        return 'bg-muted/20 border-muted/50 text-muted-foreground';
-      case 'bronze':
-        return 'bg-[#FF6F00]/20 border-[#FF6F00]/50 text-[#FF6F00]';
-      default:
-        return 'bg-muted/20 border-muted/50 text-muted-foreground';
+      case 'gold': return 'bg-warning/10 text-warning';
+      case 'silver': return 'bg-secondary text-muted-foreground';
+      case 'bronze': return 'bg-primary/10 text-primary';
+      default: return 'bg-secondary text-muted-foreground';
     }
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Mi Perfil</h1>
-        <p className="text-muted-foreground">Gestiona tu información y preferencias</p>
-      </div>
+    <div className="px-6 pb-6 pt-2 max-w-[1400px]">
+      <h1 className="text-xl font-semibold text-foreground mb-1">Mi Perfil</h1>
+      <p className="text-sm text-muted-foreground mb-6">Información y preferencias</p>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Profile Info */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Basic Info Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-card border border-border rounded-xl p-6"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-foreground">Información Personal</h2>
+          {/* Basic Info */}
+          <div className="bg-card border border-border rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-foreground">Información Personal</h2>
               <button
                 onClick={() => setEditing(!editing)}
-                className="px-4 py-2 bg-primary hover:bg-[#FF4C4C] text-white rounded-lg text-sm font-medium transition-colors"
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  editing
+                    ? 'bg-secondary hover:bg-accent text-foreground'
+                    : 'bg-primary hover:bg-primary-hover text-primary-foreground'
+                }`}
               >
                 {editing ? 'Cancelar' : 'Editar'}
               </button>
             </div>
 
-            <div className="flex items-center gap-6 mb-6 pb-6 border-b border-border">
-              <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center">
-                <span className="text-white text-3xl font-bold">
+            <div className="flex items-center gap-4 mb-5 pb-5 border-b border-border">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <span className="text-primary text-lg font-semibold">
                   {user?.name.charAt(0).toUpperCase()}
                 </span>
               </div>
               <div>
-                <h3 className="text-2xl font-bold text-foreground">{user?.name}</h3>
-                <p className="text-muted-foreground capitalize">{user?.role.replace('_', ' ')}</p>
+                <h3 className="text-base font-semibold text-foreground">{user?.name}</h3>
+                <p className="text-xs text-muted-foreground capitalize">{user?.role.replace('_', ' ')}</p>
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-2">
-                  <User className="w-4 h-4 inline mr-2" />
-                  Nombre Completo
+                <label className="block text-xs font-medium text-foreground mb-1.5">
+                  <User className="w-3 h-3 inline mr-1" /> Nombre
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   disabled={!editing}
-                  className="w-full bg-input-background border border-input rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors disabled:opacity-60"
+                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors disabled:opacity-50"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-2">
-                  <Mail className="w-4 h-4 inline mr-2" />
-                  Correo Electrónico
+                <label className="block text-xs font-medium text-foreground mb-1.5">
+                  <Mail className="w-3 h-3 inline mr-1" /> Correo
                 </label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   disabled={!editing}
-                  className="w-full bg-input-background border border-input rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors disabled:opacity-60"
+                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors disabled:opacity-50"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-2">
-                  <Shield className="w-4 h-4 inline mr-2" />
-                  Rol
+                <label className="block text-xs font-medium text-foreground mb-1.5">
+                  <Shield className="w-3 h-3 inline mr-1" /> Rol
                 </label>
-                <div className="w-full bg-input-background border border-input rounded-lg px-4 py-3 text-foreground capitalize opacity-60">
+                <div className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-muted-foreground capitalize">
                   {user?.role.replace('_', ' ')}
                 </div>
               </div>
@@ -125,92 +114,72 @@ export default function Profile() {
               {editing && (
                 <button
                   onClick={handleSave}
-                  className="w-full bg-primary hover:bg-[#FF4C4C] text-white rounded-lg py-3 font-medium transition-colors"
+                  className="w-full bg-primary hover:bg-primary-hover text-primary-foreground rounded-md py-2 text-sm font-medium transition-colors"
                 >
-                  Guardar Cambios
+                  Guardar
                 </button>
               )}
             </div>
-          </motion.div>
+          </div>
 
-          {/* Activity History */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-card border border-border rounded-xl p-6"
-          >
-            <h2 className="text-xl font-bold text-foreground mb-6">Historial de Actividad</h2>
-            <div className="space-y-3">
+          {/* Activity */}
+          <div className="bg-card border border-border rounded-lg p-6">
+            <h2 className="text-sm font-semibold text-foreground mb-4">Actividad Reciente</h2>
+            <div className="space-y-2">
               {history.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-4 p-3 bg-secondary rounded-lg border border-border"
-                >
-                  <div className={`w-2 h-2 rounded-full ${
-                    item.type === 'success' ? 'bg-[#00C853]' :
-                    item.type === 'info' ? 'bg-[#2196F3]' :
+                <div key={index} className="flex items-center gap-3 p-3 border border-border rounded-md">
+                  <div className={`w-1.5 h-1.5 rounded-full ${
+                    item.type === 'success' ? 'bg-success' :
+                    item.type === 'info' ? 'bg-info' :
                     'bg-muted-foreground'
-                  }`}></div>
+                  }`} />
                   <div className="flex-1">
-                    <p className="text-foreground font-medium">{item.action}</p>
-                    <p className="text-sm text-muted-foreground">{item.date}</p>
+                    <p className="text-sm text-foreground">{item.action}</p>
+                    <p className="text-[10px] text-muted-foreground">{item.date}</p>
                   </div>
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Theme Toggle */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-card border border-border rounded-xl p-6"
-          >
-            <h2 className="text-lg font-bold text-foreground mb-4">Preferencias</h2>
+          {/* Theme */}
+          <div className="bg-card border border-border rounded-lg p-5">
+            <h2 className="text-sm font-semibold text-foreground mb-3">Preferencias</h2>
             <button
               onClick={toggleTheme}
-              className="w-full flex items-center justify-between p-4 bg-secondary rounded-lg hover:border-primary/30 border border-border transition-all"
+              className="w-full flex items-center justify-between p-3 border border-border rounded-md hover:border-primary/30 transition-colors"
             >
-              <div className="flex items-center gap-3">
-                {theme === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+              <div className="flex items-center gap-2">
+                {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                 <div className="text-left">
-                  <p className="font-medium text-foreground">Tema</p>
-                  <p className="text-sm text-muted-foreground">{theme === 'dark' ? 'Oscuro' : 'Claro'}</p>
+                  <p className="text-sm font-medium text-foreground">Tema</p>
+                  <p className="text-[10px] text-muted-foreground">{theme === 'dark' ? 'Oscuro' : 'Claro'}</p>
                 </div>
               </div>
-              <div className={`w-12 h-6 rounded-full transition-colors ${theme === 'dark' ? 'bg-primary' : 'bg-muted'}`}>
-                <div className={`w-5 h-5 bg-white rounded-full mt-0.5 transition-transform ${theme === 'dark' ? 'ml-6' : 'ml-0.5'}`}></div>
+              <div className={`w-9 h-5 rounded-full transition-colors ${theme === 'dark' ? 'bg-primary' : 'bg-muted'}`}>
+                <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${theme === 'dark' ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </div>
             </button>
-          </motion.div>
+          </div>
 
           {/* Achievements */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-card border border-border rounded-xl p-6"
-          >
-            <h2 className="text-lg font-bold text-foreground mb-4">Logros</h2>
-            <div className="space-y-3">
-              {achievements.map((achievement, index) => (
-                <div
-                  key={index}
-                  className={`flex items-center gap-3 p-3 rounded-lg border ${getLevelColor(achievement.level)}`}
-                >
-                  {achievement.icon}
+          <div className="bg-card border border-border rounded-lg p-5">
+            <h2 className="text-sm font-semibold text-foreground mb-3">Logros</h2>
+            <div className="space-y-2">
+              {achievements.map((a, index) => (
+                <div key={index} className={`flex items-center gap-2.5 p-2.5 rounded-md ${getLevelColor(a.level)}`}>
+                  {a.icon}
                   <div className="flex-1">
-                    <p className="font-medium text-sm">{achievement.title}</p>
-                    <p className="text-xs opacity-75">{achievement.date}</p>
+                    <p className="text-xs font-medium">{a.title}</p>
+                    <p className="text-[10px] opacity-75">{a.date}</p>
                   </div>
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     </div>

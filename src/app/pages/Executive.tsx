@@ -1,110 +1,131 @@
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import { KPICard } from '../components/KPICard';
-import { TrendingUp, DollarSign, AlertTriangle, FolderKanban, Target } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { TrendingUp, DollarSign, AlertTriangle, FolderKanban, Target, Calendar } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useExecutive } from '../hooks/useProjectData';
+import { useNavigate } from 'react-router';
+import { toast } from 'sonner';
+
+const periods = [
+  { key: 'month', label: 'Este mes' },
+  { key: 'quarter', label: 'Trimestre' },
+  { key: 'year', label: 'Anual' },
+];
+
+const execChartByPeriod: Record<string, { name: string; avance: number; presupuesto: number }[]> = {
+  month: [
+    { name: 'ERP', avance: 78, presupuesto: 85 },
+    { name: 'Cloud', avance: 45, presupuesto: 92 },
+    { name: 'Security', avance: 32, presupuesto: 98 },
+    { name: 'DevOps', avance: 55, presupuesto: 80 },
+  ],
+  quarter: [
+    { name: 'ERP', avance: 78, presupuesto: 85 },
+    { name: 'Cloud', avance: 45, presupuesto: 92 },
+    { name: 'Mobile', avance: 92, presupuesto: 78 },
+    { name: 'Security', avance: 32, presupuesto: 98 },
+    { name: 'Analytics', avance: 67, presupuesto: 72 },
+    { name: 'API GW', avance: 88, presupuesto: 65 },
+    { name: 'DevOps', avance: 55, presupuesto: 80 },
+    { name: 'UX', avance: 40, presupuesto: 55 },
+  ],
+  year: [
+    { name: 'Q1', avance: 42, presupuesto: 38 },
+    { name: 'Q2', avance: 58, presupuesto: 55 },
+    { name: 'Q3', avance: 72, presupuesto: 70 },
+    { name: 'Q4', avance: 64, presupuesto: 79 },
+  ],
+};
 
 export default function Executive() {
-  const chartData = [
-    { name: 'Proyecto Alpha', avance: 78, presupuesto: 85 },
-    { name: 'Proyecto Beta', avance: 45, presupuesto: 92 },
-    { name: 'Proyecto Gamma', avance: 92, presupuesto: 78 },
-    { name: 'Proyecto Delta', avance: 32, presupuesto: 98 },
-    { name: 'Proyecto Epsilon', avance: 67, presupuesto: 82 },
-  ];
+  const { kpis, criticalAlerts } = useExecutive();
+  const [selectedPeriod, setSelectedPeriod] = useState('quarter');
+  const navigate = useNavigate();
 
-  const criticalAlerts = [
-    {
-      project: 'Proyecto Delta - Security Audit',
-      issue: 'Retraso crítico - 2 semanas',
-      impact: 'Alto',
-      date: '25 Feb 2026'
-    },
-    {
-      project: 'Proyecto Beta - Cloud Migration',
-      issue: 'Exceso presupuestal inminente',
-      impact: 'Medio',
-      date: '24 Feb 2026'
-    },
-    {
-      project: 'Proyecto Zeta - API Integration',
-      issue: 'Falta de recursos críticos',
-      impact: 'Alto',
-      date: '23 Feb 2026'
-    },
-  ];
+  const kpiIcons = [<FolderKanban className="w-5 h-5" />, <TrendingUp className="w-5 h-5" />, <AlertTriangle className="w-5 h-5" />, <DollarSign className="w-5 h-5" />];
+
+  const handleQuickAction = (action: string) => {
+    toast.info(`${action} — funcionalidad próximamente`);
+  };
+
+  const handleReviewAlert = (project: string) => {
+    toast.info(`Revisando: ${project}`);
+    navigate('/alerts');
+  };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Panel Ejecutivo</h1>
-        <p className="text-muted-foreground">Vista estratégica simplificada para dirección</p>
+    <div className="px-6 pb-6 pt-2 max-w-[1400px]">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground mb-1">Panel Ejecutivo</h1>
+          <p className="text-sm text-muted-foreground">Vista estratégica del portafolio</p>
+        </div>
+        <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
+          {periods.map((p) => (
+            <button
+              key={p.key}
+              onClick={() => setSelectedPeriod(p.key)}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                selectedPeriod === p.key
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-card text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Executive KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <KPICard
-          title="Total Proyectos"
-          value="8"
-          subtitle="Activos en cartera"
-          status="info"
-          icon={<FolderKanban className="w-8 h-8" />}
-        />
-        <KPICard
-          title="Avance Global"
-          value="68.3%"
-          trend="up"
-          trendValue="+4.5%"
-          subtitle="Promedio ponderado"
-          status="success"
-          icon={<TrendingUp className="w-8 h-8" />}
-        />
-        <KPICard
-          title="Proyectos en Riesgo"
-          value="2"
-          trend="neutral"
-          subtitle="25% del portafolio"
-          status="danger"
-          icon={<AlertTriangle className="w-8 h-8" />}
-        />
-        <KPICard
-          title="Desviación Global"
-          value="+$125K"
-          trend="down"
-          trendValue="5%"
-          subtitle="Sobre $2.5M presupuestado"
-          status="warning"
-          icon={<DollarSign className="w-8 h-8" />}
-        />
+      {/* KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {kpis.map((kpi, i) => (
+          <motion.div
+            key={kpi.title}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: i * 0.08, ease: 'easeOut' }}
+          >
+            <KPICard title={kpi.title} value={kpi.value} trend={kpi.trend} trendValue={kpi.trendValue} subtitle={kpi.subtitle} status={kpi.status} icon={kpiIcons[i]} />
+          </motion.div>
+        ))}
       </div>
 
-      {/* Comparative Chart */}
+      {/* Chart */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-card border border-border rounded-xl p-6"
+        transition={{ duration: 0.4, delay: 0.3, ease: 'easeOut' }}
+        className="bg-card border border-border rounded-lg p-6 mb-6"
       >
-        <div className="mb-6">
-          <h2 className="text-xl font-bold text-foreground mb-1">Comparativo Avance vs Presupuesto</h2>
-          <p className="text-sm text-muted-foreground">Por proyecto activo</p>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground mb-1">Avance vs Presupuesto</h2>
+            <p className="text-xs text-muted-foreground">Por proyecto activo</p>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Calendar className="w-3.5 h-3.5" />
+            {periods.find(p => p.key === selectedPeriod)?.label}
+          </div>
         </div>
 
-        <ResponsiveContainer width="100%" height={350}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-            <XAxis dataKey="name" stroke="#AAB3C0" angle={-15} textAnchor="end" height={80} />
-            <YAxis stroke="#AAB3C0" />
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={execChartByPeriod[selectedPeriod]}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+            <XAxis dataKey="name" stroke="var(--color-muted-foreground)" fontSize={12} />
+            <YAxis stroke="var(--color-muted-foreground)" fontSize={12} />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#1C2430',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '8px',
-                color: '#FFFFFF'
+                backgroundColor: 'var(--color-card)',
+                border: '1px solid var(--color-border)',
+                borderRadius: '6px',
+                color: 'var(--color-foreground)',
+                fontSize: '12px'
               }}
             />
-            <Legend />
-            <Bar dataKey="avance" fill="#00C853" name="% Avance" />
-            <Bar dataKey="presupuesto" fill="#FF2E2E" name="% Presupuesto Usado" />
+            <Bar dataKey="avance" fill="var(--color-chart-1)" name="% Avance" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="presupuesto" fill="var(--color-chart-2)" name="% Presupuesto" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </motion.div>
@@ -113,36 +134,36 @@ export default function Executive() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-card border border-border rounded-xl p-6"
+        transition={{ duration: 0.4, delay: 0.4, ease: 'easeOut' }}
+        className="bg-card border border-border rounded-lg p-6 mb-6"
       >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-foreground">Alertas Críticas</h2>
-          <span className="px-3 py-1 bg-[#FF3D3D]/10 text-[#FF3D3D] rounded-full text-sm font-medium">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-foreground">Alertas Críticas</h2>
+          <span className="px-2 py-0.5 bg-destructive/10 text-destructive rounded-md text-xs font-medium">
             {criticalAlerts.length} activas
           </span>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           {criticalAlerts.map((alert, index) => (
-            <div
-              key={index}
-              className="bg-secondary border border-border rounded-lg p-4 hover:border-primary/30 transition-all"
-            >
+            <div key={index} className="border border-border rounded-md p-3 hover:border-primary/30 transition-colors">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="font-medium text-foreground mb-1">{alert.project}</h3>
-                  <p className="text-sm text-muted-foreground mb-2">{alert.issue}</p>
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className={`px-2 py-1 rounded-full ${
-                      alert.impact === 'Alto' ? 'bg-[#FF3D3D]/10 text-[#FF3D3D]' : 'bg-[#FFC107]/10 text-[#FFC107]'
+                  <h3 className="text-sm font-medium text-foreground mb-0.5">{alert.project}</h3>
+                  <p className="text-xs text-muted-foreground mb-2">{alert.issue}</p>
+                  <div className="flex items-center gap-3 text-[10px]">
+                    <span className={`px-1.5 py-0.5 rounded ${
+                      alert.impact === 'Alto' ? 'bg-destructive/10 text-destructive' : 'bg-warning/10 text-warning'
                     }`}>
                       Impacto: {alert.impact}
                     </span>
                     <span className="text-muted-foreground">{alert.date}</span>
                   </div>
                 </div>
-                <button className="px-4 py-2 bg-primary hover:bg-[#FF4C4C] text-white rounded-lg text-sm font-medium transition-colors">
+                <button
+                  onClick={() => handleReviewAlert(alert.project)}
+                  className="px-3 py-1.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-md text-xs font-medium transition-colors"
+                >
                   Revisar
                 </button>
               </div>
@@ -152,36 +173,25 @@ export default function Executive() {
       </motion.div>
 
       {/* Quick Actions */}
-      <div className="grid md:grid-cols-3 gap-6">
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-xl p-6 text-left transition-all hover:border-primary/50"
-        >
-          <Target className="w-10 h-10 text-primary mb-3" />
-          <h3 className="font-bold text-foreground mb-1">Generar Reporte Ejecutivo</h3>
-          <p className="text-sm text-muted-foreground">Resumen completo del portafolio</p>
-        </motion.button>
-
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="bg-gradient-to-br from-[#2196F3]/20 to-[#2196F3]/5 border border-[#2196F3]/30 rounded-xl p-6 text-left transition-all hover:border-[#2196F3]/50"
-        >
-          <TrendingUp className="w-10 h-10 text-[#2196F3] mb-3" />
-          <h3 className="font-bold text-foreground mb-1">Análisis de Tendencias</h3>
-          <p className="text-sm text-muted-foreground">Proyecciones a 3 meses</p>
-        </motion.button>
-
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="bg-gradient-to-br from-[#00C853]/20 to-[#00C853]/5 border border-[#00C853]/30 rounded-xl p-6 text-left transition-all hover:border-[#00C853]/50"
-        >
-          <AlertTriangle className="w-10 h-10 text-[#00C853] mb-3" />
-          <h3 className="font-bold text-foreground mb-1">Dashboard de Riesgos</h3>
-          <p className="text-sm text-muted-foreground">Vista consolidada de alertas</p>
-        </motion.button>
+      <div className="grid md:grid-cols-3 gap-4">
+        {[
+          { icon: <Target className="w-5 h-5 text-primary" />, title: 'Generar Reporte Ejecutivo', desc: 'Resumen completo del portafolio' },
+          { icon: <TrendingUp className="w-5 h-5 text-info" />, title: 'Análisis de Tendencias', desc: 'Proyecciones a 3 meses' },
+          { icon: <AlertTriangle className="w-5 h-5 text-success" />, title: 'Dashboard de Riesgos', desc: 'Vista consolidada de alertas' },
+        ].map((action, i) => (
+          <motion.button
+            key={i}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.5 + i * 0.08, ease: 'easeOut' }}
+            onClick={() => handleQuickAction(action.title)}
+            className="bg-card border border-border rounded-lg p-4 text-left hover:border-primary/30 hover:shadow-sm transition-all"
+          >
+            <div className="mb-2">{action.icon}</div>
+            <h3 className="text-sm font-medium text-foreground mb-0.5">{action.title}</h3>
+            <p className="text-xs text-muted-foreground">{action.desc}</p>
+          </motion.button>
+        ))}
       </div>
     </div>
   );

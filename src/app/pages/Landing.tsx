@@ -1,4 +1,3 @@
-import { motion } from 'motion/react';
 import { Link } from 'react-router';
 import { 
   BarChart3, 
@@ -7,65 +6,86 @@ import {
   Shield, 
   TrendingUp,
   Users,
+  ArrowRight,
+  CheckCircle,
   Zap,
-  ChevronRight
+  Globe,
+  GitBranch,
+  Layers
 } from 'lucide-react';
 
 export default function Landing() {
   const features = [
     {
-      icon: <BarChart3 className="w-8 h-8" />,
+      icon: <BarChart3 className="w-5 h-5" />,
       title: 'KPIs en Tiempo Real',
-      description: 'Monitoreo continuo del avance, presupuesto y métricas críticas de todos tus proyectos'
+      description: 'Monitoreo continuo del avance, presupuesto y métricas críticas de todos tus proyectos.'
     },
     {
-      icon: <Bell className="w-8 h-8" />,
+      icon: <Bell className="w-5 h-5" />,
       title: 'Alertas Tempranas',
-      description: 'Sistema inteligente de notificaciones para identificar riesgos antes de que impacten'
+      description: 'Sistema inteligente de notificaciones para identificar riesgos antes de que impacten.'
     },
     {
-      icon: <Brain className="w-8 h-8" />,
+      icon: <Brain className="w-5 h-5" />,
       title: 'Análisis Predictivo IA',
-      description: 'Predicciones precisas sobre probabilidad de retrasos y desviaciones presupuestales'
+      description: 'Predicciones sobre probabilidad de retrasos y desviaciones presupuestales.'
     },
     {
-      icon: <Shield className="w-8 h-8" />,
+      icon: <Shield className="w-5 h-5" />,
       title: 'Seguridad Corporativa',
-      description: 'Roles y permisos granulares para proteger información sensible del negocio'
+      description: 'Roles y permisos granulares para proteger información sensible del negocio.'
     },
     {
-      icon: <TrendingUp className="w-8 h-8" />,
+      icon: <TrendingUp className="w-5 h-5" />,
       title: 'Reportes Ejecutivos',
-      description: 'Dashboards personalizados para directivos con insights accionables'
+      description: 'Dashboards personalizados con insights accionables para directivos.'
     },
     {
-      icon: <Users className="w-8 h-8" />,
+      icon: <Users className="w-5 h-5" />,
       title: 'Gestión Colaborativa',
-      description: 'Coordinación eficiente entre equipos con visibilidad total del flujo de trabajo'
+      description: 'Coordinación eficiente entre equipos con visibilidad total del flujo.'
     }
+  ];
+
+  const stats = [
+    { value: '99.9%', label: 'Uptime garantizado' },
+    { value: '150+', label: 'Proyectos gestionados' },
+    { value: '40%', label: 'Reducción de retrasos' },
+    { value: '4.8/5', label: 'Satisfacción de usuarios' },
+  ];
+
+  const steps = [
+    { number: '01', icon: <Layers className="w-5 h-5" />, title: 'Configura tus proyectos', description: 'Importa o crea proyectos con cronogramas, presupuestos y equipos asignados.' },
+    { number: '02', icon: <GitBranch className="w-5 h-5" />, title: 'Monitorea en tiempo real', description: 'Visualiza KPIs, avance y desviaciones con dashboards actualizados automáticamente.' },
+    { number: '03', icon: <Zap className="w-5 h-5" />, title: 'Actúa con inteligencia', description: 'Recibe alertas predictivas y recomendaciones basadas en análisis de datos.' },
   ];
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold">PI</span>
+      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50" role="banner">
+        <div className="container mx-auto px-6 h-14 flex items-center justify-between max-w-6xl">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center">
+              <span className="text-primary-foreground font-semibold text-xs">PI</span>
             </div>
-            <span className="font-bold text-foreground text-xl">Project Intelligence Platform</span>
+            <span className="font-semibold text-foreground text-sm">Project Intelligence</span>
           </div>
-          <div className="flex items-center gap-4">
+          <nav className="hidden md:flex items-center gap-6" aria-label="Navegación principal">
+            <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Funciones</a>
+            <a href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Cómo funciona</a>
+          </nav>
+          <div className="flex items-center gap-3">
             <Link 
               to="/login" 
-              className="text-muted-foreground hover:text-foreground transition-colors font-medium"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors font-medium"
             >
               Iniciar sesión
             </Link>
             <Link 
               to="/register" 
-              className="px-6 py-2 bg-primary hover:bg-[#FF4C4C] text-white rounded-lg transition-all font-medium"
+              className="px-4 py-1.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-md text-sm font-medium transition-colors"
             >
               Solicitar demo
             </Link>
@@ -74,157 +94,236 @@ export default function Landing() {
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-6 py-20">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-4xl mx-auto text-center"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-full mb-6">
-            <Zap className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-primary">Potenciado por IA • Mahindra Technology</span>
+      <section className="container mx-auto px-6 pt-20 pb-16 max-w-6xl">
+        <div className="max-w-3xl mx-auto text-center">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-6">
+            <Zap className="w-3 h-3" />
+            Plataforma empresarial · Tech Mahindra
           </div>
-          
-          <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6 leading-tight">
-            Gestión Inteligente de
-            <span className="text-primary"> Proyectos en Tiempo Real</span>
+
+          <h1 className="text-4xl md:text-5xl lg:text-[3.5rem] font-semibold text-foreground mb-5 leading-[1.15] tracking-tight">
+            Gestión Inteligente de{' '}
+            <span className="text-primary">Proyectos</span>
           </h1>
           
-          <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            Centraliza información, monitorea KPIs críticos y toma decisiones basadas en análisis predictivo. 
-            La plataforma corporativa que ejecutivos y equipos necesitan.
+          <p className="text-base md:text-lg text-muted-foreground mb-8 max-w-xl mx-auto leading-relaxed">
+            Centraliza el portafolio de proyectos de Tech Mahindra, monitorea KPIs en tiempo real y toma decisiones basadas en análisis predictivo.
           </p>
 
-          <div className="flex items-center gap-4 justify-center">
+          <div className="flex items-center gap-3 justify-center mb-6">
             <Link 
               to="/register"
-              className="px-8 py-4 bg-primary hover:bg-[#FF4C4C] text-white rounded-lg transition-all font-medium text-lg flex items-center gap-2 group"
+              className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-md text-sm font-medium transition-colors inline-flex items-center gap-2"
             >
-              Comenzar ahora
-              <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              Comenzar gratis
+              <ArrowRight className="w-4 h-4" />
             </Link>
             <Link 
               to="/login"
-              className="px-8 py-4 bg-card hover:bg-card/80 border border-border text-foreground rounded-lg transition-all font-medium text-lg"
+              className="px-6 py-2.5 bg-card border border-border text-foreground hover:bg-accent rounded-md text-sm font-medium transition-colors"
             >
               Ver demo
             </Link>
           </div>
 
-          {/* Hero Image Placeholder */}
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="mt-16 rounded-2xl border border-border bg-card p-4 shadow-2xl"
-          >
-            <div className="bg-secondary rounded-lg h-96 flex items-center justify-center">
-              <div className="text-center">
-                <BarChart3 className="w-16 h-16 text-primary mx-auto mb-4" />
-                <p className="text-muted-foreground">Dashboard Principal - Vista Previa</p>
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-      </section>
-
-      {/* Features Section */}
-      <section className="container mx-auto px-6 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-foreground mb-4">
-            Todo lo que necesitas para gestionar proyectos complejos
-          </h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Herramientas de nivel empresarial diseñadas para organizaciones que exigen excelencia
+          <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5">
+            <CheckCircle className="w-3 h-3 text-success" />
+            Sin tarjeta de crédito • Configuración en 5 minutos
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Hero Dashboard Preview */}
+        <div className="mt-14 max-w-4xl mx-auto">
+          <div className="rounded-xl border border-border bg-card p-1.5 shadow-sm">
+            <div className="bg-secondary/60 rounded-lg overflow-hidden">
+              {/* Mock browser bar */}
+              <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-border/50 bg-card/60">
+                <div className="w-2.5 h-2.5 rounded-full bg-destructive/40" />
+                <div className="w-2.5 h-2.5 rounded-full bg-warning/40" />
+                <div className="w-2.5 h-2.5 rounded-full bg-success/40" />
+                <div className="flex-1 ml-3">
+                  <div className="max-w-xs mx-auto bg-background/70 rounded px-3 py-1 text-[10px] text-muted-foreground text-center">
+                    pi.techmahindra.com/dashboard
+                  </div>
+                </div>
+              </div>
+              {/* Mock dashboard content */}
+              <div className="p-5 space-y-4">
+                {/* Mock KPI cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Avance', value: '62%', trend: '+4.3%', color: 'text-success' },
+                    { label: 'Presupuesto', value: '79%', trend: '+3.8%', color: 'text-success' },
+                    { label: 'En Riesgo', value: '3', trend: '+1', color: 'text-warning' },
+                    { label: 'Desviación', value: '-3.2%', trend: '±1.5%', color: 'text-muted-foreground' },
+                  ].map((kpi, i) => (
+                    <div key={i} className="bg-card rounded-md border border-border/60 p-3">
+                      <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">{kpi.label}</p>
+                      <p className="text-lg font-semibold text-foreground">{kpi.value}</p>
+                      <p className={`text-[9px] ${kpi.color}`}>{kpi.trend}</p>
+                    </div>
+                  ))}
+                </div>
+                {/* Mock chart area */}
+                <div className="bg-card rounded-md border border-border/60 p-4 h-24 sm:h-32 flex items-end gap-1">
+                  {[40, 55, 50, 62, 58, 70, 65, 75, 72, 80, 78, 85].map((h, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 bg-primary/20 rounded-t"
+                      style={{ height: `${h}%` }}
+                    >
+                      <div className="w-full bg-primary/60 rounded-t" style={{ height: '60%' }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats Bar */}
+      <section className="border-y border-border bg-card/50">
+        <div className="container mx-auto px-6 py-10 max-w-6xl">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {stats.map((stat, i) => (
+              <div key={i} className="text-center">
+                <p className="text-2xl font-semibold text-foreground mb-1">{stat.value}</p>
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section id="features" className="container mx-auto px-6 py-20 max-w-6xl">
+        <div className="text-center mb-14">
+          <p className="text-xs font-medium text-primary uppercase tracking-wider mb-2">Funciones</p>
+          <h2 className="text-2xl md:text-3xl font-semibold text-foreground mb-3">
+            Todo para gestionar proyectos complejos
+          </h2>
+          <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+            Herramientas de nivel empresarial diseñadas para equipos de Tech Mahindra
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
           {features.map((feature, index) => (
-            <motion.div
+            <div
               key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
-              className="bg-card border border-border rounded-xl p-6 hover:border-primary/30 transition-all duration-300 group"
+              className="bg-card border border-border rounded-lg p-6 hover:border-primary/30 transition-colors group"
             >
-              <div className="w-14 h-14 bg-primary/10 rounded-lg flex items-center justify-center text-primary mb-4 group-hover:bg-primary group-hover:text-white transition-all">
+              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary mb-4 group-hover:bg-primary/15 transition-colors">
                 {feature.icon}
               </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">{feature.title}</h3>
-              <p className="text-muted-foreground">{feature.description}</p>
-            </motion.div>
+              <h3 className="text-sm font-semibold text-foreground mb-2">{feature.title}</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">{feature.description}</p>
+            </div>
           ))}
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="container mx-auto px-6 py-20">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="bg-gradient-to-r from-primary/20 to-[#FF3D3D]/20 border border-primary/30 rounded-2xl p-12 text-center"
-        >
-          <h2 className="text-4xl font-bold text-foreground mb-4">
-            ¿Listo para transformar tu gestión de proyectos?
-          </h2>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Únete a las organizaciones líderes que confían en Project Intelligence Platform
-          </p>
-          <Link 
-            to="/register"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-primary hover:bg-[#FF4C4C] text-white rounded-lg transition-all font-medium text-lg"
-          >
-            Solicitar demo gratuita
-            <ChevronRight className="w-5 h-5" />
-          </Link>
-        </motion.div>
+      {/* How it works */}
+      <section id="how-it-works" className="bg-card/50 border-y border-border">
+        <div className="container mx-auto px-6 py-20 max-w-6xl">
+          <div className="text-center mb-14">
+            <p className="text-xs font-medium text-primary uppercase tracking-wider mb-2">Proceso</p>
+            <h2 className="text-2xl md:text-3xl font-semibold text-foreground mb-3">
+              Comienza en 3 pasos
+            </h2>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              De la configuración a la inteligencia accionable en minutos
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {steps.map((step, index) => (
+              <div key={index} className="relative text-center">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mx-auto mb-4">
+                  {step.icon}
+                </div>
+                <span className="text-[10px] font-semibold text-primary uppercase tracking-widest">{step.number}</span>
+                <h3 className="text-sm font-semibold text-foreground mt-1 mb-2">{step.title}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">{step.description}</p>
+                {index < steps.length - 1 && (
+                  <div className="hidden md:block absolute top-6 left-[60%] w-[80%] border-t border-dashed border-border" />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Social Proof / Testimonial */}
+      <section className="container mx-auto px-6 py-20 max-w-6xl">
+        <div className="max-w-3xl mx-auto text-center">
+          <Globe className="w-8 h-8 text-primary/40 mx-auto mb-6" />
+          <blockquote className="text-lg md:text-xl font-medium text-foreground leading-relaxed mb-6 italic">
+            "Project Intelligence nos permitió reducir los retrasos en un 40% y tener visibilidad completa
+            del portafolio de proyectos. La toma de decisiones ahora es basada en datos reales."
+          </blockquote>
+          <div className="flex items-center justify-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+              <span className="text-primary text-sm font-semibold">MG</span>
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-medium text-foreground">María González</p>
+              <p className="text-xs text-muted-foreground">VP de Operaciones, Tech Mahindra</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="container mx-auto px-6 pb-20 max-w-6xl">
+        <div className="bg-card border border-border rounded-xl p-10 md:p-14 text-center max-w-3xl mx-auto relative overflow-hidden">
+          <div className="absolute inset-0 bg-primary/[0.02]" />
+          <div className="relative">
+            <h2 className="text-xl md:text-2xl font-semibold text-foreground mb-3">
+              ¿Listo para transformar tu gestión de proyectos?
+            </h2>
+            <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
+              Descubre cómo Project Intelligence potencia la gestión de proyectos en Tech Mahindra.
+            </p>
+            <div className="flex items-center gap-3 justify-center">
+              <Link 
+                to="/register"
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-md text-sm font-medium transition-colors"
+              >
+                Solicitar demo gratuita
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link 
+                to="/login"
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-secondary hover:bg-accent text-foreground rounded-md text-sm font-medium transition-colors"
+              >
+                Iniciar sesión
+              </Link>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-card/50">
-        <div className="container mx-auto px-6 py-12">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">PI</span>
-                </div>
-                <span className="font-bold text-foreground">Project Intelligence</span>
+      <footer className="border-t border-border" role="contentinfo">
+        <div className="container mx-auto px-6 py-8 max-w-6xl">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-6 h-6 bg-primary rounded flex items-center justify-center">
+                <span className="text-primary-foreground font-semibold text-[10px]">PI</span>
               </div>
-              <p className="text-muted-foreground text-sm">
-                Gestión empresarial de proyectos con inteligencia artificial
-              </p>
+              <span className="text-sm font-medium text-foreground">Project Intelligence</span>
             </div>
-            <div>
-              <h4 className="font-bold text-foreground mb-4">Producto</h4>
-              <ul className="space-y-2 text-muted-foreground text-sm">
-                <li><a href="#" className="hover:text-foreground transition-colors">Características</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Precios</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Seguridad</a></li>
-              </ul>
+            <div className="flex items-center gap-6">
+              <a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Términos</a>
+              <a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Privacidad</a>
+              <a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Contacto</a>
             </div>
-            <div>
-              <h4 className="font-bold text-foreground mb-4">Empresa</h4>
-              <ul className="space-y-2 text-muted-foreground text-sm">
-                <li><a href="#" className="hover:text-foreground transition-colors">Acerca de</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Contacto</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Carreras</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold text-foreground mb-4">Legal</h4>
-              <ul className="space-y-2 text-muted-foreground text-sm">
-                <li><a href="#" className="hover:text-foreground transition-colors">Privacidad</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Términos</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Cookies</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-border pt-8 text-center text-muted-foreground text-sm">
-            <p>&copy; 2026 Project Intelligence Platform by Mahindra. Todos los derechos reservados.</p>
+            <p className="text-xs text-muted-foreground">
+              &copy; 2026 Tech Mahindra. Todos los derechos reservados.
+            </p>
           </div>
         </div>
       </footer>

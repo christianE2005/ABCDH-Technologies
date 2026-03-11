@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { motion } from 'motion/react';
 import { Link, useNavigate } from 'react-router';
-import { Eye, EyeOff, Lock, Mail, User, Phone, Check, X } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, User, Phone, Check, X, ArrowRight, Shield, Clock, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { LoadingButton } from '../components/LoadingButton';
 import { toast } from 'sonner';
 
 export default function Register() {
@@ -15,10 +15,10 @@ export default function Register() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { register } = useAuth();
 
-  // Password strength checker
   const getPasswordStrength = (password: string) => {
     let strength = 0;
     if (password.length >= 8) strength++;
@@ -30,7 +30,7 @@ export default function Register() {
 
   const passwordStrength = getPasswordStrength(formData.password);
   const strengthLabels = ['Muy débil', 'Débil', 'Media', 'Fuerte', 'Muy fuerte'];
-  const strengthColors = ['bg-[#FF3D3D]', 'bg-[#FFC107]', 'bg-[#FFC107]', 'bg-[#00C853]', 'bg-[#00C853]'];
+  const strengthColors = ['bg-destructive', 'bg-warning', 'bg-warning', 'bg-success', 'bg-success'];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,123 +50,158 @@ export default function Register() {
       return;
     }
 
-    // Mock registration
-    register(formData.name, formData.email, formData.password);
-    toast.success('¡Cuenta creada exitosamente!');
-    navigate('/dashboard');
+    setIsLoading(true);
+    setTimeout(() => {
+      register(formData.name, formData.email, formData.password);
+      toast.success('¡Cuenta creada exitosamente!');
+      navigate('/dashboard');
+    }, 800);
   };
 
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
-        >
-          <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-2xl">PI</span>
-          </div>
-          <h1 className="text-2xl font-bold text-foreground mb-2">Crear Cuenta</h1>
-          <p className="text-muted-foreground">Únete a Project Intelligence Platform</p>
-        </motion.div>
+  const inputClass = 'w-full bg-background border border-input rounded-md pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors';
 
-        {/* Register Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-card border border-border rounded-xl p-8"
-        >
-          <form onSubmit={handleSubmit} className="space-y-5">
+  return (
+    <div className="min-h-screen bg-background flex">
+      {/* Left Panel — Branding */}
+      <div className="hidden lg:flex lg:w-[480px] xl:w-[520px] bg-card border-r border-border flex-col justify-between p-10">
+        <div>
+          <Link to="/" className="flex items-center gap-2.5 mb-16">
+            <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center">
+              <span className="text-primary-foreground font-semibold text-xs">PI</span>
+            </div>
+            <span className="font-semibold text-foreground text-sm">Project Intelligence</span>
+          </Link>
+
+          <h2 className="text-2xl font-semibold text-foreground leading-snug mb-3">
+            Únete al equipo de Project Intelligence
+          </h2>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-10">
+            Crea tu cuenta y comienza a gestionar los proyectos de Tech Mahindra con inteligencia en menos de 2 minutos.
+          </p>
+
+          {/* Benefits */}
+          <div className="space-y-4">
+            {[
+              { icon: <Shield className="w-4 h-4" />, title: 'Configuración segura', desc: 'Encriptación de datos y acceso por roles' },
+              { icon: <Clock className="w-4 h-4" />, title: 'Listo en minutos', desc: 'Sin configuración compleja para comenzar' },
+              { icon: <Users className="w-4 h-4" />, title: 'Colaboración total', desc: 'Invita a tu equipo y asigna permisos' },
+            ].map((f, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 mt-0.5">
+                  {f.icon}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">{f.title}</p>
+                  <p className="text-xs text-muted-foreground">{f.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          &copy; 2026 Tech Mahindra
+        </p>
+      </div>
+
+      {/* Right Panel — Form */}
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-sm">
+          {/* Mobile logo */}
+          <div className="lg:hidden text-center mb-8">
+            <Link to="/" className="inline-flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
+                <span className="text-primary-foreground font-semibold text-xs">PI</span>
+              </div>
+            </Link>
+          </div>
+
+          <div className="mb-8">
+            <h1 className="text-xl font-semibold text-foreground mb-1">Crear Cuenta</h1>
+            <p className="text-sm text-muted-foreground">Completa tus datos para comenzar</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">
-                Nombre Completo *
-              </label>
+              <label className="block text-xs font-medium text-foreground mb-1.5">Nombre completo *</label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Juan Pérez"
-                  className="w-full bg-input-background border border-input rounded-lg pl-10 pr-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                  className={inputClass}
                 />
               </div>
             </div>
 
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">
-                Correo Electrónico *
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="juan.perez@empresa.com"
-                  className="w-full bg-input-background border border-input rounded-lg pl-10 pr-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-                />
+            {/* Email & Phone row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-foreground mb-1.5">Correo *</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="juan@techmahindra.com"
+                    className={inputClass}
+                  />
+                </div>
               </div>
-            </div>
-
-            {/* Phone */}
-            <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">
-                Teléfono (opcional)
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+52 123 456 7890"
-                  className="w-full bg-input-background border border-input rounded-lg pl-10 pr-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-                />
+              <div>
+                <label className="block text-xs font-medium text-foreground mb-1.5">Teléfono</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="+52 123 456 7890"
+                    className={inputClass}
+                  />
+                </div>
               </div>
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">
-                Contraseña *
-              </label>
+              <label className="block text-xs font-medium text-foreground mb-1.5">Contraseña *</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="••••••••"
-                  className="w-full bg-input-background border border-input rounded-lg pl-10 pr-12 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                  className="w-full bg-background border border-input rounded-md pl-9 pr-10 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
               </div>
 
-              {/* Password Strength Indicator */}
               {formData.password && (
                 <div className="mt-2">
-                  <div className="flex gap-1 mb-2">
+                  <div className="flex gap-0.5 mb-1">
                     {[0, 1, 2, 3, 4].map((index) => (
                       <div
                         key={index}
-                        className={`h-1 flex-1 rounded-full transition-colors ${
+                        className={`h-0.5 flex-1 rounded-full transition-colors ${
                           index < passwordStrength ? strengthColors[passwordStrength] : 'bg-input'
                         }`}
-                      ></div>
+                      />
                     ))}
                   </div>
-                  <p className={`text-xs ${passwordStrength < 2 ? 'text-[#FF3D3D]' : passwordStrength < 3 ? 'text-[#FFC107]' : 'text-[#00C853]'}`}>
+                  <p className={`text-[10px] ${passwordStrength < 2 ? 'text-destructive' : passwordStrength < 3 ? 'text-warning' : 'text-success'}`}>
                     Fortaleza: {strengthLabels[passwordStrength]}
                   </p>
                 </div>
@@ -175,39 +210,37 @@ export default function Register() {
 
             {/* Confirm Password */}
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">
-                Confirmar Contraseña *
-              </label>
+              <label className="block text-xs font-medium text-foreground mb-1.5">Confirmar contraseña *</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   placeholder="••••••••"
-                  className="w-full bg-input-background border border-input rounded-lg pl-10 pr-12 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                  className="w-full bg-background border border-input rounded-md pl-9 pr-10 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={showConfirmPassword ? 'Ocultar confirmación de contraseña' : 'Mostrar confirmación de contraseña'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
               </div>
 
-              {/* Password Match Indicator */}
               {formData.confirmPassword && (
-                <div className="mt-2 flex items-center gap-2">
+                <div className="mt-1.5 flex items-center gap-1.5">
                   {formData.password === formData.confirmPassword ? (
                     <>
-                      <Check className="w-4 h-4 text-[#00C853]" />
-                      <span className="text-xs text-[#00C853]">Las contraseñas coinciden</span>
+                      <Check className="w-3 h-3 text-success" />
+                      <span className="text-[10px] text-success">Las contraseñas coinciden</span>
                     </>
                   ) : (
                     <>
-                      <X className="w-4 h-4 text-[#FF3D3D]" />
-                      <span className="text-xs text-[#FF3D3D]">Las contraseñas no coinciden</span>
+                      <X className="w-3 h-3 text-destructive" />
+                      <span className="text-[10px] text-destructive">Las contraseñas no coinciden</span>
                     </>
                   )}
                 </div>
@@ -215,56 +248,45 @@ export default function Register() {
             </div>
 
             {/* Terms */}
-            <label className="flex items-start gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                required
-                className="w-4 h-4 rounded border-input bg-input-background text-primary focus:ring-primary mt-0.5"
-              />
-              <span className="text-sm text-muted-foreground">
-                Acepto los <a href="#" className="text-primary hover:text-[#FF4C4C]">términos y condiciones</a> y la <a href="#" className="text-primary hover:text-[#FF4C4C]">política de privacidad</a>
+            <label className="flex items-start gap-1.5 cursor-pointer">
+              <input type="checkbox" required className="w-3.5 h-3.5 rounded border-input mt-0.5" />
+              <span className="text-xs text-muted-foreground">
+                Acepto los <a href="#" className="text-primary hover:underline">términos</a> y la <a href="#" className="text-primary hover:underline">política de privacidad</a>
               </span>
             </label>
 
-            {/* Submit Button */}
-            <button
+            {/* Submit */}
+            <LoadingButton
               type="submit"
-              className="w-full bg-primary hover:bg-[#FF4C4C] text-white rounded-lg py-3 font-medium transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+              loading={isLoading}
+              className="w-full bg-primary hover:bg-primary-hover text-primary-foreground rounded-md py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-2"
             >
               Crear Cuenta
-            </button>
-
-            {/* Divider */}
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-card text-muted-foreground">o</span>
-              </div>
-            </div>
-
-            {/* Login Link */}
-            <p className="text-center text-muted-foreground">
-              ¿Ya tienes cuenta?{' '}
-              <Link to="/login" className="text-primary hover:text-[#FF4C4C] font-medium transition-colors">
-                Inicia sesión
-              </Link>
-            </p>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </LoadingButton>
           </form>
-        </motion.div>
 
-        {/* Back to Landing */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="text-center mt-6"
-        >
-          <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors text-sm">
-            ← Volver al inicio
-          </Link>
-        </motion.div>
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="px-3 bg-background text-muted-foreground">o</span>
+            </div>
+          </div>
+
+          <p className="text-center text-sm text-muted-foreground">
+            ¿Ya tienes cuenta?{' '}
+            <Link to="/login" className="text-primary hover:underline font-medium">Inicia sesión</Link>
+          </p>
+
+          <div className="text-center mt-6">
+            <Link to="/" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              ← Volver al inicio
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

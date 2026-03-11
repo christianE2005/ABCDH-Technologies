@@ -2,101 +2,103 @@
 
 :root {
   --font-size: 16px;
-  --background: #ffffff;
-  --foreground: #1a1a1a;
-  --card: #ffffff;
-  --card-foreground: #1a1a1a;
-  --popover: #ffffff;
-  --popover-foreground: #1a1a1a;
-  --primary: #FF2E2E;
-  --primary-hover: #FF4C4C;
-  --primary-foreground: #ffffff;
-  --secondary: #f5f5f5;
-  --secondary-foreground: #1a1a1a;
-  --muted: #f5f5f5;
-  --muted-foreground: #737373;
-  --accent: #f5f5f5;
-  --accent-foreground: #1a1a1a;
-  --destructive: #FF3D3D;
-  --destructive-foreground: #ffffff;
-  --success: #00C853;
-  --success-foreground: #ffffff;
-  --warning: #FFC107;
-  --warning-foreground: #1a1a1a;
-  --info: #2196F3;
-  --info-foreground: #ffffff;
-  --border: rgba(0, 0, 0, 0.1);
-  --input: rgba(0, 0, 0, 0.1);
-  --input-background: #ffffff;
-  --switch-background: #e5e5e5;
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --background: #FAFAF8;
+  --foreground: #1F2328;
+  --card: #FFFFFF;
+  --card-foreground: #1F2328;
+  --popover: #FFFFFF;
+  --popover-foreground: #1F2328;
+  --primary: #C97B6E;
+  --primary-hover: #D4847C;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F6F2EF;
+  --secondary-foreground: #1F2328;
+  --muted: #F6F2EF;
+  --muted-foreground: #656D76;
+  --accent: #F1EDE9;
+  --accent-foreground: #1F2328;
+  --destructive: #CF222E;
+  --destructive-foreground: #FFFFFF;
+  --success: #1A7F37;
+  --success-foreground: #FFFFFF;
+  --warning: #BF8700;
+  --warning-foreground: #1F2328;
+  --info: #0969DA;
+  --info-foreground: #FFFFFF;
+  --border: #D8D2CC;
+  --input: #D8D2CC;
+  --input-background: #FFFFFF;
+  --switch-background: #D8D2CC;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --font-weight-bold: 700;
-  --ring: rgba(255, 46, 46, 0.3);
-  --chart-1: #FF2E2E;
-  --chart-2: #2196F3;
-  --chart-3: #00C853;
-  --chart-4: #FFC107;
-  --chart-5: #9C27B0;
-  --radius: 0.75rem;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #1a1a1a;
-  --sidebar-primary: #FF2E2E;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f5f5f5;
-  --sidebar-accent-foreground: #1a1a1a;
-  --sidebar-border: rgba(0, 0, 0, 0.1);
-  --sidebar-ring: rgba(255, 46, 46, 0.3);
+  --font-weight-bold: 600;
+  --ring: rgba(201, 123, 110, 0.4);
+  --chart-1: #C97B6E;
+  --chart-2: #0969DA;
+  --chart-3: #1A7F37;
+  --chart-4: #BF8700;
+  --chart-5: #8250DF;
+  --radius: 0.5rem;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1F2328;
+  --sidebar-primary: #C97B6E;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F6F2EF;
+  --sidebar-accent-foreground: #1F2328;
+  --sidebar-border: #E8E2DC;
+  --sidebar-ring: rgba(201, 123, 110, 0.4);
 }
 
 .dark {
-  --background: #0E1117;
-  --foreground: #FFFFFF;
-  --card: #1C2430;
-  --card-foreground: #FFFFFF;
-  --popover: #1C2430;
-  --popover-foreground: #FFFFFF;
-  --primary: #FF2E2E;
-  --primary-hover: #FF4C4C;
-  --primary-foreground: #ffffff;
-  --secondary: #141A22;
-  --secondary-foreground: #FFFFFF;
-  --muted: #141A22;
-  --muted-foreground: #AAB3C0;
-  --accent: #1C2430;
-  --accent-foreground: #FFFFFF;
-  --destructive: #FF3D3D;
-  --destructive-foreground: #ffffff;
-  --success: #00C853;
-  --success-foreground: #ffffff;
-  --warning: #FFC107;
-  --warning-foreground: #1a1a1a;
-  --info: #2196F3;
-  --info-foreground: #ffffff;
-  --border: rgba(255, 255, 255, 0.06);
-  --input: rgba(255, 255, 255, 0.06);
-  --input-background: #1C2430;
-  --switch-background: #141A22;
+  --background: #161B22;
+  --foreground: #E6EDF3;
+  --card: #1C2128;
+  --card-foreground: #E6EDF3;
+  --popover: #1C2128;
+  --popover-foreground: #E6EDF3;
+  --primary: #D4847C;
+  --primary-hover: #DFA49E;
+  --primary-foreground: #FFFFFF;
+  --secondary: #21262D;
+  --secondary-foreground: #E6EDF3;
+  --muted: #21262D;
+  --muted-foreground: #8B949E;
+  --accent: #262C36;
+  --accent-foreground: #E6EDF3;
+  --destructive: #F85149;
+  --destructive-foreground: #FFFFFF;
+  --success: #3FB950;
+  --success-foreground: #FFFFFF;
+  --warning: #D29922;
+  --warning-foreground: #1F2328;
+  --info: #58A6FF;
+  --info-foreground: #FFFFFF;
+  --border: #30363D;
+  --input: #30363D;
+  --input-background: #21262D;
+  --switch-background: #30363D;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --font-weight-bold: 700;
-  --ring: rgba(255, 46, 46, 0.3);
-  --chart-1: #FF2E2E;
-  --chart-2: #2196F3;
-  --chart-3: #00C853;
-  --chart-4: #FFC107;
-  --chart-5: #9C27B0;
-  --sidebar: #141A22;
-  --sidebar-foreground: #FFFFFF;
-  --sidebar-primary: #FF2E2E;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1C2430;
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: rgba(255, 255, 255, 0.06);
-  --sidebar-ring: rgba(255, 46, 46, 0.3);
+  --font-weight-bold: 600;
+  --ring: rgba(212, 132, 124, 0.4);
+  --chart-1: #D4847C;
+  --chart-2: #58A6FF;
+  --chart-3: #3FB950;
+  --chart-4: #D29922;
+  --chart-5: #BC8CFF;
+  --sidebar: #1C2128;
+  --sidebar-foreground: #E6EDF3;
+  --sidebar-primary: #D4847C;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #262C36;
+  --sidebar-accent-foreground: #E6EDF3;
+  --sidebar-border: #30363D;
+  --sidebar-ring: rgba(212, 132, 124, 0.4);
 }
 
 @theme inline {
+  --font-sans: var(--font-family);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -130,9 +132,9 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -150,56 +152,53 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-family);
   }
-
-  /**
-  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
-  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
-  */
 
   html {
     font-size: var(--font-size);
   }
 
   h1 {
-    font-size: var(--text-2xl);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-size: 1.5rem;
+    font-weight: var(--font-weight-bold);
+    line-height: 1.4;
+    letter-spacing: -0.01em;
   }
 
   h2 {
-    font-size: var(--text-xl);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-size: 1.25rem;
+    font-weight: var(--font-weight-bold);
+    line-height: 1.4;
   }
 
   h3 {
-    font-size: var(--text-lg);
+    font-size: 1rem;
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
   }
 
   h4 {
-    font-size: var(--text-base);
+    font-size: 0.875rem;
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
   }
 
   label {
-    font-size: var(--text-base);
+    font-size: 0.875rem;
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
   }
 
   button {
-    font-size: var(--text-base);
+    font-size: 0.875rem;
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
   }
 
   input {
-    font-size: var(--text-base);
+    font-size: 0.875rem;
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
   }

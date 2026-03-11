@@ -1,19 +1,20 @@
 import { Link, useLocation } from 'react-router';
 import { 
-  LayoutDashboard, 
-  FolderKanban, 
-  Layers, 
-  AlertTriangle, 
-  FileText, 
-  TrendingUp,
-  User,
-  Settings,
-  FileCode,
-  ChevronLeft,
-  ChevronRight
+  LayoutGrid, 
+  Briefcase, 
+  ListChecks, 
+  Bell, 
+  FileBarChart, 
+  PieChart,
+  CircleUser,
+  SlidersHorizontal,
+  ScrollText,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
+import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 
 interface NavItem {
   name: string;
@@ -23,21 +24,31 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { name: 'Mis Proyectos', path: '/projects', icon: FolderKanban },
-  { name: 'Backlog', path: '/backlog', icon: Layers },
-  { name: 'Alertas', path: '/alerts', icon: AlertTriangle },
-  { name: 'Reportes', path: '/reports', icon: FileText },
-  { name: 'Panel Ejecutivo', path: '/executive', icon: TrendingUp, roles: ['executive', 'admin'] },
-  { name: 'Perfil', path: '/profile', icon: User },
-  { name: 'Configuración', path: '/settings', icon: Settings },
-  { name: 'Logs', path: '/logs', icon: FileCode, roles: ['admin'] },
+  { name: 'Dashboard', path: '/dashboard', icon: LayoutGrid },
+  { name: 'Proyectos', path: '/projects', icon: Briefcase },
+  { name: 'Backlog', path: '/backlog', icon: ListChecks },
+  { name: 'Alertas', path: '/alerts', icon: Bell },
+  { name: 'Reportes', path: '/reports', icon: FileBarChart },
+  { name: 'Ejecutivo', path: '/executive', icon: PieChart, roles: ['executive', 'admin'] },
+  { name: 'Perfil', path: '/profile', icon: CircleUser },
+  { name: 'Configuración', path: '/settings', icon: SlidersHorizontal },
+  { name: 'Logs', path: '/logs', icon: ScrollText, roles: ['admin'] },
 ];
 
 export function Sidebar() {
   const location = useLocation();
   const { user } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    return localStorage.getItem('sidebar-collapsed') === 'true';
+  });
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('sidebar-collapsed', String(next));
+      return next;
+    });
+  };
 
   const filteredNavItems = navItems.filter((item) => {
     if (!item.roles) return true;
@@ -46,72 +57,83 @@ export function Sidebar() {
 
   return (
     <div
-      className={`bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col ${
-        collapsed ? 'w-16' : 'w-64'
+      className={`bg-sidebar border-r border-sidebar-border transition-all duration-200 flex flex-col ${
+        collapsed ? 'w-[60px]' : 'w-[240px]'
       }`}
     >
       {/* Logo */}
-      <div className="p-6 border-b border-sidebar-border flex items-center justify-between">
+      <div className="h-14 flex items-center justify-between px-4 border-b border-sidebar-border">
         {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <LayoutDashboard className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-sidebar-foreground">Project Intelligence</h2>
-              <p className="text-xs text-muted-foreground">Platform</p>
-            </div>
-          </div>
+          <span className="text-sm font-semibold text-sidebar-foreground tracking-tight">
+            Project Intelligence
+          </span>
         )}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 rounded-lg hover:bg-sidebar-accent transition-colors"
-        >
-          {collapsed ? (
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          ) : (
-            <ChevronLeft className="w-4 h-4 text-muted-foreground" />
-          )}
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={toggleCollapsed}
+              aria-label={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
+              className="p-1 rounded-md hover:bg-sidebar-accent transition-colors text-muted-foreground hover:text-sidebar-foreground"
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="w-4 h-4" />
+              ) : (
+                <PanelLeftClose className="w-4 h-4" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">{collapsed ? 'Expandir' : 'Colapsar'}</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 py-2 px-2 space-y-0.5 overflow-y-auto" aria-label="Navegación principal">
         {filteredNavItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path;
+          const isActive = location.pathname === item.path || 
+            (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
 
-          return (
+          const linkElement = (
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+              className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-colors text-[13px] ${
                 isActive
-                  ? 'bg-primary text-white'
+                  ? 'bg-sidebar-accent text-sidebar-foreground font-medium'
                   : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground'
               }`}
-              title={collapsed ? item.name : undefined}
             >
-              <Icon className="w-5 h-5 flex-shrink-0" />
-              {!collapsed && <span className="text-sm font-medium">{item.name}</span>}
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              {!collapsed && <span>{item.name}</span>}
             </Link>
+          );
+
+          return collapsed ? (
+            <Tooltip key={item.path}>
+              <TooltipTrigger asChild>{linkElement}</TooltipTrigger>
+              <TooltipContent side="right">{item.name}</TooltipContent>
+            </Tooltip>
+          ) : (
+            <span key={item.path}>{linkElement}</span>
           );
         })}
       </nav>
 
       {/* User info */}
-      {!collapsed && user && (
-        <div className="p-4 border-t border-sidebar-border">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-              <span className="text-white text-sm font-bold">
+      {user && (
+        <div className="px-3 py-3 border-t border-sidebar-border">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+              <span className="text-xs font-medium">
                 {user.name.charAt(0).toUpperCase()}
               </span>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-sidebar-foreground truncate">{user.name}</p>
-              <p className="text-xs text-muted-foreground capitalize">{user.role.replace('_', ' ')}</p>
-            </div>
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-sidebar-foreground truncate">{user.name}</p>
+                <p className="text-[11px] text-muted-foreground capitalize">{user.role.replace('_', ' ')}</p>
+              </div>
+            )}
           </div>
         </div>
       )}

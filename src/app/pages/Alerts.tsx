@@ -1,17 +1,15 @@
 import { useState } from 'react';
-import { motion } from 'motion/react';
 import { Link } from 'react-router';
+import { motion } from 'motion/react';
 import { 
   AlertTriangle, 
   AlertCircle, 
   Info,
-  CheckCircle,
-  Filter,
   Calendar,
   ChevronRight,
   X
 } from 'lucide-react';
-import { StatusBadge } from '../components/StatusBadge';
+import { EmptyState } from '../components/EmptyState';
 
 interface Alert {
   id: number;
@@ -31,81 +29,46 @@ export default function Alerts() {
 
   const alerts: Alert[] = [
     {
-      id: 1,
-      type: 'critical',
-      title: 'Alerta Crítica: Retraso Mayor Detectado',
-      description: 'El Proyecto Delta muestra un retraso de 12 días respecto al cronograma planificado. El hito "Testing y QA" está atrasado y podría impactar la fecha de entrega final. Se recomienda reasignación inmediata de recursos.',
-      project: 'Proyecto Delta - Security Audit',
-      projectId: 4,
-      date: '25 Feb 2026',
-      time: '14:30',
-      isRead: false
+      id: 1, type: 'critical',
+      title: 'Retraso Mayor Detectado',
+      description: 'Security Audit muestra un retraso de 12 días respecto al cronograma planificado. El hito "Testing y QA" está atrasado y podría impactar la fecha de entrega final. Se recomienda reasignación inmediata de recursos.',
+      project: 'Security Audit - Roberto Silva', projectId: 4, date: '25 Feb 2026', time: '14:30', isRead: false
     },
     {
-      id: 2,
-      type: 'critical',
+      id: 2, type: 'critical',
       title: 'Presupuesto al 98% de Consumo',
-      description: 'El Proyecto Delta ha consumido el 98% del presupuesto asignado con solo 32% de avance completado. Existe riesgo alto de sobrecosto. Se requiere aprobación ejecutiva para extensión presupuestal.',
-      project: 'Proyecto Delta - Security Audit',
-      projectId: 4,
-      date: '25 Feb 2026',
-      time: '10:15',
-      isRead: false
+      description: 'Security Audit ha consumido el 98% del presupuesto asignado con solo 32% de avance completado. Existe riesgo alto de sobrecosto. Se requiere aprobación ejecutiva para extensión presupuestal.',
+      project: 'Security Audit - Roberto Silva', projectId: 4, date: '25 Feb 2026', time: '10:15', isRead: false
     },
     {
-      id: 3,
-      type: 'warning',
+      id: 3, type: 'warning',
       title: 'Desviación Presupuestal Detectada',
-      description: 'El Proyecto Beta muestra consumo de 92% del presupuesto con 45% de avance. La proyección indica posible sobrecosto del 15% si la tendencia continúa. Se recomienda revisión de asignaciones.',
-      project: 'Proyecto Beta - Cloud Migration',
-      projectId: 2,
-      date: '24 Feb 2026',
-      time: '16:45',
-      isRead: false
+      description: 'Cloud Migration muestra consumo de 92% del presupuesto con 45% de avance. La proyección indica posible sobrecosto del 15% si la tendencia continúa.',
+      project: 'Cloud Migration - Carlos Ramírez', projectId: 2, date: '24 Feb 2026', time: '16:45', isRead: false
     },
     {
-      id: 4,
-      type: 'warning',
+      id: 4, type: 'warning',
       title: 'Recurso en Sobrecarga',
-      description: 'Carlos Tech Lead está asignado al 140% de capacidad en múltiples proyectos. Esto podría generar cuellos de botella y afectar la calidad de entregables.',
-      project: 'Múltiples Proyectos',
-      projectId: 0,
-      date: '24 Feb 2026',
-      time: '09:20',
-      isRead: true
+      description: 'Carlos Ramírez está asignado al 140% de capacidad en múltiples proyectos. Esto podría generar cuellos de botella y afectar la calidad de entregables.',
+      project: 'Múltiples Proyectos', projectId: 0, date: '24 Feb 2026', time: '09:20', isRead: true
     },
     {
-      id: 5,
-      type: 'info',
+      id: 5, type: 'info',
       title: 'Actualización de Cronograma',
-      description: 'El Proyecto Gamma ha completado el hito "Desarrollo Fase 2" con 3 días de anticipación. El cronograma ha sido ajustado automáticamente.',
-      project: 'Proyecto Gamma - Mobile App',
-      projectId: 3,
-      date: '23 Feb 2026',
-      time: '11:00',
-      isRead: true
+      description: 'Mobile App ha completado el hito "Desarrollo Fase 2" con 3 días de anticipación. El cronograma ha sido ajustado automáticamente.',
+      project: 'Mobile App - Ana Martínez', projectId: 3, date: '23 Feb 2026', time: '11:00', isRead: true
     },
     {
-      id: 6,
-      type: 'info',
+      id: 6, type: 'info',
       title: 'Nuevo Miembro Asignado',
-      description: 'Laura Analytics ha sido agregada al equipo del Proyecto Epsilon con rol de Data Scientist. Asignación efectiva a partir del 26 de febrero.',
-      project: 'Proyecto Epsilon - Data Analytics',
-      projectId: 5,
-      date: '23 Feb 2026',
-      time: '08:30',
-      isRead: true
+      description: 'Laura Torres ha sido agregada al equipo de Data Analytics con rol de Data Scientist. Asignación efectiva a partir del 26 de febrero.',
+      project: 'Data Analytics - Laura Torres', projectId: 5, date: '23 Feb 2026', time: '08:30', isRead: true
     },
     {
-      id: 7,
-      type: 'warning',
+      id: 7, type: 'warning',
       title: 'Riesgo de Dependencia',
-      description: 'El Proyecto Alpha tiene dependencia crítica con entregables del Proyecto Beta. El retraso del proyecto dependiente podría impactar cronograma.',
-      project: 'Proyecto Alpha - ERP Modernization',
-      projectId: 1,
-      date: '22 Feb 2026',
-      time: '15:10',
-      isRead: true
+      description: 'ERP Modernization tiene dependencia crítica con entregables de Cloud Migration. El retraso del proyecto dependiente podría impactar cronograma.',
+      project: 'ERP Modernization - María González', projectId: 1, date: '22 Feb 2026', time: '15:10', isRead: true
     },
   ];
 
@@ -115,38 +78,17 @@ export default function Alerts() {
 
   const getAlertIcon = (type: string) => {
     switch (type) {
-      case 'critical':
-        return <AlertTriangle className="w-6 h-6" />;
-      case 'warning':
-        return <AlertCircle className="w-6 h-6" />;
-      default:
-        return <Info className="w-6 h-6" />;
+      case 'critical': return <AlertTriangle className="w-4 h-4" />;
+      case 'warning': return <AlertCircle className="w-4 h-4" />;
+      default: return <Info className="w-4 h-4" />;
     }
   };
 
-  const getAlertColor = (type: string) => {
+  const getAlertClasses = (type: string) => {
     switch (type) {
-      case 'critical':
-        return {
-          bg: 'bg-danger/10',
-          border: 'border-danger/30',
-          text: 'text-danger',
-          icon: 'bg-danger/20'
-        };
-      case 'warning':
-        return {
-          bg: 'bg-warning/10',
-          border: 'border-warning/30',
-          text: 'text-warning',
-          icon: 'bg-warning/20'
-        };
-      default:
-        return {
-          bg: 'bg-info/10',
-          border: 'border-info/30',
-          text: 'text-info',
-          icon: 'bg-info/20'
-        };
+      case 'critical': return { dot: 'bg-destructive', text: 'text-destructive', bg: 'bg-destructive/10' };
+      case 'warning': return { dot: 'bg-warning', text: 'text-warning', bg: 'bg-warning/10' };
+      default: return { dot: 'bg-info', text: 'text-info', bg: 'bg-info/10' };
     }
   };
 
@@ -154,172 +96,105 @@ export default function Alerts() {
   const warningCount = alerts.filter(a => a.type === 'warning').length;
   const infoCount = alerts.filter(a => a.type === 'info').length;
 
+  const filters = [
+    { key: 'all', label: 'Todas', count: alerts.length },
+    { key: 'critical', label: 'Críticas', count: criticalCount },
+    { key: 'warning', label: 'Advertencias', count: warningCount },
+    { key: 'info', label: 'Info', count: infoCount },
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Alertas del Sistema</h1>
-        <p className="text-text-secondary">Monitoreo de eventos y notificaciones importantes</p>
-      </div>
+    <div className="px-6 pb-6 pt-2 max-w-[1400px]">
+      <h1 className="text-xl font-semibold text-foreground mb-1">Alertas</h1>
+      <p className="text-sm text-muted-foreground mb-6">Monitoreo de eventos y notificaciones</p>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-danger/20 to-danger/5 border border-danger/30 rounded-xl p-6"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-danger/20 rounded-lg flex items-center justify-center text-danger">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-foreground">{criticalCount}</p>
-              <p className="text-sm text-text-secondary">Alertas Críticas</p>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="bg-gradient-to-br from-warning/20 to-warning/5 border border-warning/30 rounded-xl p-6"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-warning/20 rounded-lg flex items-center justify-center text-warning">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-foreground">{warningCount}</p>
-              <p className="text-sm text-text-secondary">Advertencias</p>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-gradient-to-br from-info/20 to-info/5 border border-info/30 rounded-xl p-6"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-info/20 rounded-lg flex items-center justify-center text-info">
-              <Info className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-foreground">{infoCount}</p>
-              <p className="text-sm text-text-secondary">Informativas</p>
-            </div>
-          </div>
-        </motion.div>
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        {[
+          { label: 'Críticas', count: criticalCount, cls: 'text-destructive' },
+          { label: 'Advertencias', count: warningCount, cls: 'text-warning' },
+          { label: 'Informativas', count: infoCount, cls: 'text-info' },
+        ].map((s, i) => (
+          <motion.div
+            key={s.label}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: i * 0.08, ease: 'easeOut' }}
+            className="bg-card border border-border rounded-lg p-4"
+          >
+            <p className={`text-2xl font-semibold ${s.cls}`}>{s.count}</p>
+            <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
+          </motion.div>
+        ))}
       </div>
 
       {/* Filters */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-card border border-card-border rounded-xl p-6"
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setFilterType('all')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filterType === 'all'
-                  ? 'bg-primary text-white'
-                  : 'bg-background-secondary text-text-secondary hover:text-foreground'
-              }`}
-            >
-              Todas ({alerts.length})
-            </button>
-            <button
-              onClick={() => setFilterType('critical')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filterType === 'critical'
-                  ? 'bg-primary text-white'
-                  : 'bg-background-secondary text-text-secondary hover:text-foreground'
-              }`}
-            >
-              Críticas ({criticalCount})
-            </button>
-            <button
-              onClick={() => setFilterType('warning')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filterType === 'warning'
-                  ? 'bg-primary text-white'
-                  : 'bg-background-secondary text-text-secondary hover:text-foreground'
-              }`}
-            >
-              Advertencias ({warningCount})
-            </button>
-            <button
-              onClick={() => setFilterType('info')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filterType === 'info'
-                  ? 'bg-primary text-white'
-                  : 'bg-background-secondary text-text-secondary hover:text-foreground'
-              }`}
-            >
-              Info ({infoCount})
-            </button>
-          </div>
-        </div>
-      </motion.div>
+      <div className="flex items-center border border-border rounded-md w-fit mb-6">
+        {filters.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFilterType(f.key)}
+            className={`px-3 py-1.5 text-xs font-medium transition-colors border-r border-border last:border-r-0 ${
+              filterType === f.key
+                ? 'bg-secondary text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {f.label} ({f.count})
+          </button>
+        ))}
+      </div>
 
       {/* Alerts List */}
-      <div className="space-y-4">
-        {filteredAlerts.map((alert, index) => {
-          const colors = getAlertColor(alert.type);
+      <div className="space-y-2">
+        {filteredAlerts.length === 0 ? (
+          <EmptyState
+            icon="inbox"
+            title="Sin alertas"
+            description="No hay alertas que coincidan con el filtro seleccionado"
+            action={{ label: 'Ver todas', onClick: () => setFilterType('all') }}
+          />
+        ) : filteredAlerts.map((alert, i) => {
+          const cls = getAlertClasses(alert.type);
           return (
             <motion.div
               key={alert.id}
-              initial={{ opacity: 0, x: -20 }}
+              initial={{ opacity: 0, x: -12 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className={`bg-card border ${colors.border} rounded-xl p-6 hover:border-primary/30 transition-all cursor-pointer ${
-                !alert.isRead ? 'border-l-4' : ''
-              }`}
+              transition={{ duration: 0.3, delay: i * 0.05, ease: 'easeOut' }}
+              className="bg-card border border-border rounded-lg p-4 hover:border-primary/30 transition-colors cursor-pointer"
               onClick={() => setSelectedAlert(alert)}
             >
-              <div className="flex gap-4">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${colors.icon} ${colors.text}`}>
+              <div className="flex gap-3">
+                <div className={`w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 ${cls.bg} ${cls.text}`}>
                   {getAlertIcon(alert.type)}
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-bold text-foreground">{alert.title}</h3>
-                        {!alert.isRead && (
-                          <span className="w-2 h-2 bg-primary rounded-full"></span>
-                        )}
-                      </div>
-                      <p className="text-sm text-text-secondary mb-3 line-clamp-2">{alert.description}</p>
-                    </div>
-                    <button className="text-primary hover:text-primary-hover ml-4 flex-shrink-0">
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-sm font-medium text-foreground truncate">{alert.title}</h3>
+                    {!alert.isRead && <span className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0" />}
                   </div>
-                  <div className="flex items-center gap-4 text-xs text-text-secondary">
+                  <p className="text-xs text-muted-foreground line-clamp-1 mb-2">{alert.description}</p>
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
-                      {alert.date} • {alert.time}
+                      {alert.date} · {alert.time}
                     </span>
                     {alert.projectId > 0 && (
                       <Link
                         to={`/projects/${alert.projectId}`}
-                        className="text-primary hover:text-primary-hover font-medium"
+                        className="text-primary hover:underline font-medium"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {alert.project}
                       </Link>
                     )}
                     {alert.projectId === 0 && (
-                      <span className="text-foreground font-medium">{alert.project}</span>
+                      <span className="font-medium text-foreground">{alert.project}</span>
                     )}
                   </div>
                 </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-1" />
               </div>
             </motion.div>
           );
@@ -329,61 +204,52 @@ export default function Alerts() {
       {/* Alert Detail Modal */}
       {selectedAlert && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-card border border-card-border rounded-xl p-8 max-w-2xl w-full"
-          >
-            <div className="flex items-start justify-between mb-6">
-              <div className="flex gap-4">
-                <div className={`w-14 h-14 rounded-lg flex items-center justify-center flex-shrink-0 ${getAlertColor(selectedAlert.type).icon} ${getAlertColor(selectedAlert.type).text}`}>
+          <div className="bg-card border border-border rounded-lg p-6 max-w-lg w-full">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex gap-3">
+                <div className={`w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 ${getAlertClasses(selectedAlert.type).bg} ${getAlertClasses(selectedAlert.type).text}`}>
                   {getAlertIcon(selectedAlert.type)}
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-foreground mb-2">{selectedAlert.title}</h2>
-                  <div className="flex items-center gap-3 text-sm text-text-secondary">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      {selectedAlert.date} • {selectedAlert.time}
-                    </span>
-                  </div>
+                  <h2 className="text-sm font-semibold text-foreground mb-1">{selectedAlert.title}</h2>
+                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {selectedAlert.date} · {selectedAlert.time}
+                  </p>
                 </div>
               </div>
-              <button
-                onClick={() => setSelectedAlert(null)}
-                className="text-text-secondary hover:text-foreground transition-colors"
-              >
-                <X className="w-6 h-6" />
+              <button onClick={() => setSelectedAlert(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="mb-6">
-              <h3 className="text-sm font-bold text-foreground mb-2">Descripción Detallada</h3>
-              <p className="text-text-secondary leading-relaxed">{selectedAlert.description}</p>
+            <div className="mb-4">
+              <p className="text-xs font-medium text-foreground mb-1">Descripción</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{selectedAlert.description}</p>
             </div>
 
-            <div className="mb-6 p-4 bg-background-secondary rounded-lg">
-              <h3 className="text-sm font-bold text-foreground mb-2">Proyecto Relacionado</h3>
-              <p className="text-foreground font-medium">{selectedAlert.project}</p>
+            <div className="mb-5 p-3 bg-secondary rounded-md">
+              <p className="text-xs font-medium text-foreground mb-0.5">Proyecto</p>
+              <p className="text-sm text-muted-foreground">{selectedAlert.project}</p>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
                 onClick={() => setSelectedAlert(null)}
-                className="flex-1 px-6 py-3 bg-background-secondary hover:bg-sidebar-hover text-foreground rounded-lg font-medium transition-all"
+                className="flex-1 px-4 py-2 border border-border rounded-md text-sm font-medium text-foreground hover:bg-secondary transition-colors"
               >
                 Cerrar
               </button>
               {selectedAlert.projectId > 0 && (
                 <Link
                   to={`/projects/${selectedAlert.projectId}`}
-                  className="flex-1 px-6 py-3 bg-primary hover:bg-primary-hover text-white rounded-lg font-medium transition-all text-center"
+                  className="flex-1 px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground rounded-md text-sm font-medium transition-colors text-center"
                 >
                   Ver Proyecto
                 </Link>
               )}
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
     </div>

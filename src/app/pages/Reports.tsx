@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { motion } from 'motion/react';
 import { 
   FileText, 
   Download,
@@ -7,6 +6,7 @@ import {
   Filter,
   FileBarChart
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Reports() {
   const [selectedProject, setSelectedProject] = useState('all');
@@ -14,178 +14,109 @@ export default function Reports() {
 
   const projects = [
     { id: 'all', name: 'Todos los proyectos' },
-    { id: '1', name: 'Proyecto Alpha - ERP Modernization' },
-    { id: '2', name: 'Proyecto Beta - Cloud Migration' },
-    { id: '3', name: 'Proyecto Gamma - Mobile App' },
-    { id: '4', name: 'Proyecto Delta - Security Audit' },
-    { id: '5', name: 'Proyecto Epsilon - Data Analytics' },
+    { id: '1', name: 'ERP Modernization' },
+    { id: '2', name: 'Cloud Migration' },
+    { id: '3', name: 'Mobile App' },
+    { id: '4', name: 'Security Audit' },
+    { id: '5', name: 'Data Analytics' },
+    { id: '6', name: 'API Gateway' },
+    { id: '7', name: 'DevOps Pipeline' },
+    { id: '8', name: 'UX Redesign' },
   ];
 
   const reportHistory = [
-    {
-      id: 1,
-      name: 'Reporte Ejecutivo Q1 2026',
-      project: 'Todos los proyectos',
-      format: 'PDF',
-      date: '20 Feb 2026',
-      size: '2.4 MB'
-    },
-    {
-      id: 2,
-      name: 'Análisis de Presupuesto - Proyecto Alpha',
-      project: 'Proyecto Alpha',
-      format: 'Excel',
-      date: '18 Feb 2026',
-      size: '1.8 MB'
-    },
-    {
-      id: 3,
-      name: 'Dashboard de KPIs - Todos',
-      project: 'Todos los proyectos',
-      format: 'PDF',
-      date: '15 Feb 2026',
-      size: '3.1 MB'
-    },
-    {
-      id: 4,
-      name: 'Reporte de Avance - Proyecto Beta',
-      project: 'Proyecto Beta',
-      format: 'PDF',
-      date: '12 Feb 2026',
-      size: '1.2 MB'
-    },
+    { id: 1, name: 'Reporte Ejecutivo Q1 2026', project: 'Todos los proyectos', format: 'PDF', date: '20 Feb 2026', size: '2.4 MB' },
+    { id: 2, name: 'Análisis de Presupuesto - ERP', project: 'ERP Modernization', format: 'Excel', date: '18 Feb 2026', size: '1.8 MB' },
+    { id: 3, name: 'Dashboard de KPIs - Todos', project: 'Todos los proyectos', format: 'PDF', date: '15 Feb 2026', size: '3.1 MB' },
+    { id: 4, name: 'Reporte de Avance - Cloud', project: 'Cloud Migration', format: 'PDF', date: '12 Feb 2026', size: '1.2 MB' },
   ];
 
   const reportTemplates = [
-    {
-      id: 1,
-      name: 'Reporte Ejecutivo Completo',
-      description: 'Vista general de todos los proyectos con KPIs principales, estado y riesgos',
-      icon: <FileBarChart className="w-6 h-6" />,
-    },
-    {
-      id: 2,
-      name: 'Análisis de Presupuesto',
-      description: 'Desglose detallado de gastos, proyecciones y desviaciones presupuestales',
-      icon: <FileText className="w-6 h-6" />,
-    },
-    {
-      id: 3,
-      name: 'Reporte de Avance',
-      description: 'Timeline de hitos, progreso actual y proyección de entrega',
-      icon: <FileText className="w-6 h-6" />,
-    },
-    {
-      id: 4,
-      name: 'Dashboard de Riesgos',
-      description: 'Identificación y análisis de riesgos activos con nivel de severidad',
-      icon: <FileText className="w-6 h-6" />,
-    },
+    { id: 1, name: 'Reporte Ejecutivo', description: 'Vista general con KPIs, estado y riesgos', icon: <FileBarChart className="w-4 h-4" /> },
+    { id: 2, name: 'Análisis de Presupuesto', description: 'Gastos, proyecciones y desviaciones', icon: <FileText className="w-4 h-4" /> },
+    { id: 3, name: 'Reporte de Avance', description: 'Timeline de hitos y progreso actual', icon: <FileText className="w-4 h-4" /> },
+    { id: 4, name: 'Dashboard de Riesgos', description: 'Riesgos activos con severidad', icon: <FileText className="w-4 h-4" /> },
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Reportes</h1>
-        <p className="text-text-secondary">Genera y descarga reportes personalizados de tus proyectos</p>
-      </div>
+    <div className="px-6 pb-6 pt-2 max-w-[1400px]">
+      <h1 className="text-xl font-semibold text-foreground mb-1">Reportes</h1>
+      <p className="text-sm text-muted-foreground mb-6">Genera y descarga reportes de tus proyectos</p>
 
-      {/* Generate Report Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-card border border-card-border rounded-xl p-8"
-      >
-        <h2 className="text-xl font-bold text-foreground mb-6">Generar Nuevo Reporte</h2>
+      {/* Generate Report */}
+      <div className="bg-card border border-border rounded-lg p-6 mb-6">
+        <h2 className="text-sm font-semibold text-foreground mb-4">Generar Nuevo Reporte</h2>
         
-        <div className="grid md:grid-cols-2 gap-6 mb-6">
+        <div className="grid md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">
-              Seleccionar Proyecto
-            </label>
+            <label className="block text-xs font-medium text-foreground mb-1.5">Proyecto</label>
             <select
               value={selectedProject}
               onChange={(e) => setSelectedProject(e.target.value)}
-              className="w-full bg-background-secondary border border-input-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-primary/50 transition-colors"
+              className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
             >
-              {projects.map(project => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">
-              Formato de Exportación
-            </label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setSelectedFormat('pdf')}
-                className={`flex-1 px-4 py-3 rounded-lg font-medium transition-colors ${
-                  selectedFormat === 'pdf'
-                    ? 'bg-primary text-white'
-                    : 'bg-background-secondary text-text-secondary hover:text-foreground'
-                }`}
-              >
-                PDF
-              </button>
-              <button
-                onClick={() => setSelectedFormat('excel')}
-                className={`flex-1 px-4 py-3 rounded-lg font-medium transition-colors ${
-                  selectedFormat === 'excel'
-                    ? 'bg-primary text-white'
-                    : 'bg-background-secondary text-text-secondary hover:text-foreground'
-                }`}
-              >
-                Excel
-              </button>
+            <label className="block text-xs font-medium text-foreground mb-1.5">Formato</label>
+            <div className="flex border border-border rounded-md">
+              {['pdf', 'excel'].map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setSelectedFormat(f)}
+                  className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+                    selectedFormat === f
+                      ? 'bg-secondary text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {f.toUpperCase()}
+                </button>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Report Templates */}
-        <div className="mb-6">
-          <h3 className="text-sm font-bold text-foreground mb-4">Plantillas Disponibles</h3>
-          <div className="grid md:grid-cols-2 gap-4">
-            {reportTemplates.map((template) => (
-              <div
-                key={template.id}
-                className="bg-background-secondary border border-card-border rounded-lg p-4 hover:border-primary/30 transition-all cursor-pointer group"
-              >
-                <div className="flex gap-3">
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all flex-shrink-0">
-                    {template.icon}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-medium text-foreground mb-1">{template.name}</h4>
-                    <p className="text-xs text-text-secondary">{template.description}</p>
-                  </div>
+        {/* Templates */}
+        <p className="text-xs font-medium text-foreground mb-2 uppercase tracking-wide">Plantillas</p>
+        <div className="grid md:grid-cols-2 gap-3 mb-5">
+          {reportTemplates.map((t) => (
+            <div
+              key={t.id}
+              className="border border-border rounded-md p-3 hover:border-primary/30 transition-colors cursor-pointer group"
+            >
+              <div className="flex gap-3">
+                <div className="w-8 h-8 bg-primary/10 rounded-md flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors flex-shrink-0">
+                  {t.icon}
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-foreground">{t.name}</h4>
+                  <p className="text-xs text-muted-foreground">{t.description}</p>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
 
-        <button className="w-full px-6 py-4 bg-primary hover:bg-primary-hover text-white rounded-lg font-medium transition-all flex items-center justify-center gap-2">
-          <Download className="w-5 h-5" />
-          Generar y Descargar Reporte
+        <button
+          onClick={() => toast.success('Reporte generado exitosamente', { description: `Formato: ${selectedFormat.toUpperCase()}` })}
+          className="w-full px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Generar y Descargar
         </button>
-      </motion.div>
+      </div>
 
       {/* Report History */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-card border border-card-border rounded-xl p-6"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-foreground">Historial de Reportes</h2>
-          <button className="text-primary hover:text-primary-hover text-sm font-medium flex items-center gap-1 transition-colors">
-            <Filter className="w-4 h-4" />
+      <div className="bg-card border border-border rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-foreground">Historial</h2>
+          <button className="text-primary text-xs font-medium flex items-center gap-1 hover:underline">
+            <Filter className="w-3 h-3" />
             Filtrar
           </button>
         </div>
@@ -193,40 +124,38 @@ export default function Reports() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-card-border">
-                <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Nombre del Reporte</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Proyecto</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Formato</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Fecha</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Tamaño</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-text-secondary">Acción</th>
+              <tr className="border-b border-border">
+                <th className="text-left py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Reporte</th>
+                <th className="text-left py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Proyecto</th>
+                <th className="text-left py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Formato</th>
+                <th className="text-left py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Fecha</th>
+                <th className="text-left py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Tamaño</th>
+                <th className="text-left py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Acción</th>
               </tr>
             </thead>
             <tbody>
-              {reportHistory.map((report) => (
-                <tr key={report.id} className="border-b border-card-border hover:bg-sidebar-hover transition-colors">
-                  <td className="py-4 px-4">
+              {reportHistory.map((r) => (
+                <tr key={r.id} className="border-b border-border last:border-0 hover:bg-secondary/50 transition-colors">
+                  <td className="py-3 px-3">
                     <div className="flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-primary flex-shrink-0" />
-                      <span className="font-medium text-foreground">{report.name}</span>
+                      <FileText className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                      <span className="text-sm font-medium text-foreground">{r.name}</span>
                     </div>
                   </td>
-                  <td className="py-4 px-4 text-text-secondary">{report.project}</td>
-                  <td className="py-4 px-4">
-                    <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-md font-medium">
-                      {report.format}
+                  <td className="py-3 px-3 text-sm text-muted-foreground">{r.project}</td>
+                  <td className="py-3 px-3">
+                    <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] rounded font-medium">{r.format}</span>
+                  </td>
+                  <td className="py-3 px-3 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {r.date}
                     </span>
                   </td>
-                  <td className="py-4 px-4 text-text-secondary">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      {report.date}
-                    </div>
-                  </td>
-                  <td className="py-4 px-4 text-text-secondary">{report.size}</td>
-                  <td className="py-4 px-4">
-                    <button className="text-primary hover:text-primary-hover font-medium transition-colors flex items-center gap-1">
-                      <Download className="w-4 h-4" />
+                  <td className="py-3 px-3 text-sm text-muted-foreground">{r.size}</td>
+                  <td className="py-3 px-3">
+                    <button onClick={() => toast.success('Descarga iniciada')} className="text-primary hover:underline text-xs font-medium flex items-center gap-1">
+                      <Download className="w-3 h-3" />
                       Descargar
                     </button>
                   </td>
@@ -235,7 +164,7 @@ export default function Reports() {
             </tbody>
           </table>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

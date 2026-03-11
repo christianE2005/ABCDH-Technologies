@@ -6,11 +6,11 @@ export function RiskBadge({ risk }: RiskBadgeProps) {
   const getColor = () => {
     switch (risk) {
       case 'low':
-        return 'bg-[#00C853]/10 text-[#00C853] border-[#00C853]/20';
+        return 'bg-success/10 text-success';
       case 'medium':
-        return 'bg-[#FFC107]/10 text-[#FFC107] border-[#FFC107]/20';
+        return 'bg-warning/10 text-warning';
       case 'high':
-        return 'bg-[#FF3D3D]/10 text-[#FF3D3D] border-[#FF3D3D]/20';
+        return 'bg-destructive/10 text-destructive';
     }
   };
 
@@ -26,7 +26,7 @@ export function RiskBadge({ risk }: RiskBadgeProps) {
   };
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getColor()}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium transition-colors ${getColor()}`}>
       <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
       {getLabel()}
     </span>

@@ -23,7 +23,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  const login = (email: string, password: string, role: UserRole) => {
+  const login = (email: string, _password: string, role: UserRole) => {
     // Mock login - en producción esto se conectaría a Supabase
     const mockUser: User = {
       id: '1',
@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(mockUser);
   };
 
-  const register = (name: string, email: string, password: string) => {
+  const register = (name: string, email: string, _password: string) => {
     // Mock registration
     const mockUser: User = {
       id: '1',
