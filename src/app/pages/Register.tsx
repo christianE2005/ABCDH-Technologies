@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Eye, EyeOff, Lock, Mail, User, Phone, Check, X, ArrowRight, Shield, Clock, Users } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, User, Check, X, ArrowRight, Shield, Clock, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { LoadingButton } from '../components/LoadingButton';
 import { toast } from 'sonner';
 
 export default function Register() {
   const [formData, setFormData] = useState({
-    name: '',
+    username: '',
     email: '',
-    phone: '',
     password: '',
     confirmPassword: ''
   });
@@ -32,10 +31,10 @@ export default function Register() {
   const strengthLabels = ['Muy débil', 'Débil', 'Media', 'Fuerte', 'Muy fuerte'];
   const strengthColors = ['bg-destructive', 'bg-warning', 'bg-warning', 'bg-success', 'bg-success'];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+    if (!formData.username || !formData.email || !formData.password || !formData.confirmPassword) {
       toast.error('Por favor completa todos los campos obligatorios');
       return;
     }
@@ -51,11 +50,16 @@ export default function Register() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      register(formData.name, formData.email, formData.password);
+    try {
+      await register(formData.username, formData.email, formData.password);
       toast.success('¡Cuenta creada exitosamente!');
       navigate('/dashboard');
-    }, 800);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Error al crear la cuenta';
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const inputClass = 'w-full bg-background border border-input rounded-md pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors';
@@ -122,48 +126,33 @@ export default function Register() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Name */}
+            {/* Username */}
             <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">Nombre completo *</label>
+              <label className="block text-xs font-medium text-foreground mb-1.5">Usuario *</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <input
                   type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Juan Pérez"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  placeholder="juanperez"
                   className={inputClass}
                 />
               </div>
             </div>
 
-            {/* Email & Phone row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-foreground mb-1.5">Correo *</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="juan@techmahindra.com"
-                    className={inputClass}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-foreground mb-1.5">Teléfono</label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+52 123 456 7890"
-                    className={inputClass}
-                  />
-                </div>
+            {/* Email */}
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-1.5">Correo *</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="juan@techmahindra.com"
+                  className={inputClass}
+                />
               </div>
             </div>
 

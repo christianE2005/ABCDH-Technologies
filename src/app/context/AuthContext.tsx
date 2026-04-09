@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { API_ENDPOINTS } from '../../config/api';
 
 export type UserRole = 'admin' | 'project_manager' | 'operative' | 'executive';
 
@@ -12,45 +13,146 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string, role: UserRole) => void;
-  register: (name: string, email: string, password: string) => void;
+  login: (email: string, password: string) => Promise<void>;
+  register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const TOKEN_KEY = 'auth_token';
+const USER_KEY = 'auth_user';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const login = (email: string, _password: string, role: UserRole) => {
-    // Mock login - en producción esto se conectaría a Supabase
-    const mockUser: User = {
-      id: '1',
-      name: role === 'admin' ? 'Admin Usuario' : role === 'project_manager' ? 'Project Manager' : role === 'executive' ? 'Director Ejecutivo' : 'Usuario Operativo',
-      email,
-      role,
-    };
-    setUser(mockUser);
+  // Initialize auth state from localStorage
+  useEffect(() => {
+    const storedUser = localStorage.getItem(USER_KEY);
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (e) {
+        localStorage.removeItem(USER_KEY);
+        localStorage.removeItem(TOKEN_KEY);
+      }
+    }
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(API_ENDPOINTS.LOGIN, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Error al iniciar sesión');
+      }
+
+      const data = await response.json();
+      
+      // Store access token
+      if (data.access_token) {
+        localStorage.setItem(TOKEN_KEY, data.access_token);
+      }
+      
+      // Store refresh token if provided
+      if (data.refresh_token) {
+        localStorage.setItem('refresh_token', data.refresh_token);
+      }
+
+      // Store user data - API returns: id_user, email, username, created_at
+      const userData: User = {
+        id: String(data.user?.id_user || '1'),
+        name: data.user?.username || email,
+        email: data.user?.email || email,
+        role: data.user?.role || 'operative',
+        avatar: data.user?.avatar,
+      };
+      
+      setUser(userData);
+      localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al iniciar sesión';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const register = (name: string, email: string, _password: string) => {
-    // Mock registration
-    const mockUser: User = {
-      id: '1',
-      name,
-      email,
-      role: 'operative',
-    };
-    setUser(mockUser);
+  const register = async (username: string, email: string, password: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(API_ENDPOINTS.REGISTER, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Error al crear la cuenta');
+      }
+
+      const data = await response.json();
+      
+      // Store token if provided by backend
+      if (data.token) {
+        localStorage.setItem(TOKEN_KEY, data.token);
+      }
+
+      // Store user data - API returns: id_user, email, username, created_at
+      const userData: User = {
+        id: String(data.id_user || '1'),
+        name: data.username || username,
+        email: data.email || email,
+        role: data.role || 'operative',
+        avatar: data.avatar,
+      };
+      
+      setUser(userData);
+      localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al crear la cuenta';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    setError(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user, isLoading, error }}>
       {children}
     </AuthContext.Provider>
   );

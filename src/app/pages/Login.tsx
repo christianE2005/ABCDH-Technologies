@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Eye, EyeOff, Lock, Mail, ArrowRight, BarChart3, Bell, Brain } from 'lucide-react';
-import { useAuth, UserRole } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { LoadingButton } from '../components/LoadingButton';
 import { toast } from 'sonner';
 
@@ -9,12 +9,11 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<UserRole>('project_manager');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email || !password) {
@@ -23,11 +22,16 @@ export default function Login() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      login(email, password, selectedRole);
+    try {
+      await login(email, password);
       toast.success('¡Bienvenido!');
       navigate('/dashboard');
-    }, 800);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Error al iniciar sesión';
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -93,21 +97,6 @@ export default function Login() {
 
           {/* Login Card */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Role Selector (demo) */}
-            <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">Rol</label>
-              <select
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value as UserRole)}
-                className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-              >
-                <option value="admin">Administrador</option>
-                <option value="project_manager">Project Manager</option>
-                <option value="operative">Operativo</option>
-                <option value="executive">Directivo</option>
-              </select>
-            </div>
-
             {/* Email */}
             <div>
               <label className="block text-xs font-medium text-foreground mb-1.5">Correo</label>
