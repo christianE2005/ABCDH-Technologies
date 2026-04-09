@@ -4,12 +4,7 @@ import { Github, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { LoadingButton } from '../components/LoadingButton';
-import { API_ENDPOINTS } from '../../config/api';
-
-interface LinkInstallPayload {
-  user_id: number;
-  installation_id: number;
-}
+import { API_ENDPOINTS, withAuthHeaders } from '../../config/api';
 
 interface CreateRepoPayload {
   user_id: number;
@@ -27,13 +22,6 @@ function toNumericUserId(userId: string | undefined): number | null {
   return Number.isNaN(numericValue) ? null : numericValue;
 }
 
-function parseInstallationId(value: string): number | null {
-  if (!value.trim()) return null;
-  const parsed = Number(value);
-  if (Number.isNaN(parsed)) return null;
-  return parsed;
-}
-
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return 'Ocurrió un error inesperado';
@@ -42,53 +30,14 @@ function getErrorMessage(error: unknown): string {
 export default function GitHubCreateRepo() {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
-  const [installationId, setInstallationId] = useState('');
   const [owner, setOwner] = useState('');
   const [repoName, setRepoName] = useState('');
   const [description, setDescription] = useState('');
   const [isPrivate, setIsPrivate] = useState(true);
   const [autoInit, setAutoInit] = useState(true);
-  const [isLinkingInstall, setIsLinkingInstall] = useState(false);
   const [isCreatingRepo, setIsCreatingRepo] = useState(false);
 
   const userId = toNumericUserId(user?.id);
-
-  const handleLinkInstall = async () => {
-    if (!isAuthenticated || userId === null) {
-      toast.error('Debes estar logueado para vincular una instalación.');
-      return;
-    }
-
-    const parsedInstallationId = parseInstallationId(installationId);
-    if (parsedInstallationId === null) {
-      toast.error('installation_id inválido.');
-      return;
-    }
-
-    setIsLinkingInstall(true);
-    try {
-      const payload: LinkInstallPayload = {
-        user_id: userId,
-        installation_id: parsedInstallationId,
-      };
-
-      const response = await fetch(API_ENDPOINTS.GITHUB_INSTALL_LINK, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error('No se pudo vincular la instalación con el usuario.');
-      }
-
-      toast.success('Instalación vinculada correctamente.');
-    } catch (error) {
-      toast.error(getErrorMessage(error));
-    } finally {
-      setIsLinkingInstall(false);
-    }
-  };
 
   const handleCreateRepo = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -117,7 +66,7 @@ export default function GitHubCreateRepo() {
 
       const response = await fetch(API_ENDPOINTS.GITHUB_CREATE_REPO, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: withAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
       });
 
@@ -141,7 +90,7 @@ export default function GitHubCreateRepo() {
         <div>
           <h1 className="text-xl font-semibold text-foreground">GitHub - Crear repositorio</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Vincula la instalación y crea repositorios de organización desde la GitHub App.
+            Crea repositorios de organización. La instalación se resuelve automáticamente en backend.
           </p>
         </div>
         <button
@@ -159,37 +108,10 @@ export default function GitHubCreateRepo() {
         </div>
       )}
 
-      <div className="bg-card border border-border rounded-lg p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <Github className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-semibold text-foreground">3. Vincular instalación con usuario</h2>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Pega el <strong>installation_id</strong> recibido en el regreso de instalación de la GitHub App.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="text"
-            value={installationId}
-            onChange={(e) => setInstallationId(e.target.value)}
-            placeholder="installation_id"
-            className="flex-1 bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-          />
-          <LoadingButton
-            type="button"
-            loading={isLinkingInstall}
-            onClick={handleLinkInstall}
-            className="px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2"
-          >
-            Vincular instalación
-          </LoadingButton>
-        </div>
-      </div>
-
       <div className="bg-card border border-border rounded-lg p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Plus className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-semibold text-foreground">4. Crear repo desde app (org)</h2>
+          <Github className="w-4 h-4 text-primary" />
+          <h2 className="text-sm font-semibold text-foreground">2. Crear repo desde app (org)</h2>
         </div>
 
         <form className="space-y-4" onSubmit={handleCreateRepo}>
