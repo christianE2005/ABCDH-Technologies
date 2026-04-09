@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Github, Link2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,18 +21,17 @@ function getErrorMessage(error: unknown): string {
 }
 
 export default function GitHub() {
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [isStartingInstall, setIsStartingInstall] = useState(false);
   const [isStartingOAuth, setIsStartingOAuth] = useState(false);
 
-  const isReadyForActions = useMemo(() => isAuthenticated && !!user?.id, [isAuthenticated, user?.id]);
-
   const startInstall = async () => {
-    if (!isReadyForActions) {
-      toast.error('Primero debes iniciar sesión en la aplicación.');
-      return;
-    }
+    // Temporalmente desactivado para pruebas sin sesión local:
+    // if (!isReadyForActions) {
+    //   toast.error('Primero debes iniciar sesión en la aplicación.');
+    //   return;
+    // }
 
     setIsStartingInstall(true);
     try {
@@ -57,10 +56,11 @@ export default function GitHub() {
   };
 
   const startOAuth = async () => {
-    if (!isReadyForActions) {
-      toast.error('Primero debes iniciar sesión en la aplicación.');
-      return;
-    }
+    // Temporalmente desactivado para pruebas sin sesión local:
+    // if (!isReadyForActions) {
+    //   toast.error('Primero debes iniciar sesión en la aplicación.');
+    //   return;
+    // }
 
     setIsStartingOAuth(true);
     try {
