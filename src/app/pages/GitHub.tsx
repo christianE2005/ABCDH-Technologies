@@ -4,8 +4,7 @@ import { Github, Link2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { LoadingButton } from '../components/LoadingButton';
-
-const API_BASE = '/api';
+import { API_ENDPOINTS } from '../../config/api';
 
 interface InstallStartResponse {
   install_url?: string;
@@ -35,7 +34,7 @@ export default function GitHub() {
 
     setIsStartingInstall(true);
     try {
-      const response = await fetch(`${API_BASE}/github/app/install/start/`, {
+      const response = await fetch(API_ENDPOINTS.GITHUB_INSTALL_START, {
         method: 'GET',
       });
       if (!response.ok) {
@@ -63,7 +62,7 @@ export default function GitHub() {
 
     setIsStartingOAuth(true);
     try {
-      const response = await fetch(`${API_BASE}/github/app/oauth/start/`, {
+      const response = await fetch(API_ENDPOINTS.GITHUB_OAUTH_START, {
         method: 'GET',
       });
       if (!response.ok) {

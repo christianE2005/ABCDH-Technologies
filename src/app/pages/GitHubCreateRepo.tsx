@@ -4,8 +4,7 @@ import { Github, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { LoadingButton } from '../components/LoadingButton';
-
-const API_BASE = '/api';
+import { API_ENDPOINTS } from '../../config/api';
 
 interface LinkInstallPayload {
   user_id: number;
@@ -73,7 +72,7 @@ export default function GitHubCreateRepo() {
         installation_id: parsedInstallationId,
       };
 
-      const response = await fetch(`${API_BASE}/github/app/install/link/`, {
+      const response = await fetch(API_ENDPOINTS.GITHUB_INSTALL_LINK, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -116,7 +115,7 @@ export default function GitHubCreateRepo() {
         auto_init: autoInit,
       };
 
-      const response = await fetch(`${API_BASE}/github/repos/`, {
+      const response = await fetch(API_ENDPOINTS.GITHUB_CREATE_REPO, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
