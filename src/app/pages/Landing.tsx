@@ -7,7 +7,6 @@ import {
   TrendingUp,
   Users,
   ArrowRight,
-  CheckCircle,
   Zap,
   Globe,
   GitBranch,
