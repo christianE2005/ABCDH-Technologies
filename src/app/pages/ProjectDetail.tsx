@@ -10,7 +10,6 @@ import {
   AlertTriangle,
   Circle,
   Sparkles,
-  MessageCircle,
   Send,
   Bot,
   ChevronRight
