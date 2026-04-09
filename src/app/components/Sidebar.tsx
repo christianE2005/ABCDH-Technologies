@@ -9,6 +9,7 @@ import {
   CircleUser,
   SlidersHorizontal,
   ScrollText,
+  Github,
   PanelLeftClose,
   PanelLeftOpen
 } from 'lucide-react';
@@ -32,6 +33,7 @@ const navItems: NavItem[] = [
   { name: 'Ejecutivo', path: '/executive', icon: PieChart, roles: ['executive', 'admin'] },
   { name: 'Perfil', path: '/profile', icon: CircleUser },
   { name: 'Configuración', path: '/settings', icon: SlidersHorizontal },
+  { name: 'GitHub', path: '/github', icon: Github },
   { name: 'Logs', path: '/logs', icon: ScrollText, roles: ['admin'] },
 ];
 

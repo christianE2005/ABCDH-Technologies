@@ -27,6 +27,9 @@ const Profile = lazy(() => import('./pages/Profile'));
 const MemberProfile = lazy(() => import('./pages/MemberProfile'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Logs = lazy(() => import('./pages/Logs'));
+const GitHub = lazy(() => import('./pages/GitHub'));
+const GitHubOAuthCallback = lazy(() => import('./pages/GitHubOAuthCallback'));
+const GitHubCreateRepo = lazy(() => import('./pages/GitHubCreateRepo'));
 
 function withSuspense(Component: React.LazyExoticComponent<React.ComponentType>, Fallback: React.ComponentType = GenericPageSkeleton) {
   return (
@@ -63,6 +66,9 @@ export const router = createBrowserRouter([
       { path: 'profile', element: withSuspense(Profile) },
       { path: 'profile/:memberId', element: withSuspense(MemberProfile) },
       { path: 'settings', element: withSuspense(Settings) },
+      { path: 'github', element: withSuspense(GitHub) },
+      { path: 'github/oauth/callback', element: withSuspense(GitHubOAuthCallback) },
+      { path: 'github/create-repo', element: withSuspense(GitHubCreateRepo) },
       { path: 'logs', element: withSuspense(Logs) },
     ],
   },
