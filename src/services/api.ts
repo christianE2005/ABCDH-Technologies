@@ -1,17 +1,17 @@
 import type { ApiError } from './types';
 
-// ─── Base URL — proxied through Vite dev server to avoid CORS ───────────────
-const BASE_URL = '/api';
+// ─── Base URL ──────────────────────────────────────────────────────────────
+const BASE_URL = import.meta.env.VITE_API_TARGET || 'https://abcdhtechnologiesbackend-production.up.railway.app/api';
 
 // ─── Token storage keys ──────────────────────────────────────────────────────
-const STORAGE_ACCESS  = 'pip_access_token';
+const STORAGE_ACCESS = 'pip_access_token';
 const STORAGE_REFRESH = 'pip_refresh_token';
 
 export const tokenStore = {
-  getAccess:  () => localStorage.getItem(STORAGE_ACCESS),
+  getAccess: () => localStorage.getItem(STORAGE_ACCESS),
   getRefresh: () => localStorage.getItem(STORAGE_REFRESH),
   set: (access: string, refresh: string) => {
-    localStorage.setItem(STORAGE_ACCESS,  access);
+    localStorage.setItem(STORAGE_ACCESS, access);
     localStorage.setItem(STORAGE_REFRESH, refresh);
   },
   setAccess: (access: string) => localStorage.setItem(STORAGE_ACCESS, access),
@@ -93,16 +93,16 @@ async function tryRefresh(): Promise<boolean> {
 
 // ─── Public API client ───────────────────────────────────────────────────────
 export const api = {
-  get:    <T>(path: string, auth = true) =>
+  get: <T>(path: string, auth = true) =>
     request<T>(path, { method: 'GET' }, auth),
 
-  post:   <T>(path: string, body: unknown, auth = true) =>
+  post: <T>(path: string, body: unknown, auth = true) =>
     request<T>(path, { method: 'POST', body: JSON.stringify(body) }, auth),
 
-  put:    <T>(path: string, body: unknown, auth = true) =>
+  put: <T>(path: string, body: unknown, auth = true) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body) }, auth),
 
-  patch:  <T>(path: string, body: unknown, auth = true) =>
+  patch: <T>(path: string, body: unknown, auth = true) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }, auth),
 
   delete: <T>(path: string, auth = true) =>
