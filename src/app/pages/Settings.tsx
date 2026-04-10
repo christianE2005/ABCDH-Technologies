@@ -1,9 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
-import { Bell, Lock, Database, Globe, Mail, Send, Github, CheckCircle2, X } from 'lucide-react';
+import { Bell, Lock, Database, Mail, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { CommandBar } from '../components/CommandBar';
-import { githubService } from '../../services/github.service';
-import { useAuth } from '../context/AuthContext';
 
 interface ToggleItem {
   label: string;
@@ -45,7 +43,6 @@ function SectionHeader({ icon, title, description }: { icon: React.ReactNode; ti
 }
 
 export default function Settings() {
-  const { user } = useAuth();
   const [notifToggles, setNotifToggles] = useState<ToggleItem[]>(() => {
     try {
       const saved = localStorage.getItem('pip_settings');
@@ -73,71 +70,6 @@ export default function Settings() {
 
   const [testEmail, setTestEmail] = useState('');
   const [saved, setSaved] = useState(false);
-
-  // ─── GitHub state ─────────────────────────────────────────────────────────
-  const [githubConnected, setGithubConnected] = useState(() =>
-    localStorage.getItem('pip_github_connected') === 'true',
-  );
-  const [githubLoading, setGithubLoading] = useState(false);
-  const [showRepoModal, setShowRepoModal] = useState(false);
-  const [repoForm, setRepoForm] = useState({
-    owner: '',
-    name: '',
-    description: '',
-    private: true,
-    auto_init: true,
-  });
-  const [repoLoading, setRepoLoading] = useState(false);
-
-  // Detect redirect back from GitHub OAuth callback (?github=connected)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('github') === 'connected') {
-      localStorage.setItem('pip_github_connected', 'true');
-      setGithubConnected(true);
-      toast.success('GitHub conectado correctamente');
-      // Clean URL
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, []);
-
-  const handleConnectGitHub = async () => {
-    setGithubLoading(true);
-    try {
-      await githubService.startOAuth();
-    } catch {
-      toast.error('No se pudo iniciar la conexión con GitHub');
-      setGithubLoading(false);
-    }
-  };
-
-  const handleCreateRepo = async () => {
-    if (!repoForm.owner.trim() || !repoForm.name.trim()) {
-      toast.error('El owner y el nombre del repositorio son obligatorios');
-      return;
-    }
-    if (!user) { toast.error('No hay sesión activa'); return; }
-    setRepoLoading(true);
-    try {
-      const repo = await githubService.createRepo({
-        user_id: Number(user.id),
-        owner_type: 'org',
-        owner: repoForm.owner.trim(),
-        name: repoForm.name.trim(),
-        description: repoForm.description.trim() || undefined,
-        private: repoForm.private,
-        auto_init: repoForm.auto_init,
-      });
-      toast.success('Repositorio creado', { description: repo.repository.full_name });
-      setShowRepoModal(false);
-      setRepoForm({ owner: '', name: '', description: '', private: true, auto_init: true });
-    } catch {
-      toast.error('Error al crear el repositorio');
-    } finally {
-      setRepoLoading(false);
-    }
-  };
-
 
   useEffect(() => {
     if (saved) {
@@ -246,178 +178,35 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-3">
-          {/* Integrations */}
-          <div className="bg-card border border-border rounded-[4px] p-4">
-            <SectionHeader
-              icon={<Globe className="w-3.5 h-3.5" />}
-              title="Integraciones"
-              description="Conecta servicios externos"
-            />
-            <div className="space-y-1">
-              {['Slack', 'Microsoft Teams', 'Jira'].map((service, index) => (
-                <div key={index} className="flex items-center justify-between py-1.5 px-3 border border-border rounded-[4px]">
-                  <span className="text-[12px] text-foreground">{service}</span>
-                  <button
-                    onClick={() => toast.info(`Conectando con ${service}...`)}
-                    className="px-2.5 py-0.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors"
-                  >
-                    Conectar
-                  </button>
-                </div>
-              ))}
-
-              {/* GitHub */}
-              <div className="flex items-center justify-between py-1.5 px-3 border border-border rounded-[4px]">
-                <div className="flex items-center gap-2">
-                  <Github className="w-3.5 h-3.5 text-foreground" />
-                  <span className="text-[12px] text-foreground">GitHub</span>
-                  {githubConnected && (
-                    <span className="flex items-center gap-1 text-[10px] text-green-500 font-medium">
-                      <CheckCircle2 className="w-3 h-3" /> Conectado
-                    </span>
-                  )}
-                </div>
-                {githubConnected ? (
-                  <button
-                    onClick={() => {
-                      githubService.disconnect();
-                      setGithubConnected(false);
-                      toast.success('GitHub desconectado');
-                    }}
-                    className="px-2.5 py-0.5 border border-destructive/60 text-destructive hover:bg-destructive/10 rounded-[3px] text-[11px] font-medium transition-colors"
-                  >
-                    Desconectar
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleConnectGitHub}
-                    disabled={githubLoading}
-                    className="px-2.5 py-0.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-60"
-                  >
-                    {githubLoading ? 'Redirigiendo...' : 'Conectar'}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Create Repo Modal */}
-          {showRepoModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-              <div className="bg-card border border-border rounded-[6px] p-5 w-full max-w-sm shadow-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Github className="w-4 h-4 text-foreground" />
-                    <h3 className="text-[13px] font-semibold text-foreground">Crear repositorio en GitHub</h3>
-                  </div>
-                  <button onClick={() => setShowRepoModal(false)} className="text-muted-foreground hover:text-foreground">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Organización (owner) *</label>
-                    <input
-                      type="text"
-                      placeholder="nombre-org"
-                      value={repoForm.owner}
-                      onChange={(e) => setRepoForm(f => ({ ...f, owner: e.target.value }))}
-                      className="mt-1 w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Nombre del repositorio *</label>
-                    <input
-                      type="text"
-                      placeholder="mi-repo"
-                      value={repoForm.name}
-                      onChange={(e) => setRepoForm(f => ({ ...f, name: e.target.value }))}
-                      className="mt-1 w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Descripción</label>
-                    <input
-                      type="text"
-                      placeholder="Descripción opcional"
-                      value={repoForm.description}
-                      onChange={(e) => setRepoForm(f => ({ ...f, description: e.target.value }))}
-                      className="mt-1 w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
-                    />
-                  </div>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={repoForm.private}
-                        onChange={(e) => setRepoForm(f => ({ ...f, private: e.target.checked }))}
-                        className="w-3.5 h-3.5 accent-primary"
-                      />
-                      <span className="text-[11px] text-foreground">Privado</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={repoForm.auto_init}
-                        onChange={(e) => setRepoForm(f => ({ ...f, auto_init: e.target.checked }))}
-                        className="w-3.5 h-3.5 accent-primary"
-                      />
-                      <span className="text-[11px] text-foreground">Auto-init (README)</span>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 mt-4">
-                  <button
-                    onClick={() => setShowRepoModal(false)}
-                    className="px-3 py-1.5 border border-border rounded-[3px] text-[11px] text-foreground hover:bg-accent/30 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleCreateRepo}
-                    disabled={repoLoading}
-                    className="px-3 py-1.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-60"
-                  >
-                    {repoLoading ? 'Creando...' : 'Crear repositorio'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Data */}
-          <div className="bg-card border border-border rounded-[4px] p-4">
-            <SectionHeader
-              icon={<Database className="w-3.5 h-3.5" />}
-              title="Datos"
-              description="Exportar e importar informacion"
-            />
-            <div className="space-y-1">
-              <button
-                onClick={() => toast.success('Exportacion iniciada', { description: 'Descargando datos en JSON' })}
-                className="w-full text-left py-2 px-3 border border-border rounded-[4px] hover:border-primary/40 transition-colors"
-              >
-                <p className="text-[12px] font-medium text-foreground">Exportar datos</p>
-                <p className="text-[10px] text-muted-foreground">Descarga completa en JSON</p>
-              </button>
-              <button
-                onClick={() => toast.info('Selecciona un archivo CSV o Excel')}
-                className="w-full text-left py-2 px-3 border border-border rounded-[4px] hover:border-primary/40 transition-colors"
-              >
-                <p className="text-[12px] font-medium text-foreground">Importar proyectos</p>
-                <p className="text-[10px] text-muted-foreground">Desde CSV o Excel</p>
-              </button>
-              <button
-                onClick={() => toast.error('Accion no disponible en modo demo')}
-                className="w-full text-left py-2 px-3 bg-destructive/5 border border-destructive/20 rounded-[4px] hover:bg-destructive/10 transition-colors"
-              >
-                <p className="text-[12px] font-medium text-destructive">Eliminar todos los datos</p>
-                <p className="text-[10px] text-destructive/70">Accion irreversible</p>
-              </button>
-            </div>
+        {/* Data & Privacy */}
+        <div className="bg-card border border-border rounded-[4px] p-4">
+          <SectionHeader
+            icon={<Database className="w-3.5 h-3.5" />}
+            title="Datos"
+            description="Exportar e importar informacion"
+          />
+          <div className="space-y-1">
+            <button
+              onClick={() => toast.success('Exportacion iniciada', { description: 'Descargando datos en JSON' })}
+              className="w-full text-left py-2 px-3 border border-border rounded-[4px] hover:border-primary/40 transition-colors"
+            >
+              <p className="text-[12px] font-medium text-foreground">Exportar datos</p>
+              <p className="text-[10px] text-muted-foreground">Descarga completa en JSON</p>
+            </button>
+            <button
+              onClick={() => toast.info('Selecciona un archivo CSV o Excel')}
+              className="w-full text-left py-2 px-3 border border-border rounded-[4px] hover:border-primary/40 transition-colors"
+            >
+              <p className="text-[12px] font-medium text-foreground">Importar proyectos</p>
+              <p className="text-[10px] text-muted-foreground">Desde CSV o Excel</p>
+            </button>
+            <button
+              onClick={() => toast.error('Accion no disponible en modo demo')}
+              className="w-full text-left py-2 px-3 bg-destructive/5 border border-destructive/20 rounded-[4px] hover:bg-destructive/10 transition-colors"
+            >
+              <p className="text-[12px] font-medium text-destructive">Eliminar todos los datos</p>
+              <p className="text-[10px] text-destructive/70">Accion irreversible</p>
+            </button>
           </div>
         </div>
       </div>

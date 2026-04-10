@@ -12,8 +12,7 @@ import {
   Github,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useState, useEffect } from 'react';
-import { githubService } from '../../services/github.service';
+import { useState } from 'react';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 
 interface NavItem {
@@ -40,14 +39,6 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('sidebar-collapsed') === 'true';
   });
-  const [githubConnected, setGithubConnected] = useState(() => githubService.isConnected());
-
-  useEffect(() => {
-    const handler = (e: Event) => setGithubConnected((e as CustomEvent<boolean>).detail);
-    window.addEventListener('githubConnectionChanged', handler);
-    return () => window.removeEventListener('githubConnectionChanged', handler);
-  }, []);
-
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
       const next = !prev;
@@ -57,7 +48,6 @@ export function Sidebar() {
   };
 
   const filteredNavItems = navItems.filter((item) => {
-    if (item.group === 'integrations' && !githubConnected) return false;
     if (!item.roles) return true;
     return user && item.roles.includes(user.role);
   });
