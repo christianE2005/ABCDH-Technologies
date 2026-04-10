@@ -8,7 +8,7 @@ import { API_ENDPOINTS, withAuthHeaders } from '../../config/api';
 
 interface CreateRepoPayload {
   user_id: number;
-  owner_type: 'org';
+  owner_type: 'org' | 'user';
   owner: string;
   name: string;
   description: string;
@@ -25,6 +25,15 @@ function toNumericUserId(userId: string | undefined): number | null {
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return 'Ocurrió un error inesperado';
+}
+
+async function readApiErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
+  try {
+    const data = (await response.json()) as { detail?: string; message?: string; error?: string };
+    return data.detail || data.message || data.error || fallbackMessage;
+  } catch {
+    return fallbackMessage;
+  }
 }
 
 export default function GitHubCreateRepo() {
@@ -71,7 +80,8 @@ export default function GitHubCreateRepo() {
       });
 
       if (!response.ok) {
-        throw new Error('No se pudo crear el repositorio.');
+        const apiMessage = await readApiErrorMessage(response, 'No se pudo crear el repositorio.');
+        throw new Error(apiMessage);
       }
 
       toast.success('Repositorio creado exitosamente.');

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { API_ENDPOINTS } from '../../config/api';
+import { API_ENDPOINTS, AUTH_TOKEN_KEY } from '../../config/api';
 
 export type UserRole = 'admin' | 'project_manager' | 'operative' | 'executive';
 
@@ -23,8 +23,22 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const TOKEN_KEY = 'auth_token';
+const TOKEN_KEY = AUTH_TOKEN_KEY;
 const USER_KEY = 'auth_user';
+
+function pickUserId(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const source = payload as Record<string, unknown>;
+  const directId = source.id_user ?? source.id ?? source.user_id;
+  if (directId !== undefined && directId !== null) return String(directId);
+
+  const nestedUser = source.user;
+  if (!nestedUser || typeof nestedUser !== 'object') return null;
+  const nested = nestedUser as Record<string, unknown>;
+  const nestedId = nested.id_user ?? nested.id ?? nested.user_id;
+  if (nestedId !== undefined && nestedId !== null) return String(nestedId);
+  return null;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -76,9 +90,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('refresh_token', data.refresh_token);
       }
 
+      const userId = pickUserId(data);
+      if (!userId) {
+        throw new Error('La respuesta de login no incluye user.id válido.');
+      }
+
       // Store user data - API returns: id_user, email, username, created_at
       const userData: User = {
-        id: String(data.user?.id_user || '1'),
+        id: userId,
         name: data.user?.username || email,
         email: data.user?.email || email,
         role: data.user?.role || 'operative',
@@ -120,17 +139,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       
       // Store token if provided by backend
-      if (data.token) {
+      if (data.access_token) {
+        localStorage.setItem(TOKEN_KEY, data.access_token);
+      } else if (data.token) {
         localStorage.setItem(TOKEN_KEY, data.token);
+      }
+
+      const userId = pickUserId(data);
+      if (!userId) {
+        throw new Error('La respuesta de registro no incluye user.id válido.');
       }
 
       // Store user data - API returns: id_user, email, username, created_at
       const userData: User = {
-        id: String(data.id_user || '1'),
-        name: data.username || username,
-        email: data.email || email,
-        role: data.role || 'operative',
-        avatar: data.avatar,
+        id: userId,
+        name: data.user?.username || data.username || username,
+        email: data.user?.email || data.email || email,
+        role: data.user?.role || data.role || 'operative',
+        avatar: data.user?.avatar || data.avatar,
       };
       
       setUser(userData);
