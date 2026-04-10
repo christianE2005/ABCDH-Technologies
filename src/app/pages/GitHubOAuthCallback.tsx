@@ -8,6 +8,14 @@ interface CallbackState {
   message: string;
 }
 
+interface OAuthFinalizeResult {
+  status: 'success' | 'error';
+  message: string;
+}
+
+const oauthFinalizeRequests = new Map<string, Promise<OAuthFinalizeResult>>();
+const OAUTH_COMPLETED_PREFIX = 'github_oauth_completed_';
+
 function getMessageFromSearch(search: string): CallbackState {
   const params = new URLSearchParams(search);
   const error = params.get('error');
@@ -33,6 +41,57 @@ async function readApiErrorMessage(response: Response, fallbackMessage: string):
   } catch {
     return fallbackMessage;
   }
+}
+
+function finalizeOAuthOnce(code: string, oauthState: string): Promise<OAuthFinalizeResult> {
+  const requestKey = `${code}:${oauthState}`;
+  const completionKey = `${OAUTH_COMPLETED_PREFIX}${requestKey}`;
+  if (sessionStorage.getItem(completionKey) === '1') {
+    return Promise.resolve({
+      status: 'success',
+      message: 'Cuenta GitHub vinculada correctamente.',
+    });
+  }
+
+  const existing = oauthFinalizeRequests.get(requestKey);
+  if (existing) return existing;
+
+  const requestPromise = (async () => {
+    try {
+      const response = await fetch(API_ENDPOINTS.GITHUB_OAUTH_CALLBACK, {
+        method: 'POST',
+        headers: withAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ code, state: oauthState }),
+      });
+
+      if (!response.ok) {
+        const apiMessage = await readApiErrorMessage(response, 'No fue posible completar la vinculación con GitHub.');
+        return {
+          status: 'error',
+          message: apiMessage,
+        };
+      }
+
+      return {
+        status: 'success',
+        message: 'Cuenta GitHub vinculada correctamente.',
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        message: error instanceof Error ? error.message : 'No fue posible completar la vinculación con GitHub.',
+      };
+    }
+  })();
+
+  requestPromise.then((result) => {
+    if (result.status === 'success') {
+      sessionStorage.setItem(completionKey, '1');
+    }
+  });
+
+  oauthFinalizeRequests.set(requestKey, requestPromise);
+  return requestPromise;
 }
 
 export default function GitHubOAuthCallback() {
@@ -67,34 +126,18 @@ export default function GitHubOAuthCallback() {
     let timerId: number | null = null;
 
     const finalizeOAuth = async () => {
-      try {
-        const response = await fetch(API_ENDPOINTS.GITHUB_OAUTH_CALLBACK, {
-          method: 'POST',
-          headers: withAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ code, state: oauthState }),
-        });
+      const result = await finalizeOAuthOnce(code, oauthState);
+      if (cancelled) return;
 
-        if (!response.ok) {
-          const apiMessage = await readApiErrorMessage(response, 'No fue posible completar la vinculación con GitHub.');
-          throw new Error(apiMessage);
-        }
+      setState({
+        status: result.status,
+        message: result.message,
+      });
 
-        if (cancelled) return;
-
-        setState({
-          status: 'success',
-          message: 'Cuenta GitHub vinculada correctamente.',
-        });
-
+      if (result.status === 'success') {
         timerId = window.setTimeout(() => {
           navigate('/github/create-repo');
         }, 1200);
-      } catch (error) {
-        if (cancelled) return;
-        setState({
-          status: 'error',
-          message: error instanceof Error ? error.message : 'No fue posible completar la vinculación con GitHub.',
-        });
       }
     };
 
