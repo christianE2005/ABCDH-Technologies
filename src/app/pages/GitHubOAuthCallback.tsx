@@ -11,8 +11,8 @@ interface CallbackState {
 interface CallbackQuery {
   code: string | null;
   oauthState: string | null;
-  status: string | null;
-  linked: string | null;
+  error: string | null;
+  message: string | null;
 }
 
 interface OAuthFinalizeResult {
@@ -22,33 +22,6 @@ interface OAuthFinalizeResult {
 
 const oauthFinalizeRequests = new Map<string, Promise<OAuthFinalizeResult>>();
 const OAUTH_COMPLETED_PREFIX = 'github_oauth_completed_';
-
-function getMessageFromSearch(search: string): CallbackState {
-  const params = new URLSearchParams(search);
-  const error = params.get('error');
-  const status = params.get('status');
-  const linked = params.get('linked');
-  const message = params.get('message');
-
-  if (error) {
-    return {
-      status: 'error',
-      message: message || error || 'No fue posible completar la vinculación con GitHub.',
-    };
-  }
-
-  if (status === 'success' || linked === 'true') {
-    return {
-      status: 'success',
-      message: message || 'Cuenta GitHub vinculada correctamente.',
-    };
-  }
-
-  return {
-    status: 'loading',
-    message: message || 'Validando respuesta de GitHub...',
-  };
-}
 
 async function readApiErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
   try {
@@ -119,31 +92,21 @@ export default function GitHubOAuthCallback() {
     message: 'Validando respuesta de GitHub...',
   });
 
-  const parsedState = useMemo(() => getMessageFromSearch(location.search), [location.search]);
   const parsedQuery = useMemo<CallbackQuery>(() => {
     const params = new URLSearchParams(location.search);
     return {
       code: params.get('code'),
       oauthState: params.get('state'),
-      status: params.get('status'),
-      linked: params.get('linked'),
+      error: params.get('error'),
+      message: params.get('message'),
     };
   }, [location.search]);
 
   useEffect(() => {
-    setState(parsedState);
-  }, [parsedState]);
-
-  useEffect(() => {
-    if (parsedState.status === 'error') {
-      return;
-    }
-
-    // Backend ya pudo cerrar OAuth y redirigir con status/link sin reenviar code/state al front.
-    if ((parsedQuery.status === 'success' || parsedQuery.linked === 'true') && (!parsedQuery.code || !parsedQuery.oauthState)) {
+    if (parsedQuery.error) {
       setState({
-        status: 'success',
-        message: parsedState.message,
+        status: 'error',
+        message: parsedQuery.message || parsedQuery.error || 'No fue posible completar la vinculación con GitHub.',
       });
       return;
     }
@@ -174,7 +137,7 @@ export default function GitHubOAuthCallback() {
     return () => {
       cancelled = true;
     };
-  }, [parsedQuery.code, parsedQuery.linked, parsedQuery.oauthState, parsedQuery.status, parsedState.message, parsedState.status]);
+  }, [parsedQuery.code, parsedQuery.error, parsedQuery.message, parsedQuery.oauthState]);
 
   useEffect(() => {
     if (state.status !== 'success') return;

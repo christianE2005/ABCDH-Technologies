@@ -32,7 +32,6 @@ export default function GitHub() {
       const response = await fetch(API_ENDPOINTS.GITHUB_OAUTH_START, {
         method: 'GET',
         headers: withAuthHeaders(),
-        credentials: 'include',
       });
       if (!response.ok) {
         throw new Error('No se pudo iniciar el login con GitHub.');
