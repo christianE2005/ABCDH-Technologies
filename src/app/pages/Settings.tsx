@@ -280,10 +280,14 @@ export default function Settings() {
                 </div>
                 {githubConnected ? (
                   <button
-                    onClick={() => setShowRepoModal(true)}
-                    className="px-2.5 py-0.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors"
+                    onClick={() => {
+                      githubService.disconnect();
+                      setGithubConnected(false);
+                      toast.success('GitHub desconectado');
+                    }}
+                    className="px-2.5 py-0.5 border border-destructive/60 text-destructive hover:bg-destructive/10 rounded-[3px] text-[11px] font-medium transition-colors"
                   >
-                    Crear repositorio
+                    Desconectar
                   </button>
                 ) : (
                   <button
