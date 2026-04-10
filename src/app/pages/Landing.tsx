@@ -7,7 +7,6 @@ import {
   TrendingUp,
   Users,
   ArrowRight,
-  CheckCircle,
   Zap,
   Globe,
   GitBranch,
@@ -67,25 +66,25 @@ export default function Landing() {
       <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50" role="banner">
         <div className="container mx-auto px-6 h-14 flex items-center justify-between max-w-6xl">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center">
+            <div className="w-7 h-7 bg-primary rounded-[3px] flex items-center justify-center">
               <span className="text-primary-foreground font-semibold text-xs">PI</span>
             </div>
-            <span className="font-semibold text-foreground text-sm">Project Intelligence</span>
+            <span className="font-semibold text-foreground text-[13px]">Project Intelligence</span>
           </div>
           <nav className="hidden md:flex items-center gap-6" aria-label="Navegación principal">
-            <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Funciones</a>
-            <a href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Cómo funciona</a>
+            <a href="#features" className="text-[12px] text-muted-foreground hover:text-foreground transition-colors">Funciones</a>
+            <a href="#how-it-works" className="text-[12px] text-muted-foreground hover:text-foreground transition-colors">Cómo funciona</a>
           </nav>
           <div className="flex items-center gap-3">
             <Link 
               to="/login" 
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors font-medium"
+              className="text-[12px] text-muted-foreground hover:text-foreground transition-colors font-medium"
             >
               Iniciar sesión
             </Link>
             <Link 
               to="/register" 
-              className="px-4 py-1.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-md text-sm font-medium transition-colors"
+              className="px-4 py-1.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[12px] font-medium transition-colors"
             >
               Solicitar demo
             </Link>
@@ -97,7 +96,7 @@ export default function Landing() {
       <section className="container mx-auto px-6 pt-20 pb-16 max-w-6xl">
         <div className="max-w-3xl mx-auto text-center">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-[3px] bg-primary/10 text-primary text-[11px] font-medium mb-6">
             <Zap className="w-3 h-3" />
             Plataforma empresarial · Tech Mahindra
           </div>
@@ -114,14 +113,14 @@ export default function Landing() {
           <div className="flex items-center gap-3 justify-center mb-6">
             <Link 
               to="/register"
-              className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-md text-sm font-medium transition-colors inline-flex items-center gap-2"
+              className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[13px] font-medium transition-colors inline-flex items-center gap-2"
             >
               Comenzar gratis
               <ArrowRight className="w-4 h-4" />
             </Link>
             <Link 
               to="/login"
-              className="px-6 py-2.5 bg-card border border-border text-foreground hover:bg-accent rounded-md text-sm font-medium transition-colors"
+              className="px-6 py-2.5 bg-card border border-border text-foreground hover:bg-accent rounded-[3px] text-[13px] font-medium transition-colors"
             >
               Ver demo
             </Link>
@@ -132,8 +131,8 @@ export default function Landing() {
 
         {/* Hero Dashboard Preview */}
         <div className="mt-14 max-w-4xl mx-auto">
-          <div className="rounded-xl border border-border bg-card p-1.5 shadow-sm">
-            <div className="bg-secondary/60 rounded-lg overflow-hidden">
+          <div className="rounded-[4px] border border-border bg-card p-1.5 shadow-sm">
+            <div className="bg-secondary/60 rounded-[4px] overflow-hidden">
               {/* Mock browser bar */}
               <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-border/50 bg-card/60">
                 <div className="w-2.5 h-2.5 rounded-full bg-destructive/40" />
@@ -155,7 +154,7 @@ export default function Landing() {
                     { label: 'En Riesgo', value: '3', trend: '+1', color: 'text-warning' },
                     { label: 'Desviación', value: '-3.2%', trend: '±1.5%', color: 'text-muted-foreground' },
                   ].map((kpi, i) => (
-                    <div key={i} className="bg-card rounded-md border border-border/60 p-3">
+                    <div key={i} className="bg-card rounded-[4px] border border-border/60 p-3">
                       <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">{kpi.label}</p>
                       <p className="text-lg font-semibold text-foreground">{kpi.value}</p>
                       <p className={`text-[9px] ${kpi.color}`}>{kpi.trend}</p>
@@ -163,7 +162,7 @@ export default function Landing() {
                   ))}
                 </div>
                 {/* Mock chart area */}
-                <div className="bg-card rounded-md border border-border/60 p-4 h-24 sm:h-32 flex items-end gap-1">
+                <div className="bg-card rounded-[4px] border border-border/60 p-4 h-24 sm:h-32 flex items-end gap-1">
                   {[40, 55, 50, 62, 58, 70, 65, 75, 72, 80, 78, 85].map((h, i) => (
                     <div
                       key={i}
@@ -210,13 +209,13 @@ export default function Landing() {
           {features.map((feature, index) => (
             <div
               key={index}
-              className="bg-card border border-border rounded-lg p-6 hover:border-primary/30 transition-colors group"
+              className="bg-card border border-border rounded-[4px] p-4 hover:border-primary/30 transition-colors group"
             >
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary mb-4 group-hover:bg-primary/15 transition-colors">
+              <div className="w-9 h-9 bg-primary/10 rounded-[3px] flex items-center justify-center text-primary mb-3 group-hover:bg-primary/15 transition-colors">
                 {feature.icon}
               </div>
-              <h3 className="text-sm font-semibold text-foreground mb-2">{feature.title}</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">{feature.description}</p>
+              <h3 className="text-[12px] font-semibold text-foreground mb-1.5">{feature.title}</h3>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">{feature.description}</p>
             </div>
           ))}
         </div>
@@ -238,7 +237,7 @@ export default function Landing() {
           <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {steps.map((step, index) => (
               <div key={index} className="relative text-center">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mx-auto mb-4">
+                <div className="w-11 h-11 rounded-[4px] bg-primary/10 flex items-center justify-center text-primary mx-auto mb-4">
                   {step.icon}
                 </div>
                 <span className="text-[10px] font-semibold text-primary uppercase tracking-widest">{step.number}</span>
@@ -275,7 +274,7 @@ export default function Landing() {
 
       {/* CTA */}
       <section className="container mx-auto px-6 pb-20 max-w-6xl">
-        <div className="bg-card border border-border rounded-xl p-10 md:p-14 text-center max-w-3xl mx-auto relative overflow-hidden">
+        <div className="bg-card border border-border rounded-[4px] p-8 md:p-12 text-center max-w-3xl mx-auto relative overflow-hidden">
           <div className="absolute inset-0 bg-primary/[0.02]" />
           <div className="relative">
             <h2 className="text-xl md:text-2xl font-semibold text-foreground mb-3">
@@ -287,14 +286,14 @@ export default function Landing() {
             <div className="flex items-center gap-3 justify-center">
               <Link 
                 to="/register"
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-md text-sm font-medium transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[13px] font-medium transition-colors"
               >
                 Comenzar gratis
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link 
                 to="/login"
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-secondary hover:bg-accent text-foreground rounded-md text-sm font-medium transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-secondary hover:bg-accent text-foreground rounded-[3px] text-[13px] font-medium transition-colors"
               >
                 Iniciar sesión
               </Link>
@@ -308,10 +307,10 @@ export default function Landing() {
         <div className="container mx-auto px-6 py-8 max-w-6xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2.5">
-              <div className="w-6 h-6 bg-primary rounded flex items-center justify-center">
+              <div className="w-6 h-6 bg-primary rounded-[3px] flex items-center justify-center">
                 <span className="text-primary-foreground font-semibold text-[10px]">PI</span>
               </div>
-              <span className="text-sm font-medium text-foreground">Project Intelligence</span>
+              <span className="text-[13px] font-medium text-foreground">Project Intelligence</span>
             </div>
             <div className="flex items-center gap-6">
               <a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Términos</a>

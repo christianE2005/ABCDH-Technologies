@@ -1,416 +1,276 @@
+﻿import { useMemo } from 'react';
 import { Link } from 'react-router';
-import { 
-  TrendingUp, 
-  DollarSign, 
-  AlertTriangle, 
-  Target,
-  ArrowRight,
-  Sparkles,
-  Calendar,
-  Users,
-  CheckCircle,
-  Clock,
-  Briefcase,
+import { motion } from 'motion/react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
+} from 'recharts';
+import {
+  Briefcase, ArrowRight, RefreshCw,
+  CheckCircle2, Timer, ListChecks, AlertTriangle, Loader2,
 } from 'lucide-react';
 import { KPICard } from '../components/KPICard';
 import { StatusBadge } from '../components/StatusBadge';
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer
-} from 'recharts';
-import { useState } from 'react';
-import { motion } from 'motion/react';
-import { useDashboard, useProjects } from '../hooks/useProjectData';
+import { CommandBar } from '../components/CommandBar';
+import { useApiProjects, useApiTasks } from '../hooks/useProjectData';
 import { useAuth } from '../context/AuthContext';
 
-type Period = 'mensual' | 'semestral' | 'anual';
-
-const chartDataByPeriod: Record<Period, { name: string; avance: number; planificado: number }[]> = {
-  mensual: [
-    { name: 'Sem 1', avance: 58, planificado: 60 },
-    { name: 'Sem 2', avance: 62, planificado: 65 },
-    { name: 'Sem 3', avance: 68, planificado: 70 },
-    { name: 'Sem 4', avance: 72, planificado: 75 },
-  ],
-  semestral: [
-    { name: 'Ene', avance: 65, planificado: 70 },
-    { name: 'Feb', avance: 72, planificado: 75 },
-    { name: 'Mar', avance: 78, planificado: 80 },
-    { name: 'Abr', avance: 85, planificado: 85 },
-    { name: 'May', avance: 88, planificado: 90 },
-    { name: 'Jun', avance: 90, planificado: 95 },
-  ],
-  anual: [
-    { name: 'Q1', avance: 45, planificado: 50 },
-    { name: 'Q2', avance: 62, planificado: 65 },
-    { name: 'Q3', avance: 78, planificado: 80 },
-    { name: 'Q4', avance: 90, planificado: 95 },
-  ],
-};
-
 export default function Dashboard() {
-  const [chartType, setChartType] = useState<'area' | 'bar'>('area');
-  const [period, setPeriod] = useState<Period>('semestral');
-  const { kpis, aiInsights, topProjects } = useDashboard();
-  const { allProjects } = useProjects();
   const { user } = useAuth();
+  const { data: projects, loading: loadingProjects, error: errorProjects, refetch: refetchProjects } = useApiProjects();
+  const { data: tasks, loading: loadingTasks, statuses, refetch: refetchTasks } = useApiTasks();
 
-  // Portfolio summary stats
-  const onTrack = allProjects.filter(p => p.status === 'on_track').length;
-  const atRisk = allProjects.filter(p => p.status === 'at_risk').length;
-  const delayed = allProjects.filter(p => p.status === 'delayed').length;
-  const totalMembers = allProjects.reduce((sum, p) => sum + p.members, 0);
+  const loading = loadingProjects || loadingTasks;
 
-  // Find closest upcoming deadline
-  const monthMapDash: Record<string, number> = { Ene: 0, Feb: 1, Mar: 2, Abr: 3, May: 4, Jun: 5, Jul: 6, Ago: 7, Sep: 8, Oct: 9, Nov: 10, Dic: 11 };
-  const now = Date.now();
-  const closestDeadline = allProjects
-    .map(p => {
-      const parts = p.deadline.split(' ');
-      const d = new Date(parseInt(parts[2]), monthMapDash[parts[1]] ?? 0, parseInt(parts[0]));
-      return { name: p.name, date: d, dateStr: p.deadline, diff: d.getTime() - now };
-    })
-    .filter(d => d.diff > 0)
-    .sort((a, b) => a.diff - b.diff)[0] ?? { name: 'N/A', dateStr: '--' };
+  const refetchAll = () => { refetchProjects(); refetchTasks(); };
 
-  const kpiIcons = [<TrendingUp className="w-5 h-5" />, <DollarSign className="w-5 h-5" />, <AlertTriangle className="w-5 h-5" />, <Target className="w-5 h-5" />];
+  // ── Derived KPIs ──
+  const kpis = useMemo(() => {
+    const pList = projects ?? [];
+    const tList = tasks ?? [];
+    const now = new Date();
 
-  const getProgressColor = (value: number) => {
-    if (value >= 75) return 'bg-success';
-    if (value >= 50) return 'bg-warning';
-    return 'bg-destructive';
+    const totalProjects = pList.length;
+    const totalTasks = tList.length;
+    const completedTasks = tList.filter((t) => t.completed_at != null).length;
+    const overdueTasks = tList.filter((t) => {
+      if (t.completed_at) return false;
+      if (!t.due_date) return false;
+      return new Date(t.due_date) < now;
+    }).length;
+    const openTasks = totalTasks - completedTasks;
+
+    return { totalProjects, totalTasks, completedTasks, openTasks, overdueTasks };
+  }, [projects, tasks]);
+
+  // ── Task distribution by status for chart ──
+  const statusChartData = useMemo(() => {
+    if (!tasks || statuses.length === 0) return [];
+    const counts = new Map<number, number>();
+    for (const t of tasks) {
+      const sid = t.status ?? 0;
+      counts.set(sid, (counts.get(sid) ?? 0) + 1);
+    }
+    return statuses.map((s) => ({
+      name: s.name,
+      count: counts.get(s.id_status) ?? 0,
+    }));
+  }, [tasks, statuses]);
+
+  const PIE_COLORS = ['var(--color-chart-1)', 'var(--color-chart-2)', 'var(--color-chart-3)', 'var(--color-chart-4)', 'var(--color-chart-5)'];
+
+  // ── Pie data: project status distribution ──
+  const projectStatusData = useMemo(() => {
+    if (!projects) return [];
+    const counts = new Map<string, number>();
+    for (const p of projects) {
+      const s = p.status ?? 'sin estado';
+      counts.set(s, (counts.get(s) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).map(([name, value]) => ({ name, value }));
+  }, [projects]);
+
+  // ── Days remaining helper ──
+  const getDaysRemaining = (endDate: string | null) => {
+    if (!endDate) return null;
+    return Math.ceil((new Date(endDate).getTime() - Date.now()) / 86_400_000);
+  };
+  const getDaysLabel = (days: number | null) => {
+    if (days === null) return { label: '—', cls: 'text-muted-foreground' };
+    if (days < 0) return { label: 'Vencido', cls: 'text-destructive font-semibold' };
+    if (days === 0) return { label: 'Hoy', cls: 'text-destructive font-semibold' };
+    if (days <= 7) return { label: `${days}d`, cls: 'text-warning font-semibold' };
+    return { label: `${days}d`, cls: 'text-muted-foreground' };
   };
 
-  const getBudgetColor = (value: number) => {
-    if (value >= 90) return 'text-destructive';
-    if (value >= 75) return 'text-warning';
-    return 'text-success';
-  };
+  if (errorProjects) {
+    return (
+      <div className="px-4 pt-10 text-center">
+        <AlertTriangle className="w-8 h-8 text-destructive mx-auto mb-2" />
+        <p className="text-[13px] text-destructive">{errorProjects}</p>
+        <button onClick={refetchAll} className="mt-3 text-[12px] text-primary hover:underline">Reintentar</button>
+      </div>
+    );
+  }
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-6 max-w-[1400px]">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">Vista general de proyectos activos</p>
+    <div className="px-4 pb-6 pt-3 space-y-3 max-w-[1600px]">
+      <CommandBar
+        actions={[
+          { label: 'Actualizar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: refetchAll },
+        ]}
+        rightSlot={
+          <span className="text-xs text-muted-foreground">
+            Hola, <span className="font-medium text-foreground">{user?.name?.split(' ')[0]}</span>
+          </span>
+        }
+      />
+
+      {/* KPI Row */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5">
+        {loading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="bg-card border border-border rounded-[4px] h-[80px] animate-pulse" />
+          ))
+        ) : (
+          [
+            { title: 'Proyectos', value: kpis.totalProjects, subtitle: 'total activos', icon: <Briefcase className="w-4 h-4" /> },
+            { title: 'Tareas', value: kpis.totalTasks, subtitle: 'en todos los proyectos', icon: <ListChecks className="w-4 h-4" /> },
+            { title: 'Completadas', value: kpis.completedTasks, subtitle: 'tareas terminadas', icon: <CheckCircle2 className="w-4 h-4" /> },
+            { title: 'Pendientes', value: kpis.openTasks, subtitle: 'tareas abiertas', icon: <Timer className="w-4 h-4" /> },
+            { title: 'Vencidas', value: kpis.overdueTasks, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" /> },
+          ].map((kpi, i) => (
+            <motion.div
+              key={kpi.title}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: i * 0.05, ease: 'easeOut' }}
+            >
+              <KPICard
+                title={kpi.title}
+                value={kpi.value}
+                subtitle={kpi.subtitle}
+                icon={kpi.icon}
+              />
+            </motion.div>
+          ))
+        )}
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpis.map((kpi, i) => (
+      {/* Main grid: projects table (left) + charts (right) */}
+      <div className="grid xl:grid-cols-[1fr_300px] gap-3 items-start">
+
+        {/* Projects table */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.3, ease: 'easeOut' }}
+          className="bg-card border border-border rounded-[4px]"
+        >
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+            <h2 className="text-[13px] font-semibold text-foreground">Proyectos</h2>
+            <Link
+              to="/projects"
+              className="text-[11px] text-primary hover:underline font-medium inline-flex items-center gap-1"
+            >
+              Ver todos <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : !projects || projects.length === 0 ? (
+            <div className="py-12 text-center text-[12px] text-muted-foreground">No hay proyectos registrados.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[600px]">
+                <thead>
+                  <tr className="border-b border-border bg-surface-secondary/50">
+                    <th className="text-left py-1.5 px-4 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Proyecto</th>
+                    <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</th>
+                    <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Fecha Fin</th>
+                    <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Días rest.</th>
+                    <th className="py-1.5 px-3 w-[60px]" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {projects.slice(0, 8).map((project) => {
+                    const days = getDaysRemaining(project.end_date);
+                    const dl = getDaysLabel(days);
+                    return (
+                      <tr key={project.id_project} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors group">
+                        <td className="py-1.5 px-4">
+                          <p className="text-[13px] font-medium text-foreground truncate max-w-[220px]">{project.name}</p>
+                          {project.description && (
+                            <p className="text-[10px] text-muted-foreground truncate max-w-[220px] mt-0.5">{project.description}</p>
+                          )}
+                        </td>
+                        <td className="py-1.5 px-3">
+                          <StatusBadge status={project.status ?? 'sin estado'} size="sm" />
+                        </td>
+                        <td className="py-1.5 px-3 text-[11px] text-muted-foreground whitespace-nowrap">
+                          {project.end_date ?? '—'}
+                        </td>
+                        <td className="py-1.5 px-3">
+                          <span className={`text-[11px] ${dl.cls}`}>{dl.label}</span>
+                        </td>
+                        <td className="py-1.5 px-3 text-right">
+                          <Link to={`/projects/${project.id_project}`} className="text-[11px] text-primary opacity-0 group-hover:opacity-100 transition-opacity font-medium hover:underline">
+                            Detalle →
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Right column: charts */}
+        <div className="flex flex-col gap-3">
+
+          {/* Task distribution by status */}
           <motion.div
-            key={kpi.title}
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, delay: i * 0.08, ease: 'easeOut' }}
+            transition={{ duration: 0.25, delay: 0.32, ease: 'easeOut' }}
+            className="bg-card border border-border rounded-[4px] p-4"
           >
-            <KPICard
-              title={kpi.title}
-              value={kpi.value}
-              trend={kpi.trend}
-              trendValue={kpi.trendValue}
-              subtitle={kpi.subtitle}
-              icon={kpiIcons[i]}
-            />
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Main Grid */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        {/* Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.3, ease: 'easeOut' }}
-          className="lg:col-span-2 bg-card border border-border rounded-lg p-5"
-        >
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">Evolución de Proyectos</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {period === 'mensual' ? 'Último mes' : period === 'semestral' ? 'Últimos 6 meses' : 'Último año'}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex border border-border rounded-md overflow-hidden">
-                {(['mensual', 'semestral', 'anual'] as Period[]).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setPeriod(p)}
-                    className={`px-2.5 py-1.5 text-[11px] font-medium transition-colors capitalize border-r border-border last:border-r-0 ${
-                      period === p
-                        ? 'bg-secondary text-foreground'
-                        : 'bg-card text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-              <div className="flex border border-border rounded-md overflow-hidden">
-                <button
-                  onClick={() => setChartType('area')}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    chartType === 'area'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-card text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Área
-                </button>
-                <button
-                  onClick={() => setChartType('bar')}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-border ${
-                    chartType === 'bar'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-card text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Barra
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <ResponsiveContainer width="100%" height={300}>
-            {chartType === 'area' ? (
-              <AreaChart data={chartDataByPeriod[period]}>
-                <defs>
-                  <linearGradient id="avanceGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--color-chart-1)" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="var(--color-chart-1)" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="planGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--color-chart-2)" stopOpacity={0.1} />
-                    <stop offset="95%" stopColor="var(--color-chart-2)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '6px',
-                    color: 'var(--foreground)',
-                    fontSize: '12px'
-                  }}
-                />
-                <Area type="monotone" dataKey="avance" stroke="var(--color-chart-1)" strokeWidth={2} fill="url(#avanceGrad)" name="Avance Real" />
-                <Area type="monotone" dataKey="planificado" stroke="var(--color-chart-2)" strokeWidth={1.5} fill="url(#planGrad)" name="Planificado" strokeDasharray="4 4" />
-              </AreaChart>
+            <h2 className="text-[13px] font-semibold text-foreground mb-2">Tareas por Estado</h2>
+            {statusChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={statusChartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '11px' }} />
+                  <Bar dataKey="count" fill="var(--color-chart-1)" name="Tareas" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             ) : (
-              <BarChart data={chartDataByPeriod[period]}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '6px',
-                    color: 'var(--foreground)',
-                    fontSize: '12px'
-                  }}
-                />
-                <Bar dataKey="avance" fill="var(--color-chart-1)" name="Avance Real" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="planificado" fill="var(--color-chart-2)" name="Planificado" radius={[3, 3, 0, 0]} opacity={0.5} />
-              </BarChart>
+              <p className="text-[11px] text-muted-foreground py-8 text-center">Sin datos de tareas.</p>
             )}
-          </ResponsiveContainer>
+          </motion.div>
 
-          {/* Portfolio Summary Strip */}
-          <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 lg:grid-cols-4 gap-2">
-            <div className="relative overflow-hidden rounded-lg border border-border bg-gradient-to-br from-primary/5 to-primary/10 p-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center shadow-sm">
-                  <Briefcase className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-foreground leading-none">{allProjects.length}</p>
-                  <p className="text-[11px] text-muted-foreground mt-1 font-medium">Proyectos activos</p>
-                </div>
-              </div>
-              <div className="absolute -right-2 -bottom-2 w-14 h-14 rounded-full bg-primary/5" />
-            </div>
-            <div className="relative overflow-hidden rounded-lg border border-border bg-gradient-to-br from-success/5 to-success/10 p-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-success/15 flex items-center justify-center shadow-sm">
-                  <CheckCircle className="w-4 h-4 text-success" />
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-foreground leading-none">{onTrack} <span className="text-sm font-normal text-muted-foreground">/ {atRisk + delayed}</span></p>
-                  <p className="text-[11px] text-muted-foreground mt-1 font-medium">En tiempo / Riesgo</p>
-                </div>
-              </div>
-              <div className="absolute -right-2 -bottom-2 w-14 h-14 rounded-full bg-success/5" />
-            </div>
-            <div className="relative overflow-hidden rounded-lg border border-border bg-gradient-to-br from-info/5 to-info/10 p-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-info/15 flex items-center justify-center shadow-sm">
-                  <Users className="w-4 h-4 text-info" />
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-foreground leading-none">{totalMembers}</p>
-                  <p className="text-[11px] text-muted-foreground mt-1 font-medium">{user?.role === 'executive' ? 'Personas en portafolio' : 'Miembros en equipo'}</p>
-                </div>
-              </div>
-              <div className="absolute -right-2 -bottom-2 w-14 h-14 rounded-full bg-info/5" />
-            </div>
-            <div className="relative overflow-hidden rounded-lg border border-border bg-gradient-to-br from-warning/5 to-warning/10 p-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-warning/15 flex items-center justify-center shadow-sm">
-                  <Clock className="w-4 h-4 text-warning" />
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-foreground leading-none">{closestDeadline.dateStr.split(' ').slice(0, 2).join(' ')}</p>
-                  <p className="text-[11px] text-muted-foreground mt-1 font-medium truncate max-w-[120px]" title={closestDeadline.name}>{closestDeadline.name}</p>
-                </div>
-              </div>
-              <div className="absolute -right-2 -bottom-2 w-14 h-14 rounded-full bg-warning/5" />
-            </div>
-          </div>
-        </motion.div>
-
-        {/* AI Insights */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.4, ease: 'easeOut' }}
-          className="bg-card border border-border rounded-lg p-5"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-semibold text-foreground">Análisis IA</h2>
-          </div>
-
-          <div className="space-y-3">
-            {aiInsights.map((insight, index) => (
-              <div
-                key={index}
-                className="border border-border rounded-md p-3"
-              >
-                <div className="flex items-start gap-2.5">
-                  <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
-                    insight.type === 'danger' ? 'bg-destructive' :
-                    insight.type === 'warning' ? 'bg-warning' :
-                    'bg-success'
-                  }`} />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-xs font-medium text-foreground">{insight.title}</h3>
-                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{insight.description}</p>
-                    <button className="text-xs text-primary hover:underline font-medium mt-2 inline-flex items-center gap-1">
-                      {insight.action}
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-border grid grid-cols-2 gap-3">
-            <div className="bg-background rounded-md p-3 text-center">
-              <p className="text-lg font-semibold text-success">92%</p>
-              <p className="text-[11px] text-muted-foreground">Precisión IA</p>
-            </div>
-            <div className="bg-background rounded-md p-3 text-center">
-              <p className="text-lg font-semibold text-info">7</p>
-              <p className="text-[11px] text-muted-foreground">Alertas activas</p>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Projects Table */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.5, ease: 'easeOut' }}
-        className="bg-card border border-border rounded-lg"
-      >
-        <div className="flex items-center justify-between p-5 pb-0">
-          <h2 className="text-sm font-semibold text-foreground">Proyectos Activos</h2>
-          <Link
-            to="/projects"
-            className="text-xs text-primary hover:underline font-medium inline-flex items-center gap-1"
+          {/* Project status pie */}
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.35, ease: 'easeOut' }}
+            className="bg-card border border-border rounded-[4px] p-4"
           >
-            Ver todos
-            <ArrowRight className="w-3 h-3" />
-          </Link>
-        </div>
-
-        <div className="overflow-x-auto mt-4">
-          <table className="w-full min-w-[600px]">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-2.5 px-5 text-xs font-medium text-muted-foreground">Proyecto</th>
-                <th className="text-left py-2.5 px-5 text-xs font-medium text-muted-foreground">Responsable</th>
-                <th className="text-left py-2.5 px-5 text-xs font-medium text-muted-foreground">Avance</th>
-                <th className="text-left py-2.5 px-5 text-xs font-medium text-muted-foreground">Presupuesto</th>
-                <th className="text-left py-2.5 px-5 text-xs font-medium text-muted-foreground">Estado</th>
-                <th className="text-right py-2.5 px-5 text-xs font-medium text-muted-foreground"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {topProjects.map((project) => (
-                <tr key={project.id} className="border-b border-border last:border-0 hover:bg-accent/50 transition-colors">
-                  <td className="py-3 px-5">
-                    <p className="text-sm font-medium text-foreground">{project.name}</p>
-                    <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Users className="w-3 h-3" />
-                        {project.members}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {project.deadline}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-5 text-sm text-muted-foreground">{project.manager}</td>
-                  <td className="py-3 px-5">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-secondary rounded-full h-1.5 max-w-20">
-                        <div
-                          className={`h-full rounded-full ${getProgressColor(project.progress)}`}
-                          style={{ width: `${project.progress}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-medium text-foreground w-8">{project.progress}%</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-5">
-                    <span className={`text-xs font-medium ${getBudgetColor(project.budget)}`}>
-                      {project.budget}%
+            <h2 className="text-[13px] font-semibold text-foreground mb-2">Estado de Proyectos</h2>
+            {projectStatusData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={140}>
+                  <PieChart>
+                    <Pie data={projectStatusData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} dataKey="value" paddingAngle={2}>
+                      {projectStatusData.map((_, i) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '11px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap justify-center gap-3 mt-1">
+                  {projectStatusData.map((d, i) => (
+                    <span key={d.name} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
+                      {d.name} ({d.value})
                     </span>
-                  </td>
-                  <td className="py-3 px-5">
-                    <StatusBadge status={project.status} size="sm" />
-                  </td>
-                  <td className="py-3 px-5 text-right">
-                    <Link
-                      to={`/projects/${project.id}`}
-                      className="text-xs text-primary hover:underline font-medium"
-                    >
-                      Ver detalle
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-[11px] text-muted-foreground py-8 text-center">Sin proyectos.</p>
+            )}
+          </motion.div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

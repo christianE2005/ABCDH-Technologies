@@ -32,7 +32,7 @@ export default function Register() {
   const strengthLabels = ['Muy débil', 'Débil', 'Media', 'Fuerte', 'Muy fuerte'];
   const strengthColors = ['bg-destructive', 'bg-warning', 'bg-warning', 'bg-success', 'bg-success'];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
@@ -51,14 +51,19 @@ export default function Register() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      register(formData.name, formData.email, formData.password);
+    try {
+      await register(formData.name, formData.email, formData.password);
       toast.success('¡Cuenta creada exitosamente!');
       navigate('/dashboard');
-    }, 800);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al crear cuenta';
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const inputClass = 'w-full bg-background border border-input rounded-md pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors';
+  const inputClass = 'w-full bg-surface-secondary border border-border rounded-[3px] pl-8 pr-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-colors';
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -66,16 +71,16 @@ export default function Register() {
       <div className="hidden lg:flex lg:w-[480px] xl:w-[520px] bg-card border-r border-border flex-col justify-between p-10">
         <div>
           <Link to="/" className="flex items-center gap-2.5 mb-16">
-            <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center">
+            <div className="w-7 h-7 bg-primary rounded-[3px] flex items-center justify-center">
               <span className="text-primary-foreground font-semibold text-xs">PI</span>
             </div>
-            <span className="font-semibold text-foreground text-sm">Project Intelligence</span>
+            <span className="font-semibold text-foreground text-[13px]">Project Intelligence</span>
           </Link>
 
-          <h2 className="text-2xl font-semibold text-foreground leading-snug mb-3">
+          <h2 className="text-[18px] font-semibold text-foreground leading-snug mb-3">
             Únete al equipo de Project Intelligence
           </h2>
-          <p className="text-sm text-muted-foreground leading-relaxed mb-10">
+          <p className="text-[13px] text-muted-foreground leading-relaxed mb-10">
             Crea tu cuenta y comienza a gestionar los proyectos de Tech Mahindra con inteligencia en menos de 2 minutos.
           </p>
 
@@ -87,12 +92,12 @@ export default function Register() {
               { icon: <Users className="w-4 h-4" />, title: 'Colaboración total', desc: 'Invita a tu equipo y asigna permisos' },
             ].map((f, i) => (
               <div key={i} className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 mt-0.5">
+                <div className="w-8 h-8 rounded-[3px] bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 mt-0.5">
                   {f.icon}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-foreground">{f.title}</p>
-                  <p className="text-xs text-muted-foreground">{f.desc}</p>
+                  <p className="text-[12px] font-medium text-foreground">{f.title}</p>
+                  <p className="text-[11px] text-muted-foreground">{f.desc}</p>
                 </div>
               </div>
             ))}
@@ -110,23 +115,23 @@ export default function Register() {
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-8">
             <Link to="/" className="inline-flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
+              <div className="w-8 h-8 bg-primary rounded-[3px] flex items-center justify-center">
                 <span className="text-primary-foreground font-semibold text-xs">PI</span>
               </div>
             </Link>
           </div>
 
-          <div className="mb-8">
-            <h1 className="text-xl font-semibold text-foreground mb-1">Crear Cuenta</h1>
-            <p className="text-sm text-muted-foreground">Completa tus datos para comenzar</p>
+          <div className="mb-7">
+            <h1 className="text-[18px] font-semibold text-foreground mb-1">Crear Cuenta</h1>
+            <p className="text-[13px] text-muted-foreground">Completa tus datos para comenzar</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}
             <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">Nombre completo *</label>
+              <label className="block text-[12px] font-medium text-foreground mb-1.5">Nombre completo *</label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <input
                   type="text"
                   value={formData.name}
@@ -140,9 +145,9 @@ export default function Register() {
             {/* Email & Phone row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-foreground mb-1.5">Correo *</label>
+                <label className="block text-[12px] font-medium text-foreground mb-1.5">Correo *</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                   <input
                     type="email"
                     value={formData.email}
@@ -153,9 +158,9 @@ export default function Register() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-foreground mb-1.5">Teléfono</label>
+                <label className="block text-[12px] font-medium text-foreground mb-1.5">Teléfono</label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                   <input
                     type="tel"
                     value={formData.phone}
@@ -169,21 +174,21 @@ export default function Register() {
 
             {/* Password */}
             <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">Contraseña *</label>
+              <label className="block text-[12px] font-medium text-foreground mb-1.5">Contraseña *</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Lock className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="••••••••"
-                  className="w-full bg-background border border-input rounded-md pl-9 pr-10 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                  className="w-full bg-surface-secondary border border-border rounded-[3px] pl-8 pr-10 py-2 text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-colors"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
@@ -210,21 +215,21 @@ export default function Register() {
 
             {/* Confirm Password */}
             <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">Confirmar contraseña *</label>
+              <label className="block text-[12px] font-medium text-foreground mb-1.5">Confirmar contraseña *</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Lock className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   placeholder="••••••••"
-                  className="w-full bg-background border border-input rounded-md pl-9 pr-10 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                  className="w-full bg-surface-secondary border border-border rounded-[3px] pl-8 pr-10 py-2 text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-colors"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   aria-label={showConfirmPassword ? 'Ocultar confirmación de contraseña' : 'Mostrar confirmación de contraseña'}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
@@ -249,8 +254,8 @@ export default function Register() {
 
             {/* Terms */}
             <label className="flex items-start gap-1.5 cursor-pointer">
-              <input type="checkbox" required className="w-3.5 h-3.5 rounded border-input mt-0.5" />
-              <span className="text-xs text-muted-foreground">
+              <input type="checkbox" required className="w-3.5 h-3.5 rounded-[3px] border-input mt-0.5" />
+              <span className="text-[11px] text-muted-foreground">
                 Acepto los <a href="#" className="text-primary hover:underline">términos</a> y la <a href="#" className="text-primary hover:underline">política de privacidad</a>
               </span>
             </label>
@@ -259,7 +264,7 @@ export default function Register() {
             <LoadingButton
               type="submit"
               loading={isLoading}
-              className="w-full bg-primary hover:bg-primary-hover text-primary-foreground rounded-md py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] py-2.5 text-[13px] font-medium transition-colors flex items-center justify-center gap-2"
             >
               Crear Cuenta
               <ArrowRight className="w-3.5 h-3.5" />
@@ -276,7 +281,7 @@ export default function Register() {
             </div>
           </div>
 
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-[12px] text-muted-foreground">
             ¿Ya tienes cuenta?{' '}
             <Link to="/login" className="text-primary hover:underline font-medium">Inicia sesión</Link>
           </p>

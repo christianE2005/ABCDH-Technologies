@@ -3,121 +3,58 @@ import { useSearchParams } from 'react-router';
 import { DndContext, DragEndEvent, DragOverlay, closestCenter, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, GripVertical, Calendar, User, AlertCircle, X, LayoutGrid, List, Search } from 'lucide-react';
+import { Plus, GripVertical, Calendar, User, AlertCircle, X, LayoutGrid, List, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
-import { useProjects } from '../hooks/useProjectData';
+import { useApiProjects, useApiBoards, useApiTasks } from '../hooks/useProjectData';
+import { tasksService } from '../../services';
+import type { ApiTask, ApiTaskStatus, ApiTaskPriority } from '../../services';
 
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  priority: 'high' | 'medium' | 'low';
-  assignee: string;
-  dueDate: string;
-  project: string;
-  projectId: number;
-  status: 'pending' | 'in_progress' | 'completed';
+// ── Helpers ──
+
+function priorityColor(level: number) {
+  if (level >= 3) return 'bg-destructive';
+  if (level === 2) return 'bg-warning';
+  return 'bg-info';
 }
 
-const initialTasks: Task[] = [
-  // ERP Modernization (id: 1)
-  { id: '1', title: 'Diseñar arquitectura de microservicios', description: 'Definir estructura de servicios y comunicación entre componentes', priority: 'high', assignee: 'Carlos R.', dueDate: '28 Feb', project: 'ERP Modernization', projectId: 1, status: 'pending' },
-  { id: '4', title: 'Desarrollo API REST', description: 'Implementar endpoints de autenticación y usuarios', priority: 'high', assignee: 'Luis B.', dueDate: '05 Mar', project: 'ERP Modernization', projectId: 1, status: 'in_progress' },
-  { id: '6', title: 'Setup inicial del proyecto', description: 'Configuración de repositorio y ambiente de desarrollo', priority: 'low', assignee: 'María G.', dueDate: '15 Feb', project: 'ERP Modernization', projectId: 1, status: 'completed' },
-  // Cloud Migration (id: 2)
-  { id: '2', title: 'Configurar pipeline CI/CD', description: 'Implementar pipeline automático de deploy en AWS', priority: 'medium', assignee: 'Sandra L.', dueDate: '02 Mar', project: 'Cloud Migration', projectId: 2, status: 'pending' },
-  { id: '7', title: 'Documentación técnica', description: 'Crear documentación de arquitectura y APIs', priority: 'low', assignee: 'Sofia F.', dueDate: '20 Feb', project: 'Cloud Migration', projectId: 2, status: 'completed' },
-  { id: '9', title: 'Migración de base de datos', description: 'Migrar BD principal a AWS RDS con réplicas', priority: 'high', assignee: 'Carlos R.', dueDate: '10 Mar', project: 'Cloud Migration', projectId: 2, status: 'in_progress' },
-  // Mobile App (id: 3)
-  { id: '5', title: 'Testing de integración', description: 'Pruebas end-to-end de flujos principales', priority: 'medium', assignee: 'Pedro Q.', dueDate: '08 Mar', project: 'Mobile App', projectId: 3, status: 'in_progress' },
-  { id: '8', title: 'Revisión de código', description: 'Code review de módulos principales', priority: 'medium', assignee: 'Carlos R.', dueDate: '22 Feb', project: 'Mobile App', projectId: 3, status: 'completed' },
-  { id: '10', title: 'Implementar push notifications', description: 'Sistema de notificaciones para iOS y Android', priority: 'medium', assignee: 'Ana M.', dueDate: '15 Mar', project: 'Mobile App', projectId: 3, status: 'pending' },
-  // Security Audit (id: 4)
-  { id: '3', title: 'Auditoría de seguridad', description: 'Revisar vulnerabilidades en aplicación legacy', priority: 'high', assignee: 'Roberto S.', dueDate: '01 Mar', project: 'Security Audit', projectId: 4, status: 'pending' },
-  { id: '11', title: 'Penetration testing', description: 'Ejecutar tests de penetración en entornos de staging', priority: 'high', assignee: 'Roberto S.', dueDate: '12 Mar', project: 'Security Audit', projectId: 4, status: 'pending' },
-  { id: '12', title: 'Reporte de compliance SOC 2', description: 'Documentar hallazgos y plan de remediación', priority: 'high', assignee: 'Roberto S.', dueDate: '20 Mar', project: 'Security Audit', projectId: 4, status: 'pending' },
-  // Data Analytics (id: 5)
-  { id: '13', title: 'Diseño de data warehouse', description: 'Modelado dimensional para reportes de BI', priority: 'medium', assignee: 'Laura T.', dueDate: '15 Mar', project: 'Data Analytics', projectId: 5, status: 'in_progress' },
-  { id: '14', title: 'ETL pipelines', description: 'Construir pipelines de extracción y transformación', priority: 'medium', assignee: 'Laura T.', dueDate: '01 Abr', project: 'Data Analytics', projectId: 5, status: 'pending' },
-  // API Gateway (id: 6)
-  { id: '15', title: 'Configurar rate limiting', description: 'Implementar throttling y rate limiting por API key', priority: 'low', assignee: 'Diego M.', dueDate: '25 Feb', project: 'API Gateway', projectId: 6, status: 'completed' },
-  { id: '16', title: 'Documentación OpenAPI', description: 'Generar specs Swagger para todos los endpoints', priority: 'low', assignee: 'Diego M.', dueDate: '28 Feb', project: 'API Gateway', projectId: 6, status: 'completed' },
-  // DevOps Pipeline (id: 7)
-  { id: '17', title: 'Configurar Kubernetes cluster', description: 'Setup de cluster K8s para staging y producción', priority: 'high', assignee: 'Sandra L.', dueDate: '10 Mar', project: 'DevOps Pipeline', projectId: 7, status: 'in_progress' },
-  { id: '18', title: 'Monitoreo con Grafana', description: 'Dashboard de monitoreo y alertas con Prometheus/Grafana', priority: 'medium', assignee: 'Sandra L.', dueDate: '20 Mar', project: 'DevOps Pipeline', projectId: 7, status: 'pending' },
-  // UX Redesign (id: 8)
-  { id: '19', title: 'Research de usuarios', description: 'Entrevistas y encuestas con usuarios clave del portal', priority: 'medium', assignee: 'Paula H.', dueDate: '01 Mar', project: 'UX Redesign', projectId: 8, status: 'completed' },
-  { id: '20', title: 'Wireframes de navegación', description: 'Diseño de nueva arquitectura de información', priority: 'medium', assignee: 'Paula H.', dueDate: '15 Mar', project: 'UX Redesign', projectId: 8, status: 'in_progress' },
-];
+function statusDotColor(index: number, total: number) {
+  if (index === total - 1) return 'bg-success';
+  if (index === 0) return 'bg-muted-foreground';
+  return 'bg-warning';
+}
 
-const statusLabels: Record<Task['status'], string> = {
-  pending: 'Pendiente',
-  in_progress: 'En Proceso',
-  completed: 'Completada',
-};
+// ── Task Card (draggable) ──
 
-const statusDot: Record<string, string> = {
-  pending: 'bg-muted-foreground',
-  in_progress: 'bg-warning',
-  completed: 'bg-success',
-};
+function TaskCard({ task, statuses, priorities }: { task: ApiTask; statuses: ApiTaskStatus[]; priorities: ApiTaskPriority[] }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id_task });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
-const priorityDot: Record<Task['priority'], string> = {
-  high: 'bg-destructive',
-  medium: 'bg-warning',
-  low: 'bg-info',
-};
-
-function TaskCard({ task }: { task: Task }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
+  const prio = priorities.find((p) => p.id_priority === task.priority);
+  const prioLevel = prio?.level ?? 0;
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="bg-card border border-border rounded-md p-3 mb-2 hover:border-primary/30 transition-colors cursor-move group"
-      {...attributes}
-      {...listeners}
-    >
+    <div ref={setNodeRef} style={style} className="bg-card border border-border rounded-[4px] p-2.5 mb-1.5 hover:border-primary/30 transition-colors cursor-move group" {...attributes} {...listeners}>
       <div className="flex items-start gap-2">
         <GripVertical className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-1">
-            <span className={`w-2 h-2 rounded-full shrink-0 ${priorityDot[task.priority]}`} />
-            <h3 className="text-sm font-medium text-foreground truncate">{task.title}</h3>
+            <span className={`w-2 h-2 rounded-full shrink-0 ${priorityColor(prioLevel)}`} />
+            <h3 className="text-[12px] font-medium text-foreground truncate">{task.title}</h3>
           </div>
-          <p className="text-xs text-muted-foreground line-clamp-2 ml-3.5">{task.description}</p>
+          {task.description && <p className="text-[11px] text-muted-foreground line-clamp-2 ml-3.5">{task.description}</p>}
         </div>
       </div>
-
       <div className="flex items-center justify-between mt-2.5 ml-3.5">
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <User className="w-3 h-3" />
-            {task.assignee}
-          </span>
-          <span className="flex items-center gap-1">
-            <Calendar className="w-3 h-3" />
-            {task.dueDate}
-          </span>
+          {task.assigned_to && (
+            <span className="flex items-center gap-1"><User className="w-3 h-3" />#{task.assigned_to}</span>
+          )}
+          {task.due_date && (
+            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{task.due_date}</span>
+          )}
         </div>
-        <span className="text-[10px] px-1.5 py-0.5 bg-secondary text-muted-foreground rounded font-medium">
-          {task.project}
-        </span>
+        {prio && <span className="text-[10px] px-1.5 py-0.5 bg-secondary text-muted-foreground rounded font-medium">{prio.name}</span>}
       </div>
     </div>
   );
@@ -128,228 +65,259 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   return <div ref={setNodeRef}>{children}</div>;
 }
 
+// ── Main component ──
+
 export default function Backlog() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { allProjects } = useProjects();
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+
+  // Project + Board pickers
+  const { data: projects, loading: loadingProjects } = useApiProjects();
   const [selectedProject, setSelectedProject] = useState<number | null>(() => {
     const p = searchParams.get('project');
     return p ? Number(p) : null;
   });
+  const { data: boards, loading: loadingBoards } = useApiBoards(selectedProject ?? undefined);
+  const [selectedBoard, setSelectedBoard] = useState<number | undefined>(undefined);
+
+  // Tasks for the selected board
+  const { data: tasks, loading: loadingTasks, statuses, priorities, refetch: refetchTasks } = useApiTasks(selectedBoard);
+
+  const loading = loadingProjects || loadingBoards || loadingTasks;
+
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [showAddTask, setShowAddTask] = useState(false);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState<number | 'all'>('all');
+  const [selectedTask, setSelectedTask] = useState<ApiTask | null>(null);
+  const [creating, setCreating] = useState(false);
 
+  // Form state
+  const [formTitle, setFormTitle] = useState('');
+  const [formDesc, setFormDesc] = useState('');
+  const [formPriority, setFormPriority] = useState<number | ''>('');
+  const [formDue, setFormDue] = useState('');
+
+  // Sync URL param
   useEffect(() => {
     const p = searchParams.get('project');
     if (p !== null) setSelectedProject(Number(p));
   }, [searchParams]);
 
+  // Auto-select first board when boards load
+  useEffect(() => {
+    if (boards && boards.length > 0 && !selectedBoard) {
+      setSelectedBoard(boards[0].id_board);
+    }
+  }, [boards, selectedBoard]);
+
+  // Reset board when project changes
+  useEffect(() => { setSelectedBoard(undefined); }, [selectedProject]);
+
   const handleProjectFilter = (projectId: number | null) => {
     setSelectedProject(projectId);
-    if (projectId) {
-      setSearchParams({ project: String(projectId) });
-    } else {
-      setSearchParams({});
-    }
+    if (projectId) setSearchParams({ project: String(projectId) });
+    else setSearchParams({});
   };
 
+  // Filter tasks by search & priority
   const filteredTasks = useMemo(() => {
-    let result = tasks;
-    if (selectedProject !== null) {
-      result = result.filter(t => t.projectId === selectedProject);
+    let result = tasks ?? [];
+    if (priorityFilter !== 'all') {
+      result = result.filter((t) => t.priority === priorityFilter);
     }
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      result = result.filter(t =>
-        t.title.toLowerCase().includes(term) ||
-        t.assignee.toLowerCase().includes(term) ||
-        t.project.toLowerCase().includes(term)
-      );
+      result = result.filter((t) => t.title.toLowerCase().includes(term));
     }
     return result;
-  }, [tasks, selectedProject, searchTerm]);
+  }, [tasks, priorityFilter, searchTerm]);
 
-  const columns = useMemo(() => [
-    { id: 'pending' as const, title: 'Pendiente', tasks: filteredTasks.filter(t => t.status === 'pending') },
-    { id: 'in_progress' as const, title: 'En Proceso', tasks: filteredTasks.filter(t => t.status === 'in_progress') },
-    { id: 'completed' as const, title: 'Completada', tasks: filteredTasks.filter(t => t.status === 'completed') },
-  ], [filteredTasks]);
+  // Build kanban columns from real statuses
+  const columns = useMemo(() => {
+    return statuses.map((s, idx) => ({
+      status: s,
+      dotColor: statusDotColor(idx, statuses.length),
+      tasks: filteredTasks.filter((t) => t.status === s.id_status),
+    }));
+  }, [statuses, filteredTasks]);
 
-  const handleDragStart = (event: { active: { id: string | number } }) => {
-    setActiveId(String(event.active.id));
-  };
+  // ── Drag handlers ──
+  const handleDragStart = (event: { active: { id: string | number } }) => setActiveId(Number(event.active.id));
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
     if (!over) return;
 
     const overId = String(over.id);
-    let targetStatus: Task['status'] | null = null;
-
-    if (['pending', 'in_progress', 'completed'].includes(overId)) {
-      targetStatus = overId as Task['status'];
+    // Target status: either a column droppable or a task in a column
+    let targetStatusId: number | null = null;
+    const colMatch = statuses.find((s) => String(s.id_status) === overId);
+    if (colMatch) {
+      targetStatusId = colMatch.id_status;
     } else {
-      const overTask = tasks.find(t => t.id === overId);
-      if (overTask) targetStatus = overTask.status;
+      const overTask = (tasks ?? []).find((t) => t.id_task === Number(overId));
+      if (overTask) targetStatusId = overTask.status;
     }
+    if (targetStatusId === null) return;
 
-    if (!targetStatus) return;
+    const activeTask = (tasks ?? []).find((t) => t.id_task === Number(active.id));
+    if (!activeTask || activeTask.status === targetStatusId) return;
 
-    const activeTask = tasks.find(t => t.id === String(active.id));
-    if (!activeTask || activeTask.status === targetStatus) return;
-
-    setTasks(prev => prev.map(t =>
-      t.id === String(active.id) ? { ...t, status: targetStatus! } : t
-    ));
-    toast.success(`Tarea movida a ${statusLabels[targetStatus]}`);
+    const statusName = statuses.find((s) => s.id_status === targetStatusId)?.name ?? '';
+    try {
+      await tasksService.update(activeTask.id_task, { status: targetStatusId });
+      toast.success(`Tarea movida a ${statusName}`);
+      refetchTasks();
+    } catch {
+      toast.error('Error al mover la tarea');
+    }
   };
 
-  const activeTask = activeId ? tasks.find(t => t.id === activeId) : null;
-  const selectedProjectData = selectedProject ? allProjects.find(p => p.id === selectedProject) : null;
+  const activeTask = activeId ? (tasks ?? []).find((t) => t.id_task === activeId) ?? null : null;
+  const selectedProjectData = selectedProject && projects ? projects.find((p) => p.id_project === selectedProject) ?? null : null;
+
+  // ── Create task ──
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedBoard) { toast.error('Selecciona un board primero'); return; }
+    setCreating(true);
+    try {
+      await tasksService.create({
+        board: selectedBoard,
+        title: formTitle,
+        description: formDesc || undefined,
+        priority: formPriority !== '' ? formPriority : undefined,
+        due_date: formDue || undefined,
+      });
+      toast.success('Tarea creada exitosamente');
+      setShowAddTask(false);
+      setFormTitle(''); setFormDesc(''); setFormPriority(''); setFormDue('');
+      refetchTasks();
+    } catch {
+      toast.error('Error al crear la tarea');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // ── Update task status from slideout ──
+  const handleStatusChange = async (task: ApiTask, newStatusId: number) => {
+    try {
+      await tasksService.update(task.id_task, { status: newStatusId });
+      setSelectedTask((prev) => prev ? { ...prev, status: newStatusId } : null);
+      refetchTasks();
+      const sName = statuses.find((s) => s.id_status === newStatusId)?.name ?? '';
+      toast.success(`Estado actualizado a "${sName}"`);
+    } catch {
+      toast.error('Error al actualizar estado');
+    }
+  };
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-5 max-w-[1400px]">
+    <div className="px-4 pb-6 pt-3 space-y-3 max-w-[1600px]">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Backlog</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-[13px] font-semibold text-foreground">Backlog</h1>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
             {selectedProjectData
               ? <>Tareas de <span className="text-foreground font-medium">{selectedProjectData.name}</span></>
               : 'Gestiona tareas de todos los proyectos'}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* View Toggle */}
-          <div className="flex items-center bg-secondary rounded-md p-0.5">
-            <button
-              onClick={() => setViewMode('kanban')}
-              className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                viewMode === 'kanban' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              Kanban
+          <div className="flex items-center bg-surface-secondary border border-border rounded-[3px] p-0.5">
+            <button onClick={() => setViewMode('kanban')} className={`px-2 py-1 rounded-[2px] text-[11px] font-medium transition-colors flex items-center gap-1 ${viewMode === 'kanban' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+              <LayoutGrid className="w-3 h-3" /> Kanban
             </button>
-            <button
-              onClick={() => setViewMode('table')}
-              className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                viewMode === 'table' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <List className="w-3.5 h-3.5" />
-              Tabla
+            <button onClick={() => setViewMode('table')} className={`px-2 py-1 rounded-[2px] text-[11px] font-medium transition-colors flex items-center gap-1 ${viewMode === 'table' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+              <List className="w-3 h-3" /> Tabla
             </button>
           </div>
-          <button
-            onClick={() => setShowAddTask(true)}
-            className="px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground rounded-md text-sm font-medium flex items-center gap-1.5 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Nueva tarea
+          <button onClick={() => setShowAddTask(true)} disabled={!selectedBoard} className="h-7 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50">
+            <Plus className="w-3.5 h-3.5" /> Nueva tarea
           </button>
         </div>
       </div>
 
-      {/* Project Filter & Search */}
-      <div className="space-y-3">
-        {/* Project Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          <button
-            onClick={() => handleProjectFilter(null)}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
-              selectedProject === null
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-muted-foreground hover:text-foreground hover:bg-accent'
-            }`}
-          >
+      {/* Project pills + board picker */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          <button onClick={() => handleProjectFilter(null)} className={`px-2.5 py-1 rounded-[3px] text-[11px] font-medium whitespace-nowrap transition-colors ${selectedProject === null ? 'bg-primary text-primary-foreground' : 'bg-surface-secondary border border-border text-muted-foreground hover:text-foreground'}`}>
             Todos
           </button>
-          {allProjects.map((project) => {
-            const taskCount = tasks.filter(t => t.projectId === project.id).length;
-            return (
-              <button
-                key={project.id}
-                onClick={() => handleProjectFilter(project.id)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-                  selectedProject === project.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-muted-foreground hover:text-foreground hover:bg-accent'
-                }`}
-              >
-                {project.name}
-                <span className={`text-[10px] px-1.5 rounded-full ${
-                  selectedProject === project.id
-                    ? 'bg-primary-foreground/20 text-primary-foreground'
-                    : 'bg-background text-muted-foreground'
-                }`}>
-                  {taskCount}
-                </span>
-              </button>
-            );
-          })}
+          {(projects ?? []).map((project) => (
+            <button key={project.id_project} onClick={() => handleProjectFilter(project.id_project)} className={`px-2.5 py-1 rounded-[3px] text-[11px] font-medium whitespace-nowrap transition-colors ${selectedProject === project.id_project ? 'bg-primary text-primary-foreground' : 'bg-surface-secondary border border-border text-muted-foreground hover:text-foreground'}`}>
+              {project.name}
+            </button>
+          ))}
         </div>
 
-        {/* Search */}
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por título, persona o proyecto..."
-            className="w-full bg-background border border-input rounded-md pl-9 pr-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-          />
+        {/* Board dropdown + priority filter + search */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {selectedProject && boards && boards.length > 0 && (
+            <select value={selectedBoard ?? ''} onChange={(e) => setSelectedBoard(Number(e.target.value))} className="h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20">
+              {boards.map((b) => (<option key={b.id_board} value={b.id_board}>{b.name}</option>))}
+            </select>
+          )}
+
+          {priorities.length > 0 && (
+            <div className="flex items-center gap-0 border border-border rounded-[3px] overflow-hidden">
+              <button onClick={() => setPriorityFilter('all')} className={`px-2.5 py-1 text-[11px] font-medium border-r border-border transition-colors ${priorityFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:text-foreground hover:bg-accent'}`}>
+                Prioridad
+              </button>
+              {priorities.map((p) => (
+                <button key={p.id_priority} onClick={() => setPriorityFilter(p.id_priority)} className={`px-2.5 py-1 text-[11px] font-medium border-r border-border last:border-r-0 transition-colors ${priorityFilter === p.id_priority ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:text-foreground hover:bg-accent'}`}>
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${priorityColor(p.level)}`} />
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+            <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar tareas…" className="h-7 bg-surface-secondary border border-border rounded-[3px] pl-7 pr-3 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20 w-48" />
+          </div>
         </div>
       </div>
 
-      {/* Views */}
-      {viewMode === 'kanban' ? (
-        /* Kanban Board */
-        <DndContext
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {columns.map((column, colIndex) => (
-              <DroppableColumn key={column.id} id={column.id}>
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.35, delay: colIndex * 0.1, ease: 'easeOut' }}
-                  className="bg-secondary/50 rounded-lg p-3"
-                >
-                  <div className="flex items-center justify-between mb-3 px-1">
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-24"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+      )}
+
+      {/* No board selected */}
+      {!loading && !selectedBoard && selectedProject && (
+        <div className="py-16 text-center text-[12px] text-muted-foreground">Este proyecto no tiene boards. Crea uno primero.</div>
+      )}
+
+      {/* Kanban view */}
+      {!loading && selectedBoard && viewMode === 'kanban' && (
+        <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}>
+            {columns.map((col, colIndex) => (
+              <DroppableColumn key={col.status.id_status} id={String(col.status.id_status)}>
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: colIndex * 0.1, ease: 'easeOut' }} className="bg-surface-secondary/50 border border-border rounded-[4px] p-2.5">
+                  <div className="flex items-center justify-between mb-2 px-1">
                     <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${statusDot[column.id]}`} />
-                      <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide">{column.title}</h2>
-                      <span className="text-[11px] text-muted-foreground font-medium">{column.tasks.length}</span>
+                      <span className={`w-2 h-2 rounded-full ${col.dotColor}`} />
+                      <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">{col.status.name}</h2>
+                      <span className="text-[10px] text-muted-foreground font-medium bg-card px-1.5 py-0.5 rounded-full">{col.tasks.length}</span>
                     </div>
                   </div>
-
-                  <SortableContext
-                    items={column.tasks.map(task => task.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
+                  <SortableContext items={col.tasks.map((t) => t.id_task)} strategy={verticalListSortingStrategy}>
                     <div className="min-h-[200px]">
-                      {column.tasks.map((task, taskIndex) => (
-                        <motion.div
-                          key={task.id}
-                          initial={{ opacity: 0, x: -12 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.3, delay: colIndex * 0.1 + taskIndex * 0.05, ease: 'easeOut' }}
-                        >
-                          <TaskCard task={task} />
+                      {col.tasks.map((task, taskIndex) => (
+                        <motion.div key={task.id_task} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: colIndex * 0.1 + taskIndex * 0.05, ease: 'easeOut' }}>
+                          <TaskCard task={task} statuses={statuses} priorities={priorities} />
                         </motion.div>
                       ))}
                     </div>
                   </SortableContext>
-
-                  {column.tasks.length === 0 && (
+                  {col.tasks.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-10 text-center">
                       <AlertCircle className="w-5 h-5 text-muted-foreground mb-2" />
                       <p className="text-xs text-muted-foreground">Sin tareas</p>
@@ -359,202 +327,146 @@ export default function Backlog() {
               </DroppableColumn>
             ))}
           </div>
-
           <DragOverlay>
             {activeTask && (
-              <div className="bg-card border border-primary rounded-md p-3 rotate-2 opacity-90">
-                <h3 className="text-sm font-medium text-foreground">{activeTask.title}</h3>
+              <div className="bg-card border border-primary rounded-[4px] p-2.5 rotate-2 opacity-90">
+                <h3 className="text-[12px] font-medium text-foreground">{activeTask.title}</h3>
               </div>
             )}
           </DragOverlay>
         </DndContext>
-      ) : (
-        /* Table View (GitHub Projects style) */
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          {/* Table Header */}
-          <div className="grid grid-cols-[40px_1fr_140px_120px_100px_100px] gap-0 border-b border-border bg-secondary/30 px-4 py-2.5">
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">#</span>
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Título</span>
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Asignado</span>
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Estado</span>
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Prioridad</span>
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide text-right">Fecha</span>
+      )}
+
+      {/* Table view */}
+      {!loading && selectedBoard && viewMode === 'table' && (
+        <div className="bg-card border border-border rounded-[4px] overflow-hidden">
+          <div className="grid grid-cols-[40px_1fr_120px_100px_100px] gap-0 border-b border-border bg-surface-secondary/50 px-4 py-1.5">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">#</span>
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Título</span>
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</span>
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Prioridad</span>
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] text-right">Fecha</span>
           </div>
-
-          {/* Table Rows */}
           {filteredTasks.length > 0 ? (
-            filteredTasks.map((task, index) => (
-              <motion.div
-                key={task.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.04, ease: 'easeOut' }}
-                className="grid grid-cols-[40px_1fr_140px_120px_100px_100px] gap-0 px-4 py-3 border-b border-border/50 hover:bg-accent/30 transition-colors items-center"
-              >
-                <span className="text-xs text-muted-foreground">{index + 1}</span>
-
-                <div className="min-w-0 pr-4">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${priorityDot[task.priority]}`} />
-                    <span className="text-sm font-medium text-foreground truncate">{task.title}</span>
+            filteredTasks.map((task, index) => {
+              const st = statuses.find((s) => s.id_status === task.status);
+              const pr = priorities.find((p) => p.id_priority === task.priority);
+              return (
+                <motion.div key={task.id_task} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.04, ease: 'easeOut' }} className="grid grid-cols-[40px_1fr_120px_100px_100px] gap-0 px-4 py-2 border-b border-border/50 hover:bg-accent/30 transition-colors items-center cursor-pointer" onClick={() => setSelectedTask(task)}>
+                  <span className="text-[11px] text-muted-foreground">{index + 1}</span>
+                  <div className="min-w-0 pr-4">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${priorityColor(pr?.level ?? 0)}`} />
+                      <span className="text-[12px] font-medium text-foreground truncate">{task.title}</span>
+                    </div>
+                    {task.description && <span className="text-[11px] text-muted-foreground truncate ml-4 block">{task.description}</span>}
                   </div>
-                  <div className="flex items-center gap-2 mt-0.5 ml-4">
-                    <span className="text-[10px] px-1.5 py-0.5 bg-secondary text-muted-foreground rounded font-medium">
-                      {task.project}
-                    </span>
-                    <span className="text-xs text-muted-foreground truncate">{task.description}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-medium shrink-0">
-                    {task.assignee.charAt(0)}
-                  </div>
-                  <span className="text-xs text-foreground truncate">{task.assignee}</span>
-                </div>
-
-                <div>
-                  <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${
-                    task.status === 'completed' ? 'bg-success/10 text-success' :
-                    task.status === 'in_progress' ? 'bg-warning/10 text-warning' :
-                    'bg-secondary text-muted-foreground'
-                  }`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${statusDot[task.status]}`} />
-                    {statusLabels[task.status]}
+                  <div><span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{st?.name ?? '—'}</span></div>
+                  <span className="text-[11px] font-medium text-muted-foreground">{pr?.name ?? '—'}</span>
+                  <span className="text-xs text-muted-foreground text-right flex items-center justify-end gap-1">
+                    {task.due_date && <><Calendar className="w-3 h-3" />{task.due_date}</>}
                   </span>
-                </div>
-
-                <div>
-                  <span className={`text-[11px] font-medium ${
-                    task.priority === 'high' ? 'text-destructive' :
-                    task.priority === 'medium' ? 'text-warning' :
-                    'text-muted-foreground'
-                  }`}>
-                    {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Media' : 'Baja'}
-                  </span>
-                </div>
-
-                <span className="text-xs text-muted-foreground text-right flex items-center justify-end gap-1">
-                  <Calendar className="w-3 h-3" />
-                  {task.dueDate}
-                </span>
-              </motion.div>
-            ))
+                </motion.div>
+              );
+            })
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <AlertCircle className="w-6 h-6 text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground">No hay tareas para este filtro</p>
             </div>
           )}
-
-          {/* Footer */}
-          <div className="px-4 py-2.5 bg-secondary/20 border-t border-border/50">
-            <p className="text-[11px] text-muted-foreground">
-              {filteredTasks.length} tarea{filteredTasks.length !== 1 ? 's' : ''}
-              {selectedProjectData ? ` en ${selectedProjectData.name}` : ' en total'}
-            </p>
+          <div className="px-4 py-1.5 bg-surface-secondary/50 border-t border-border">
+            <p className="text-[10px] text-muted-foreground">{filteredTasks.length} tarea{filteredTasks.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
       )}
 
       {/* Add Task Modal */}
       {showAddTask && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-6">
-          <div className="bg-card border border-border rounded-lg p-6 max-w-lg w-full">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-semibold text-foreground">Nueva Tarea</h2>
-              <button onClick={() => setShowAddTask(false)} className="p-1 rounded hover:bg-accent transition-colors">
-                <X className="w-4 h-4 text-muted-foreground" />
-              </button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setShowAddTask(false)}>
+          <div className="bg-card border border-border rounded-[4px] p-5 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[13px] font-semibold text-foreground">Nueva Tarea</h2>
+              <button onClick={() => setShowAddTask(false)} className="p-0.5 rounded-[3px] hover:bg-surface-secondary transition-colors"><X className="w-3.5 h-3.5 text-muted-foreground" /></button>
             </div>
-
-            <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); setShowAddTask(false); toast.success('Tarea creada exitosamente'); }}>
+            <form className="space-y-3" onSubmit={handleCreateTask}>
               <div>
-                <label className="block text-xs font-medium text-foreground mb-1.5">Título *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej: Implementar módulo de reportes"
-                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-                />
+                <label className="block text-[11px] font-medium text-foreground mb-1">Título *</label>
+                <input type="text" required value={formTitle} onChange={(e) => setFormTitle(e.target.value)} placeholder="Ej: Implementar módulo de reportes" className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20" />
               </div>
-
               <div>
-                <label className="block text-xs font-medium text-foreground mb-1.5">Descripción</label>
-                <textarea
-                  rows={2}
-                  placeholder="Describe la actividad..."
-                  className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors resize-none"
-                />
+                <label className="block text-[11px] font-medium text-foreground mb-1">Descripción</label>
+                <textarea rows={2} value={formDesc} onChange={(e) => setFormDesc(e.target.value)} placeholder="Describe la actividad..." className="w-full bg-surface-secondary border border-border rounded-[3px] px-2.5 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-none" />
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-foreground mb-1.5">Prioridad *</label>
-                  <select className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors">
-                    <option>Alta</option>
-                    <option>Media</option>
-                    <option>Baja</option>
+                  <label className="block text-[11px] font-medium text-foreground mb-1">Prioridad</label>
+                  <select value={formPriority} onChange={(e) => setFormPriority(e.target.value ? Number(e.target.value) : '')} className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20">
+                    <option value="">Sin prioridad</option>
+                    {priorities.map((p) => (<option key={p.id_priority} value={p.id_priority}>{p.name}</option>))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-foreground mb-1.5">Asignar a *</label>
-                  <select required defaultValue="" className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors">
-                    <option value="" disabled>Seleccionar...</option>
-                    <option>María G.</option>
-                    <option>Carlos R.</option>
-                    <option>Ana M.</option>
-                    <option>Roberto S.</option>
-                    <option>Laura T.</option>
-                    <option>Diego M.</option>
-                    <option>Sandra L.</option>
-                    <option>Paula H.</option>
-                  </select>
+                  <label className="block text-[11px] font-medium text-foreground mb-1">Fecha Límite</label>
+                  <input type="date" value={formDue} onChange={(e) => setFormDue(e.target.value)} className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20" />
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-foreground mb-1.5">Proyecto *</label>
-                  <select
-                    required
-                    defaultValue={selectedProject ? String(selectedProject) : ''}
-                    className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-                  >
-                    <option value="" disabled>Seleccionar proyecto...</option>
-                    {allProjects.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-foreground mb-1.5">Fecha Límite</label>
-                  <input
-                    type="date"
-                    className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddTask(false)}
-                  className="flex-1 px-4 py-2 bg-secondary hover:bg-accent text-foreground rounded-md text-sm font-medium transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground rounded-md text-sm font-medium transition-colors"
-                >
-                  Crear
-                </button>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setShowAddTask(false)} className="flex-1 h-7 border border-border rounded-[3px] text-[11px] font-medium text-foreground hover:bg-surface-secondary transition-colors">Cancelar</button>
+                <button type="submit" disabled={creating} className="flex-1 h-7 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50">{creating ? 'Creando…' : 'Crear'}</button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Task Slideout Panel */}
+      <div className={`fixed top-0 right-0 h-full w-[380px] bg-card border-l border-border z-40 transition-transform duration-300 ease-in-out flex flex-col ${selectedTask ? 'translate-x-0' : 'translate-x-full'}`}>
+        {selectedTask && (() => {
+          const st = statuses.find((s) => s.id_status === selectedTask.status);
+          const pr = priorities.find((p) => p.id_priority === selectedTask.priority);
+          return (
+            <>
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-secondary/50">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">{pr?.name ?? 'Sin prioridad'}</span>
+                <button onClick={() => setSelectedTask(null)} className="p-0.5 rounded-[3px] hover:bg-surface-secondary transition-colors"><X className="w-3.5 h-3.5 text-muted-foreground" /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div>
+                  <h2 className="text-[13px] font-semibold text-foreground leading-snug">{selectedTask.title}</h2>
+                  {selectedTask.description && <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">{selectedTask.description}</p>}
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-[0.06em]">Estado</span>
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{st?.name ?? '—'}</span>
+                  </div>
+                  {selectedTask.due_date && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-[0.06em]">Fecha límite</span>
+                      <span className="text-[11px] text-foreground flex items-center gap-1"><Calendar className="w-3 h-3" />{selectedTask.due_date}</span>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-2">Cambiar estado</p>
+                  <div className="flex gap-1.5">
+                    {statuses.map((s) => (
+                      <button key={s.id_status} onClick={() => handleStatusChange(selectedTask, s.id_status)} className={`flex-1 py-1 text-[10px] font-medium rounded-[3px] border transition-colors ${selectedTask.status === s.id_status ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-muted-foreground hover:text-foreground hover:bg-surface-secondary'}`}>
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="px-4 py-3 border-t border-border">
+                <button onClick={() => setSelectedTask(null)} className="w-full h-7 bg-surface-secondary hover:bg-accent text-foreground text-[11px] font-medium rounded-[3px] transition-colors">Cerrar</button>
+              </div>
+            </>
+          );
+        })()}
+      </div>
+      {selectedTask && <div className="fixed inset-0 z-30 bg-black/20" onClick={() => setSelectedTask(null)} />}
     </div>
   );
 }

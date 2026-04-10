@@ -1,0 +1,117 @@
+// ─── Backend API types — mirrors Django models exactly ───────────────────────
+
+export interface ApiUserAccount {
+  id_user: number;
+  email: string;
+  username: string;
+  created_at: string;
+}
+
+export interface ApiProject {
+  id_project: number;
+  name: string;
+  description: string | null;
+  created_at: string;
+  end_date: string | null;   // ISO date YYYY-MM-DD
+  status: string | null;     // free-text e.g. "active", "on_hold", "completed"
+  created_by: number | null;
+}
+
+export interface ApiRole {
+  id_role: number;
+  name: string;
+  description: string | null;
+}
+
+export interface ApiProjectMember {
+  id: number;
+  user: number;
+  project: number;
+  role: number | null;
+  joined_at: string;
+}
+
+export interface ApiBoard {
+  id_board: number;
+  project: number;
+  name: string;
+  description: string | null;
+  created_at: string;
+}
+
+export interface ApiTaskStatus {
+  id_status: number;
+  name: string;
+  description: string | null;
+}
+
+export interface ApiTaskPriority {
+  id_priority: number;
+  name: string;
+  level: number;
+}
+
+export interface ApiTask {
+  id_task: number;
+  board: number;
+  title: string;
+  description: string | null;
+  status: number | null;
+  priority: number | null;
+  created_by: number | null;
+  assigned_to: number | null;
+  created_at: string;
+  due_date: string | null;   // ISO date
+  completed_at: string | null;
+}
+
+export interface ApiTaskComment {
+  id_comment: number;
+  task: number;
+  user: number | null;
+  content: string;
+  created_at: string;
+}
+
+export interface ApiActivityLog {
+  id_activity: number;
+  user: number | null;
+  entity_type: string | null;
+  entity_id: number | null;
+  action: string | null;
+  created_at: string;
+}
+
+// ─── Auth response shapes ────────────────────────────────────────────────────
+
+export interface LoginResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_at: string;
+  user: ApiUserAccount;
+}
+
+export interface RefreshResponse {
+  access_token: string;
+  token_type: string;
+  expires_at: string;
+}
+
+export interface RegisterResponse extends ApiUserAccount {}
+
+// ─── DRF paginated list (optional — DRF returns plain arrays by default) ────
+
+export interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
+// ─── API error shape ─────────────────────────────────────────────────────────
+
+export interface ApiError {
+  detail?: string;
+  [field: string]: string | string[] | undefined;
+}

@@ -1,88 +1,198 @@
-import { Bell, Lock, Database, Globe, Mail } from 'lucide-react';
+﻿import { useState, useEffect } from 'react';
+import { Bell, Lock, Database, Globe, Mail, Send } from 'lucide-react';
 import { toast } from 'sonner';
+import { CommandBar } from '../components/CommandBar';
+
+interface ToggleItem {
+  label: string;
+  description?: string;
+  enabled: boolean;
+}
+
+function ToggleRow({ item, onChange }: { item: ToggleItem; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
+      <div>
+        <p className="text-[12px] text-foreground">{item.label}</p>
+        {item.description && <p className="text-[10px] text-muted-foreground mt-0.5">{item.description}</p>}
+      </div>
+      <button
+        onClick={() => onChange(!item.enabled)}
+        role="switch"
+        aria-checked={item.enabled}
+        className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${item.enabled ? 'bg-primary' : 'bg-muted'}`}
+      >
+        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${item.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+      </button>
+    </div>
+  );
+}
+
+function SectionHeader({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+  return (
+    <div className="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-border">
+      <div className="w-6 h-6 bg-primary/10 rounded-[3px] flex items-center justify-center text-primary">
+        {icon}
+      </div>
+      <div>
+        <h2 className="text-[12px] font-semibold text-foreground">{title}</h2>
+        <p className="text-[10px] text-muted-foreground">{description}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function Settings() {
+  const [notifToggles, setNotifToggles] = useState<ToggleItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('pip_settings');
+      if (saved) return JSON.parse(saved).notifToggles;
+    } catch { /* ignore */ }
+    return [
+      { label: 'Alertas de proyectos en riesgo', description: 'Notificacion cuando un proyecto cambia a estado de riesgo', enabled: true },
+      { label: 'Resumen diario por email', description: 'Reporte diario a las 8:00 AM', enabled: true },
+      { label: 'Notificaciones de comentarios', description: 'Cuando alguien comenta en tus proyectos', enabled: false },
+      { label: 'Recordatorios de plazos', description: '3 dias antes del deadline', enabled: true },
+    ];
+  });
+
+  const [emailToggles, setEmailToggles] = useState<ToggleItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('pip_settings');
+      if (saved) return JSON.parse(saved).emailToggles;
+    } catch { /* ignore */ }
+    return [
+      { label: 'Boletines y actualizaciones', enabled: true },
+      { label: 'Tips y mejores practicas', enabled: false },
+      { label: 'Invitaciones a webinars', enabled: false },
+    ];
+  });
+
+  const [testEmail, setTestEmail] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (saved) {
+      const timer = setTimeout(() => setSaved(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [saved]);
+
+  const updateNotif = (i: number, v: boolean) =>
+    setNotifToggles(prev => prev.map((t, idx) => idx === i ? { ...t, enabled: v } : t));
+
+  const updateEmail = (i: number, v: boolean) =>
+    setEmailToggles(prev => prev.map((t, idx) => idx === i ? { ...t, enabled: v } : t));
+
+  const handleSendTest = () => {
+    if (!testEmail) { toast.error('Ingresa un correo electronico'); return; }
+    toast.success('Correo de prueba enviado', { description: `Email enviado a ${testEmail}` });
+  };
+
   return (
-    <div className="px-6 pb-6 pt-2 max-w-[1400px]">
-      <h1 className="text-xl font-semibold text-foreground mb-1">Configuración</h1>
-      <p className="text-sm text-muted-foreground mb-6">Preferencias de la plataforma</p>
+    <div className="px-4 pb-6 pt-3 space-y-3 max-w-[1600px]">
+      <CommandBar
+        actions={[
+          {
+            label: saved ? 'Guardado ✓' : 'Guardar cambios',
+            variant: 'primary',
+            onClick: () => {
+              localStorage.setItem('pip_settings', JSON.stringify({ notifToggles, emailToggles }));
+              setSaved(true);
+              toast.success('Configuración guardada');
+            },
+          },
+        ]}
+      />
 
-      <div className="grid gap-6">
-        {/* Notifications */}
-        <div className="bg-card border border-border rounded-lg p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-primary/10 rounded-md flex items-center justify-center">
-              <Bell className="w-4 h-4 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">Notificaciones</h2>
-              <p className="text-xs text-muted-foreground">Configura cómo recibir alertas</p>
-            </div>
-          </div>
+      <div className="grid gap-3">
+        {/* Notifications (HU-14) */}
+        <div className="bg-card border border-border rounded-[4px] p-4">
+          <SectionHeader
+            icon={<Bell className="w-3.5 h-3.5" />}
+            title="Notificaciones"
+            description="Configura como recibir alertas del sistema"
+          />
+          {notifToggles.map((item, i) => (
+            <ToggleRow key={i} item={item} onChange={(v) => updateNotif(i, v)} />
+          ))}
+        </div>
 
-          <div className="space-y-2">
-            {[
-              { label: 'Alertas de proyectos en riesgo', enabled: true },
-              { label: 'Resumen diario por email', enabled: true },
-              { label: 'Notificaciones de comentarios', enabled: false },
-              { label: 'Recordatorios de plazos', enabled: true },
-            ].map((item, index) => (
-              <div key={index} className="flex items-center justify-between p-3 border border-border rounded-md">
-                <span className="text-sm text-foreground">{item.label}</span>
-                <button className={`w-9 h-5 rounded-full transition-colors ${item.enabled ? 'bg-primary' : 'bg-muted'}`}>
-                  <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${item.enabled ? 'ml-4.5' : 'ml-0.5'}`} />
-                </button>
-              </div>
-            ))}
+        {/* Email notifications with test (HU-14) */}
+        <div className="bg-card border border-border rounded-[4px] p-4">
+          <SectionHeader
+            icon={<Mail className="w-3.5 h-3.5" />}
+            title="Notificaciones por Email"
+            description="Comunicaciones por correo electronico"
+          />
+          {emailToggles.map((item, i) => (
+            <ToggleRow key={i} item={item} onChange={(v) => updateEmail(i, v)} />
+          ))}
+
+          <div className="mt-3 pt-2.5 border-t border-border">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-2">Enviar correo de prueba</p>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                placeholder="tu@correo.com"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                className="flex-1 h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
+              />
+              <button
+                onClick={handleSendTest}
+                className="h-7 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium flex items-center gap-1.5 transition-colors"
+              >
+                <Send className="w-3 h-3" />
+                Enviar prueba
+              </button>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1.5">
+              Endpoint: <code className="text-muted-foreground font-mono">POST /api/notifications/test-email</code>
+            </p>
           </div>
         </div>
 
         {/* Security */}
-        <div className="bg-card border border-border rounded-lg p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-primary/10 rounded-md flex items-center justify-center">
-              <Lock className="w-4 h-4 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">Seguridad</h2>
-              <p className="text-xs text-muted-foreground">Contraseñas y autenticación</p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
+        <div className="bg-card border border-border rounded-[4px] p-4">
+          <SectionHeader
+            icon={<Lock className="w-3.5 h-3.5" />}
+            title="Seguridad"
+            description="Contrasenas y autenticacion"
+          />
+          <div className="space-y-1">
             {[
-              { title: 'Cambiar contraseña', desc: 'Última actualización: hace 45 días' },
-              { title: 'Autenticación de dos factores', desc: 'No configurada' },
+              { title: 'Cambiar contrasena', desc: 'Ultima actualizacion: hace 45 dias' },
+              { title: 'Autenticacion de dos factores', desc: 'No configurada' },
               { title: 'Sesiones activas', desc: 'Ver y gestionar dispositivos' },
             ].map((item, index) => (
-              <button key={index} className="w-full text-left p-3 border border-border rounded-md hover:border-primary/30 transition-colors">
-                <p className="text-sm font-medium text-foreground">{item.title}</p>
-                <p className="text-xs text-muted-foreground">{item.desc}</p>
+              <button
+                key={index}
+                onClick={() => toast.info(item.title)}
+                className="w-full text-left py-2 px-3 border border-border rounded-[4px] hover:border-primary/40 hover:bg-accent/30 transition-colors"
+              >
+                <p className="text-[12px] font-medium text-foreground">{item.title}</p>
+                <p className="text-[10px] text-muted-foreground">{item.desc}</p>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Integration & Data */}
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="bg-card border border-border rounded-lg p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-primary/10 rounded-md flex items-center justify-center">
-                <Globe className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold text-foreground">Integraciones</h2>
-                <p className="text-xs text-muted-foreground">Conecta servicios</p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
+        <div className="grid md:grid-cols-2 gap-3">
+          {/* Integrations */}
+          <div className="bg-card border border-border rounded-[4px] p-4">
+            <SectionHeader
+              icon={<Globe className="w-3.5 h-3.5" />}
+              title="Integraciones"
+              description="Conecta servicios externos"
+            />
+            <div className="space-y-1">
               {['Slack', 'Microsoft Teams', 'Jira', 'GitHub'].map((service, index) => (
-                <div key={index} className="flex items-center justify-between p-2.5 border border-border rounded-md">
-                  <span className="text-sm text-foreground">{service}</span>
+                <div key={index} className="flex items-center justify-between py-1.5 px-3 border border-border rounded-[4px]">
+                  <span className="text-[12px] text-foreground">{service}</span>
                   <button
-                    onClick={() => toast.info(`Conectando con ${service}...`, { description: 'Serás redirigido al servicio' })}
-                    className="px-2.5 py-1 bg-primary hover:bg-primary-hover text-primary-foreground rounded-md text-xs font-medium transition-colors"
+                    onClick={() => toast.info(`Conectando con ${service}...`)}
+                    className="px-2.5 py-0.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors"
                   >
                     Conectar
                   </button>
@@ -91,59 +201,36 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-lg p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-primary/10 rounded-md flex items-center justify-center">
-                <Database className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold text-foreground">Datos</h2>
-                <p className="text-xs text-muted-foreground">Exportar e importar</p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <button onClick={() => toast.success('Exportación iniciada', { description: 'Descargando datos en formato JSON' })} className="w-full text-left p-2.5 border border-border rounded-md hover:border-primary/30 transition-colors">
-                <p className="text-sm font-medium text-foreground">Exportar datos</p>
-                <p className="text-xs text-muted-foreground">Descarga completa en JSON</p>
+          {/* Data */}
+          <div className="bg-card border border-border rounded-[4px] p-4">
+            <SectionHeader
+              icon={<Database className="w-3.5 h-3.5" />}
+              title="Datos"
+              description="Exportar e importar informacion"
+            />
+            <div className="space-y-1">
+              <button
+                onClick={() => toast.success('Exportacion iniciada', { description: 'Descargando datos en JSON' })}
+                className="w-full text-left py-2 px-3 border border-border rounded-[4px] hover:border-primary/40 transition-colors"
+              >
+                <p className="text-[12px] font-medium text-foreground">Exportar datos</p>
+                <p className="text-[10px] text-muted-foreground">Descarga completa en JSON</p>
               </button>
-              <button onClick={() => toast.info('Selecciona un archivo CSV o Excel')} className="w-full text-left p-2.5 border border-border rounded-md hover:border-primary/30 transition-colors">
-                <p className="text-sm font-medium text-foreground">Importar proyectos</p>
-                <p className="text-xs text-muted-foreground">Desde CSV o Excel</p>
+              <button
+                onClick={() => toast.info('Selecciona un archivo CSV o Excel')}
+                className="w-full text-left py-2 px-3 border border-border rounded-[4px] hover:border-primary/40 transition-colors"
+              >
+                <p className="text-[12px] font-medium text-foreground">Importar proyectos</p>
+                <p className="text-[10px] text-muted-foreground">Desde CSV o Excel</p>
               </button>
-              <button onClick={() => toast.error('Acción no disponible en modo demo')} className="w-full text-left p-2.5 bg-destructive/5 border border-destructive/20 rounded-md hover:bg-destructive/10 transition-colors">
-                <p className="text-sm font-medium text-destructive">Eliminar todos los datos</p>
-                <p className="text-xs text-destructive/70">Acción irreversible</p>
+              <button
+                onClick={() => toast.error('Accion no disponible en modo demo')}
+                className="w-full text-left py-2 px-3 bg-destructive/5 border border-destructive/20 rounded-[4px] hover:bg-destructive/10 transition-colors"
+              >
+                <p className="text-[12px] font-medium text-destructive">Eliminar todos los datos</p>
+                <p className="text-[10px] text-destructive/70">Accion irreversible</p>
               </button>
             </div>
-          </div>
-        </div>
-
-        {/* Email */}
-        <div className="bg-card border border-border rounded-lg p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-primary/10 rounded-md flex items-center justify-center">
-              <Mail className="w-4 h-4 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">Email</h2>
-              <p className="text-xs text-muted-foreground">Comunicaciones por correo</p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {[
-              { label: 'Boletines y actualizaciones', enabled: true },
-              { label: 'Tips y mejores prácticas', enabled: false },
-              { label: 'Invitaciones a webinars', enabled: false },
-            ].map((item, index) => (
-              <div key={index} className="flex items-center justify-between p-3 border border-border rounded-md">
-                <span className="text-sm text-foreground">{item.label}</span>
-                <button className={`w-9 h-5 rounded-full transition-colors ${item.enabled ? 'bg-primary' : 'bg-muted'}`}>
-                  <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${item.enabled ? 'ml-4.5' : 'ml-0.5'}`} />
-                </button>
-              </div>
-            ))}
           </div>
         </div>
       </div>

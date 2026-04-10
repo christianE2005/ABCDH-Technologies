@@ -167,32 +167,6 @@ export function BacklogSkeleton() {
   );
 }
 
-export function AlertsSkeleton() {
-  return (
-    <div className="p-6 max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-300">
-      <div className="space-y-1">
-        <Skeleton className="h-7 w-28" />
-        <Skeleton className="h-4 w-56" />
-      </div>
-      {/* Stat cards */}
-      <div className="grid grid-cols-3 gap-4">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-card border border-border rounded-lg p-5">
-            <Skeleton className="h-8 w-8 mb-2" />
-            <Skeleton className="h-3 w-20" />
-          </div>
-        ))}
-      </div>
-      {/* Filter bar */}
-      <Skeleton className="h-9 w-80 rounded-md" />
-      {/* Alert items */}
-      <div className="space-y-3">
-        {[1, 2, 3, 4].map((i) => <AlertItemSkeleton key={i} />)}
-      </div>
-    </div>
-  );
-}
-
 export function GenericPageSkeleton() {
   return (
     <div className="p-6 max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-300">

@@ -1,9 +1,5 @@
 import { ReactNode } from 'react';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Minus
-} from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface KPICardProps {
   title: string;
@@ -13,22 +9,23 @@ interface KPICardProps {
   trendValue?: string;
   icon?: ReactNode;
   status?: 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+  accentColor?: 'primary' | 'success' | 'warning' | 'destructive' | 'info' | 'ai';
+  sparkline?: number[];
 }
 
-export function KPICard({ 
-  title, 
-  value, 
-  subtitle, 
-  trend, 
+export function KPICard({
+  title,
+  value,
+  subtitle,
+  trend,
   trendValue,
   icon,
-  status: _status = 'neutral'
+  sparkline,
 }: KPICardProps) {
-  void _status;
   const getTrendIcon = () => {
-    if (trend === 'up') return <TrendingUp className="w-3.5 h-3.5" />;
-    if (trend === 'down') return <TrendingDown className="w-3.5 h-3.5" />;
-    return <Minus className="w-3.5 h-3.5" />;
+    if (trend === 'up') return <TrendingUp className="w-3 h-3" />;
+    if (trend === 'down') return <TrendingDown className="w-3 h-3" />;
+    return <Minus className="w-3 h-3" />;
   };
 
   const getTrendColor = () => {
@@ -38,32 +35,65 @@ export function KPICard({
   };
 
   return (
-    <div className="group relative overflow-hidden bg-card border border-border rounded-lg p-5 transition-all duration-300 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide mb-2">{title}</p>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-bold text-foreground tracking-tight">{value}</h3>
+    <div className="bg-card border border-border rounded-[4px] px-4 py-3 transition-colors duration-100 hover:border-foreground/15 group">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground truncate">
+            {title}
+          </p>
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-[22px] font-semibold text-foreground tracking-tight leading-none">
+              {value}
+            </span>
             {trendValue && (
-              <span className={`flex items-center gap-0.5 text-xs font-semibold ${getTrendColor()} px-1.5 py-0.5 rounded-full ${
-                trend === 'up' ? 'bg-success/10' : trend === 'down' ? 'bg-destructive/10' : 'bg-muted'
-              }`}>
+              <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${getTrendColor()}`}>
                 {getTrendIcon()}
                 {trendValue}
               </span>
             )}
           </div>
           {subtitle && (
-            <p className="text-muted-foreground text-xs mt-1.5">{subtitle}</p>
+            <p className="text-[11px] text-muted-foreground mt-1 truncate">{subtitle}</p>
           )}
         </div>
-        {icon && (
-          <div className="w-10 h-10 rounded-lg bg-primary/8 flex items-center justify-center text-primary/70 group-hover:bg-primary/15 group-hover:text-primary transition-all duration-300">
-            {icon}
-          </div>
-        )}
+        <div className="flex flex-col items-end gap-1.5">
+          {icon && (
+            <div className="text-muted-foreground/50 group-hover:text-muted-foreground transition-colors shrink-0">
+              {icon}
+            </div>
+          )}
+          {sparkline && sparkline.length > 1 && (
+            <MiniSparkline data={sparkline} />
+          )}
+        </div>
       </div>
-      <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-primary/20 via-primary/40 to-primary/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
     </div>
+  );
+}
+
+function MiniSparkline({ data }: { data: number[] }) {
+  const w = 48;
+  const h = 16;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const points = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((v - min) / range) * h;
+    return `${x},${y}`;
+  }).join(' ');
+
+  return (
+    <svg width={w} height={h} className="shrink-0">
+      <polyline
+        points={points}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-primary/40"
+      />
+    </svg>
   );
 }
