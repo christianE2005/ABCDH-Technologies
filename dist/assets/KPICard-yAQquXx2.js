@@ -1,0 +1,11 @@
+import{c as l,j as e,z as m}from"./index-Q9__zeh1.js";/**
+ * @license lucide-react v0.487.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const h=[["path",{d:"M5 12h14",key:"1ays0h"}]],p=l("minus",h);/**
+ * @license lucide-react v0.487.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const g=[["polyline",{points:"22 17 13.5 8.5 8.5 13.5 2 7",key:"1r2t7k"}],["polyline",{points:"16 17 22 17 22 11",key:"11uiuu"}]],f=l("trending-down",g);function w({title:t,value:d,subtitle:o,trend:n,trendValue:i,icon:r,sparkline:s}){const c=()=>n==="up"?e.jsx(m,{className:"w-3 h-3"}):n==="down"?e.jsx(f,{className:"w-3 h-3"}):e.jsx(p,{className:"w-3 h-3"}),a=()=>n==="up"?"text-success":n==="down"?"text-destructive":"text-muted-foreground";return e.jsx("div",{className:"bg-card border border-border rounded-[4px] px-4 py-3 transition-colors duration-100 hover:border-foreground/15 group",children:e.jsxs("div",{className:"flex items-start justify-between gap-2",children:[e.jsxs("div",{className:"flex-1 min-w-0",children:[e.jsx("p",{className:"text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground truncate",children:t}),e.jsxs("div",{className:"flex items-baseline gap-2 mt-1",children:[e.jsx("span",{className:"text-[22px] font-semibold text-foreground tracking-tight leading-none",children:d}),i&&e.jsxs("span",{className:`inline-flex items-center gap-0.5 text-[11px] font-medium ${a()}`,children:[c(),i]})]}),o&&e.jsx("p",{className:"text-[11px] text-muted-foreground mt-1 truncate",children:o})]}),e.jsxs("div",{className:"flex flex-col items-end gap-1.5",children:[r&&e.jsx("div",{className:"text-muted-foreground/50 group-hover:text-muted-foreground transition-colors shrink-0",children:r}),s&&s.length>1&&e.jsx(j,{data:s})]})]})})}function j({data:t}){const n=Math.min(...t),r=Math.max(...t)-n||1,s=t.map((c,a)=>{const x=a/(t.length-1)*48,u=16-(c-n)/r*16;return`${x},${u}`}).join(" ");return e.jsx("svg",{width:48,height:16,className:"shrink-0",children:e.jsx("polyline",{points:s,fill:"none",stroke:"currentColor",strokeWidth:"1.5",strokeLinecap:"round",strokeLinejoin:"round",className:"text-primary/40"})})}export{w as K};

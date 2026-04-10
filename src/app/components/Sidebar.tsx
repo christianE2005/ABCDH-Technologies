@@ -9,9 +9,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Zap,
+  Github,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
+import { githubService } from '../../services/github.service';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 
 interface NavItem {
@@ -26,6 +28,7 @@ const navItems: NavItem[] = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutGrid, group: 'main' },
   { name: 'Proyectos', path: '/projects', icon: Briefcase, group: 'main' },
   { name: 'Backlog', path: '/backlog', icon: ListChecks, group: 'main' },
+  { name: 'GitHub', path: '/github', icon: Github, group: 'integrations' },
   { name: 'Perfil', path: '/profile', icon: CircleUser, group: 'user' },
   { name: 'Configuración', path: '/settings', icon: SlidersHorizontal, group: 'user' },
   { name: 'Logs', path: '/logs', icon: ScrollText, roles: ['admin'], group: 'user' },
@@ -37,6 +40,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('sidebar-collapsed') === 'true';
   });
+  const [githubConnected] = useState(() => githubService.isConnected());
 
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
@@ -47,12 +51,14 @@ export function Sidebar() {
   };
 
   const filteredNavItems = navItems.filter((item) => {
+    if (item.group === 'integrations' && !githubConnected) return false;
     if (!item.roles) return true;
     return user && item.roles.includes(user.role);
   });
 
   const mainItems = filteredNavItems.filter((i) => i.group === 'main');
   const analyticsItems = filteredNavItems.filter((i) => i.group === 'analytics');
+  const integrationsItems = filteredNavItems.filter((i) => i.group === 'integrations');
   const userItems = filteredNavItems.filter((i) => i.group === 'user');
 
   const NavLink = ({ item }: { item: NavItem }) => {
@@ -150,6 +156,17 @@ export function Sidebar() {
             <GroupDivider label="Análisis" />
             <div className="space-y-0.5">
               {analyticsItems.map((item) => (
+                <NavLink key={item.path} item={item} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {integrationsItems.length > 0 && (
+          <>
+            <GroupDivider label="Integraciones" />
+            <div className="space-y-0.5">
+              {integrationsItems.map((item) => (
                 <NavLink key={item.path} item={item} />
               ))}
             </div>

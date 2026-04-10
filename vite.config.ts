@@ -5,7 +5,9 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const apiTarget = env.VITE_API_TARGET ?? 'https://abcdhtechnologiesbackend-production.up.railway.app'
+  // Strip /api suffix to get the bare backend origin for the dev proxy
+  const apiTarget = (env.VITE_API_TARGET ?? 'https://abcdhtechnologiesbackend-production.up.railway.app/api')
+    .replace(/\/api\/?$/, '')
 
   return {
   plugins: [
@@ -18,12 +20,17 @@ export default defineConfig(({ mode }) => {
     },
   },
   assetsInclude: ['**/*.svg', '**/*.csv'],
+  // In dev: override VITE_API_TARGET to /api so requests go through the proxy (no CORS)
+  // In production: VITE_API_TARGET from .env (full URL) is used as-is
+  define: mode === 'development'
+    ? { 'import.meta.env.VITE_API_TARGET': JSON.stringify('/api') }
+    : {},
   server: {
     proxy: {
       '/api': {
         target: apiTarget,
         changeOrigin: true,
-        secure: apiTarget.startsWith('https'),
+        secure: true,
       },
     },
   },

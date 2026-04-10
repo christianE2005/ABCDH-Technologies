@@ -109,6 +109,40 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
+// ─── GitHub integration ───────────────────────────────────────────────────────
+
+export interface GitHubOAuthStartResponse {
+  authorize_url: string;
+}
+
+export interface GitHubCreateRepoPayload {
+  user_id: number;
+  owner_type: 'org' | 'user';
+  owner: string;
+  name: string;
+  description?: string;
+  private: boolean;
+  auto_init: boolean;
+}
+
+export interface GitHubRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  html_url: string;
+  private: boolean;
+}
+
+export interface GitHubWebhook {
+  id: number;
+  events: string[];
+}
+
+export interface GitHubCreateRepoResponse {
+  repository: GitHubRepo;
+  webhook: GitHubWebhook;
+}
+
 // ─── API error shape ─────────────────────────────────────────────────────────
 
 export interface ApiError {
