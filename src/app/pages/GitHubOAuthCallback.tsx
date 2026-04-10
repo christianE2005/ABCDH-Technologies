@@ -63,7 +63,6 @@ async function finalizeOAuth(code: string, oauthState: string): Promise<OAuthFin
   const response = await fetch(API_ENDPOINTS.GITHUB_OAUTH_CALLBACK, {
     method: 'POST',
     headers: withAuthHeaders({ 'Content-Type': 'application/json' }),
-    credentials: 'include',
     body: JSON.stringify({ code, state: oauthState }),
   });
 

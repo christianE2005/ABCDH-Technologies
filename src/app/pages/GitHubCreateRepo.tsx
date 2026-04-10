@@ -76,7 +76,6 @@ export default function GitHubCreateRepo() {
       const response = await fetch(API_ENDPOINTS.GITHUB_CREATE_REPO, {
         method: 'POST',
         headers: withAuthHeaders({ 'Content-Type': 'application/json' }),
-        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
