@@ -34,7 +34,14 @@ const sendFile = async (res, filePath) => {
   const ext = path.extname(filePath).toLowerCase();
   const contentType = mimeByExt[ext] ?? 'application/octet-stream';
   const content = await readFile(filePath);
-  res.writeHead(200, { 'Content-Type': contentType });
+  const isHtml = ext === '.html';
+  const cacheControl = isHtml
+    ? 'no-store, no-cache, must-revalidate'
+    : 'public, max-age=31536000, immutable';
+  res.writeHead(200, {
+    'Content-Type': contentType,
+    'Cache-Control': cacheControl,
+  });
   res.end(content);
 };
 
