@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { CheckCircle2, CircleAlert, Loader2 } from 'lucide-react';
+import { API_ENDPOINTS, withAuthHeaders } from '../../config/api';
 
 interface CallbackState {
   status: 'loading' | 'success' | 'error';
@@ -10,31 +11,28 @@ interface CallbackState {
 function getMessageFromSearch(search: string): CallbackState {
   const params = new URLSearchParams(search);
   const error = params.get('error');
-  const status = params.get('status');
   const message = params.get('message');
-  const linked = params.get('linked');
-  const code = params.get('code');
-  const state = params.get('state');
 
-  if (error || status === 'error') {
+  if (error) {
     return {
       status: 'error',
       message: message || error || 'No fue posible completar la vinculación con GitHub.',
     };
   }
 
-  const hasSuccessSignals = status === 'success' || linked === 'true' || !!code || !!state || !!message;
-  if (!hasSuccessSignals) {
-    return {
-      status: 'error',
-      message: 'No se recibió una respuesta válida del callback de GitHub.',
-    };
-  }
-
   return {
-    status: 'success',
-    message: message || 'Cuenta GitHub vinculada correctamente.',
+    status: 'loading',
+    message: message || 'Validando respuesta de GitHub...',
   };
+}
+
+async function readApiErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
+  try {
+    const data = (await response.json()) as { detail?: string; message?: string; error?: string };
+    return data.detail || data.message || data.error || fallbackMessage;
+  } catch {
+    return fallbackMessage;
+  }
 }
 
 export default function GitHubOAuthCallback() {
@@ -52,12 +50,63 @@ export default function GitHubOAuthCallback() {
   }, [parsedState]);
 
   useEffect(() => {
-    if (state.status !== 'success') return;
-    const timerId = window.setTimeout(() => {
-      navigate('/github/create-repo');
-    }, 1200);
-    return () => window.clearTimeout(timerId);
-  }, [state.status, navigate]);
+    if (parsedState.status === 'error') return;
+
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    const oauthState = params.get('state');
+    if (!code || !oauthState) {
+      setState({
+        status: 'error',
+        message: 'Faltan parámetros code/state en el callback de GitHub.',
+      });
+      return;
+    }
+
+    let cancelled = false;
+    let timerId: number | null = null;
+
+    const finalizeOAuth = async () => {
+      try {
+        const response = await fetch(API_ENDPOINTS.GITHUB_OAUTH_CALLBACK, {
+          method: 'POST',
+          headers: withAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ code, state: oauthState }),
+        });
+
+        if (!response.ok) {
+          const apiMessage = await readApiErrorMessage(response, 'No fue posible completar la vinculación con GitHub.');
+          throw new Error(apiMessage);
+        }
+
+        if (cancelled) return;
+
+        setState({
+          status: 'success',
+          message: 'Cuenta GitHub vinculada correctamente.',
+        });
+
+        timerId = window.setTimeout(() => {
+          navigate('/github/create-repo');
+        }, 1200);
+      } catch (error) {
+        if (cancelled) return;
+        setState({
+          status: 'error',
+          message: error instanceof Error ? error.message : 'No fue posible completar la vinculación con GitHub.',
+        });
+      }
+    };
+
+    finalizeOAuth();
+
+    return () => {
+      cancelled = true;
+      if (timerId !== null) {
+        window.clearTimeout(timerId);
+      }
+    };
+  }, [location.search, navigate, parsedState.status]);
 
   return (
     <div className="px-6 pb-6 pt-2 max-w-[800px]">
