@@ -43,6 +43,18 @@ async function readApiErrorMessage(response: Response, fallbackMessage: string):
   }
 }
 
+function extractRawQueryParam(search: string, name: string): string | null {
+  const query = search.startsWith('?') ? search.slice(1) : search;
+  const prefix = `${encodeURIComponent(name)}=`;
+  for (const part of query.split('&')) {
+    if (!part.startsWith(prefix)) continue;
+    const rawValue = part.slice(prefix.length);
+    if (!rawValue) return '';
+    return decodeURIComponent(rawValue);
+  }
+  return null;
+}
+
 function finalizeOAuthOnce(code: string, oauthState: string): Promise<OAuthFinalizeResult> {
   const requestKey = `${code}:${oauthState}`;
   const completionKey = `${OAUTH_COMPLETED_PREFIX}${requestKey}`;
@@ -112,9 +124,8 @@ export default function GitHubOAuthCallback() {
   useEffect(() => {
     if (parsedState.status === 'error') return;
 
-    const params = new URLSearchParams(location.search);
-    const code = params.get('code');
-    const oauthState = params.get('state');
+    const code = extractRawQueryParam(location.search, 'code');
+    const oauthState = extractRawQueryParam(location.search, 'state');
     if (!code || !oauthState) {
       setState({
         status: 'error',
