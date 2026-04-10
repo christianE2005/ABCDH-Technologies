@@ -80,6 +80,10 @@ async function finalizeOAuth(code: string, oauthState: string): Promise<OAuthFin
   };
 }
 
+function isInvalidStateMessage(message: string): boolean {
+  return /state invalido|state inválido|invalid state/i.test(message);
+}
+
 function finalizeOAuthOnce(rawCode: string, rawOauthState: string): Promise<OAuthFinalizeResult> {
   const requestKey = `${rawCode}:${rawOauthState}`;
   const completionKey = `${OAUTH_COMPLETED_PREFIX}${requestKey}`;
@@ -95,22 +99,30 @@ function finalizeOAuthOnce(rawCode: string, rawOauthState: string): Promise<OAut
 
   const requestPromise: Promise<OAuthFinalizeResult> = (async (): Promise<OAuthFinalizeResult> => {
     try {
-      const code = decodeQueryValue(rawCode);
-      const rawStateResult = await finalizeOAuth(code, rawOauthState);
-      if (rawStateResult.status === 'success') {
-        return rawStateResult;
-      }
+      const codeCandidates = [rawCode, decodeQueryValue(rawCode)];
+      const stateCandidates = [rawOauthState, decodeQueryValue(rawOauthState)];
 
-      if (!/state invalido|state inválido|invalid state/i.test(rawStateResult.message)) {
-        return rawStateResult;
-      }
+      const uniqueCodes = [...new Set(codeCandidates)];
+      const uniqueStates = [...new Set(stateCandidates)];
 
-      const decodedState = decodeQueryValue(rawOauthState);
-      if (decodedState === rawOauthState) {
-        return rawStateResult;
-      }
+      let lastResult: OAuthFinalizeResult = {
+        status: 'error',
+        message: 'No fue posible completar la vinculación con GitHub.',
+      };
 
-      return await finalizeOAuth(code, decodedState);
+      for (const code of uniqueCodes) {
+        for (const oauthState of uniqueStates) {
+          const result = await finalizeOAuth(code, oauthState);
+          if (result.status === 'success') {
+            return result;
+          }
+          lastResult = result;
+          if (!isInvalidStateMessage(result.message)) {
+            return result;
+          }
+        }
+      }
+      return lastResult;
     } catch (error) {
       return {
         status: 'error',
