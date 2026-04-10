@@ -26,7 +26,7 @@ function statusDotColor(index: number, total: number) {
 
 // ── Task Card (draggable) ──
 
-function TaskCard({ task, statuses, priorities }: { task: ApiTask; statuses: ApiTaskStatus[]; priorities: ApiTaskPriority[] }) {
+function TaskCard({ task, priorities }: { task: ApiTask; statuses?: ApiTaskStatus[]; priorities: ApiTaskPriority[] }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id_task });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 

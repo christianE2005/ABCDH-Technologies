@@ -143,7 +143,7 @@ export default function ProjectDetail() {
           { label: 'Actualizar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: refetchTasks },
           { label: 'Asignar', icon: <UserPlus className="w-3.5 h-3.5" />, onClick: () => setShowAssignModal(true) },
         ]}
-        rightSlot={project ? <StatusBadge status={project.status ?? 'sin estado'} size="sm" /> : null}
+        rightSlot={project ? <StatusBadge status={(project.status ?? 'neutral') as 'success'|'warning'|'danger'|'info'|'neutral'|'on_track'|'at_risk'|'delayed'} size="sm" /> : null}
       />
 
       {/* Header */}

@@ -188,7 +188,7 @@ export default function Dashboard() {
                           )}
                         </td>
                         <td className="py-1.5 px-3">
-                          <StatusBadge status={project.status ?? 'sin estado'} size="sm" />
+                          <StatusBadge status={(project.status ?? 'neutral') as 'success'|'warning'|'danger'|'info'|'neutral'|'on_track'|'at_risk'|'delayed'} size="sm" />
                         </td>
                         <td className="py-1.5 px-3 text-[11px] text-muted-foreground whitespace-nowrap">
                           {project.end_date ?? '—'}

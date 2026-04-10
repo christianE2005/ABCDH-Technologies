@@ -48,21 +48,6 @@ export function ProjectCardSkeleton() {
   );
 }
 
-/** Skeleton for alert items */
-function AlertItemSkeleton() {
-  return (
-    <div className="border border-border rounded-lg p-4 flex items-start gap-3">
-      <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
-      <div className="flex-1 space-y-2">
-        <Skeleton className="h-4 w-48" />
-        <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-3 w-32" />
-      </div>
-      <Skeleton className="w-4 h-4 flex-shrink-0" />
-    </div>
-  );
-}
-
 /** Skeleton for kanban column */
 function KanbanColumnSkeleton() {
   return (

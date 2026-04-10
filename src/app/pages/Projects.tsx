@@ -55,7 +55,7 @@ export default function Projects() {
     e.preventDefault();
     setCreating(true);
     try {
-      await projectsService.create({ name: formName, description: formDesc || null, end_date: formEnd || null });
+      await projectsService.create({ name: formName, description: formDesc || undefined, end_date: formEnd || undefined });
       toast.success('Proyecto creado exitosamente');
       setShowCreateModal(false);
       setFormName(''); setFormDesc(''); setFormEnd('');
@@ -138,7 +138,7 @@ export default function Projects() {
                           <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{project.description}</p>
                         )}
                       </td>
-                      <td className="py-1.5 px-3"><StatusBadge status={project.status ?? 'sin estado'} size="sm" /></td>
+                      <td className="py-1.5 px-3"><StatusBadge status={(project.status ?? 'neutral') as 'success'|'warning'|'danger'|'info'|'neutral'|'on_track'|'at_risk'|'delayed'} size="sm" /></td>
                       <td className="py-1.5 px-3 text-[11px] text-muted-foreground whitespace-nowrap">{project.end_date ?? '—'}</td>
                       <td className="py-1.5 px-3">
                         <span className={`text-[12px] ${dl.cls}`}>{dl.label}</span>
@@ -179,7 +179,7 @@ export default function Projects() {
                 >
                   <div className="flex items-start justify-between mb-3">
                     <h3 className="text-[13px] font-semibold text-foreground leading-snug">{project.name}</h3>
-                    <StatusBadge status={project.status ?? 'sin estado'} size="sm" />
+                    <StatusBadge status={(project.status ?? 'neutral') as 'success'|'warning'|'danger'|'info'|'neutral'|'on_track'|'at_risk'|'delayed'} size="sm" />
                   </div>
 
                   {project.description && (
