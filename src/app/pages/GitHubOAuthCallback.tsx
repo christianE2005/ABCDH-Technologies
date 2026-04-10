@@ -50,13 +50,39 @@ function extractRawQueryParam(search: string, name: string): string | null {
     if (!part.startsWith(prefix)) continue;
     const rawValue = part.slice(prefix.length);
     if (!rawValue) return '';
-    return decodeURIComponent(rawValue);
+    return rawValue;
   }
   return null;
 }
 
-function finalizeOAuthOnce(code: string, oauthState: string): Promise<OAuthFinalizeResult> {
-  const requestKey = `${code}:${oauthState}`;
+function decodeQueryValue(value: string): string {
+  return decodeURIComponent(value.replace(/\+/g, ' '));
+}
+
+async function finalizeOAuth(code: string, oauthState: string): Promise<OAuthFinalizeResult> {
+  const response = await fetch(API_ENDPOINTS.GITHUB_OAUTH_CALLBACK, {
+    method: 'POST',
+    headers: withAuthHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
+    body: JSON.stringify({ code, state: oauthState }),
+  });
+
+  if (response.ok) {
+    return {
+      status: 'success',
+      message: 'Cuenta GitHub vinculada correctamente.',
+    };
+  }
+
+  const apiMessage = await readApiErrorMessage(response, 'No fue posible completar la vinculación con GitHub.');
+  return {
+    status: 'error',
+    message: apiMessage,
+  };
+}
+
+function finalizeOAuthOnce(rawCode: string, rawOauthState: string): Promise<OAuthFinalizeResult> {
+  const requestKey = `${rawCode}:${rawOauthState}`;
   const completionKey = `${OAUTH_COMPLETED_PREFIX}${requestKey}`;
   if (sessionStorage.getItem(completionKey) === '1') {
     return Promise.resolve({
@@ -68,27 +94,24 @@ function finalizeOAuthOnce(code: string, oauthState: string): Promise<OAuthFinal
   const existing = oauthFinalizeRequests.get(requestKey);
   if (existing) return existing;
 
-  const requestPromise = (async () => {
+  const requestPromise: Promise<OAuthFinalizeResult> = (async (): Promise<OAuthFinalizeResult> => {
     try {
-      const response = await fetch(API_ENDPOINTS.GITHUB_OAUTH_CALLBACK, {
-        method: 'POST',
-        headers: withAuthHeaders({ 'Content-Type': 'application/json' }),
-        credentials: 'include',
-        body: JSON.stringify({ code, state: oauthState }),
-      });
-
-      if (!response.ok) {
-        const apiMessage = await readApiErrorMessage(response, 'No fue posible completar la vinculación con GitHub.');
-        return {
-          status: 'error',
-          message: apiMessage,
-        };
+      const code = decodeQueryValue(rawCode);
+      const rawStateResult = await finalizeOAuth(code, rawOauthState);
+      if (rawStateResult.status === 'success') {
+        return rawStateResult;
       }
 
-      return {
-        status: 'success',
-        message: 'Cuenta GitHub vinculada correctamente.',
-      };
+      if (!/state invalido|state inválido|invalid state/i.test(rawStateResult.message)) {
+        return rawStateResult;
+      }
+
+      const decodedState = decodeQueryValue(rawOauthState);
+      if (decodedState === rawOauthState) {
+        return rawStateResult;
+      }
+
+      return await finalizeOAuth(code, decodedState);
     } catch (error) {
       return {
         status: 'error',
