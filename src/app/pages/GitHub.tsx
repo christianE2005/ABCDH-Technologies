@@ -3,6 +3,7 @@ import { Github, Plus, ExternalLink, Lock, Unlock, X, Trash2 } from 'lucide-reac
 import { toast } from 'sonner';
 import { CommandBar } from '../components/CommandBar';
 import { githubService } from '../../services/github.service';
+import { ApiRequestError } from '../../services/api';
 import { useAuth } from '../context/AuthContext';
 import type { GitHubRepo } from '../../services/types';
 
@@ -120,18 +121,19 @@ export default function GitHub() {
       setShowModal(false);
       resetForm();
     } catch (err) {
-      const detail = err instanceof Error ? err.message : 'Error desconocido';
-      // Auto-disconnect if backend says GitHub is not connected
-      const isNotConnected =
-        detail.includes('no tiene GitHub conectado') ||
-        detail.includes('not connected') ||
-        detail.includes('no encontrado');
-      if (isNotConnected) {
+      // Any 400/404 from the repos endpoint means the GitHub connection is
+      // missing or expired in the backend — auto-disconnect regardless of
+      // the exact error message text.
+      const isConnectionError =
+        err instanceof ApiRequestError &&
+        (err.status === 400 || err.status === 404);
+      if (isConnectionError) {
         handleDisconnect();
         toast.error('Tu conexión de GitHub expiró', {
           description: 'Vuelve a conectar tu cuenta para continuar',
         });
       } else {
+        const detail = err instanceof Error ? err.message : 'Error desconocido';
         toast.error('Error al crear el repositorio', { description: detail });
       }
     } finally {
