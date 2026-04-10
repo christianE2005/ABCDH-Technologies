@@ -8,13 +8,6 @@ interface CallbackState {
   message: string;
 }
 
-interface CallbackQuery {
-  code: string | null;
-  oauthState: string | null;
-  error: string | null;
-  message: string | null;
-}
-
 interface OAuthFinalizeResult {
   status: 'success' | 'error';
   message: string;
@@ -22,6 +15,24 @@ interface OAuthFinalizeResult {
 
 const oauthFinalizeRequests = new Map<string, Promise<OAuthFinalizeResult>>();
 const OAUTH_COMPLETED_PREFIX = 'github_oauth_completed_';
+
+function getMessageFromSearch(search: string): CallbackState {
+  const params = new URLSearchParams(search);
+  const error = params.get('error');
+  const message = params.get('message');
+
+  if (error) {
+    return {
+      status: 'error',
+      message: message || error || 'No fue posible completar la vinculación con GitHub.',
+    };
+  }
+
+  return {
+    status: 'loading',
+    message: message || 'Validando respuesta de GitHub...',
+  };
+}
 
 async function readApiErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
   try {
@@ -92,37 +103,31 @@ export default function GitHubOAuthCallback() {
     message: 'Validando respuesta de GitHub...',
   });
 
-  const parsedQuery = useMemo<CallbackQuery>(() => {
-    const params = new URLSearchParams(location.search);
-    return {
-      code: params.get('code'),
-      oauthState: params.get('state'),
-      error: params.get('error'),
-      message: params.get('message'),
-    };
-  }, [location.search]);
+  const parsedState = useMemo(() => getMessageFromSearch(location.search), [location.search]);
 
   useEffect(() => {
-    if (parsedQuery.error) {
-      setState({
-        status: 'error',
-        message: parsedQuery.message || parsedQuery.error || 'No fue posible completar la vinculación con GitHub.',
-      });
-      return;
-    }
+    setState(parsedState);
+  }, [parsedState]);
 
-    if (!parsedQuery.code || !parsedQuery.oauthState) {
+  useEffect(() => {
+    if (parsedState.status === 'error') return;
+
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    const oauthState = params.get('state');
+    if (!code || !oauthState) {
       setState({
         status: 'error',
-        message: 'OAuth failed: code/state missing',
+        message: 'Faltan parámetros code/state en el callback de GitHub.',
       });
       return;
     }
 
     let cancelled = false;
+    let timerId: number | null = null;
 
     const finalizeOAuth = async () => {
-      const result = await finalizeOAuthOnce(parsedQuery.code!, parsedQuery.oauthState!);
+      const result = await finalizeOAuthOnce(code, oauthState);
       if (cancelled) return;
 
       setState({
@@ -130,22 +135,22 @@ export default function GitHubOAuthCallback() {
         message: result.message,
       });
 
+      if (result.status === 'success') {
+        timerId = window.setTimeout(() => {
+          navigate('/github/create-repo');
+        }, 1200);
+      }
     };
 
     finalizeOAuth();
 
     return () => {
       cancelled = true;
+      if (timerId !== null) {
+        window.clearTimeout(timerId);
+      }
     };
-  }, [parsedQuery.code, parsedQuery.error, parsedQuery.message, parsedQuery.oauthState]);
-
-  useEffect(() => {
-    if (state.status !== 'success') return;
-    const timerId = window.setTimeout(() => {
-      navigate('/github/create-repo');
-    }, 1200);
-    return () => window.clearTimeout(timerId);
-  }, [navigate, state.status]);
+  }, [location.search, navigate, parsedState.status]);
 
   return (
     <div className="px-6 pb-6 pt-2 max-w-[800px]">
