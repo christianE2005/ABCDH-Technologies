@@ -108,10 +108,9 @@ export default function GitHub() {
       });
       setShowModal(false);
       resetForm();
-    } catch {
-      toast.error('Error al crear el repositorio', {
-        description: 'Verifica que seas miembro de la organización y que la app esté instalada.',
-      });
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : 'Error desconocido';
+      toast.error('Error al crear el repositorio', { description: detail });
     } finally {
       setCreating(false);
     }
