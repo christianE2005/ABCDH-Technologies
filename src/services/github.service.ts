@@ -10,10 +10,12 @@ export const githubService = {
 
   markConnected() {
     localStorage.setItem(GITHUB_CONNECTED_KEY, 'true');
+    window.dispatchEvent(new CustomEvent('githubConnectionChanged', { detail: true }));
   },
 
   disconnect() {
     localStorage.removeItem(GITHUB_CONNECTED_KEY);
+    window.dispatchEvent(new CustomEvent('githubConnectionChanged', { detail: false }));
   },
 
   /**

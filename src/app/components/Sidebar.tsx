@@ -12,7 +12,7 @@ import {
   Github,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { githubService } from '../../services/github.service';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 
@@ -40,7 +40,13 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('sidebar-collapsed') === 'true';
   });
-  const [githubConnected] = useState(() => githubService.isConnected());
+  const [githubConnected, setGithubConnected] = useState(() => githubService.isConnected());
+
+  useEffect(() => {
+    const handler = (e: Event) => setGithubConnected((e as CustomEvent<boolean>).detail);
+    window.addEventListener('githubConnectionChanged', handler);
+    return () => window.removeEventListener('githubConnectionChanged', handler);
+  }, []);
 
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
