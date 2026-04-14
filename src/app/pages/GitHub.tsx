@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Github, Plus, ExternalLink, Lock, Unlock, X, Trash2 } from 'lucide-react';
+﻿import { useState, useEffect } from 'react';
+import { Github, Plus, ExternalLink, Lock, Unlock, X, Trash2, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CommandBar } from '../components/CommandBar';
 import { githubService } from '../../services/github.service';
@@ -8,6 +8,8 @@ import { useAuth } from '../context/AuthContext';
 import type { GitHubRepo } from '../../services/types';
 
 const ORG_OWNER = 'ABCDH-Technologies';
+
+type GitHubPageState = 'not_installed' | 'needs_oauth' | 'connected';
 
 interface CreateRepoForm {
   name: string;
@@ -18,40 +20,103 @@ interface CreateRepoForm {
 
 export default function GitHub() {
   const { user } = useAuth();
+  const userId = user?.id ?? null; // string from AuthContext
 
-  // ─── Connection state ─────────────────────────────────────────────────────
-  const [connected, setConnected] = useState(() => githubService.isConnected());
-  const [connectingOAuth, setConnectingOAuth] = useState(false);
+  // â”€â”€â”€ Derive initial UI state from per-user localStorage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const getInitialState = (): GitHubPageState => {
+    if (!userId) return 'not_installed';
+    if (!githubService.isAppLinked(userId)) return 'not_installed';
+    if (!githubService.isOAuthConnected(userId)) return 'needs_oauth';
+    return 'connected';
+  };
 
-  // Detect redirect back from GitHub OAuth (?github=connected)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('github') === 'connected') {
-      githubService.markConnected();
-      setConnected(true);
-      toast.success('¡Cuenta de GitHub conectada!', {
-        description: `Conectado a la organización ${ORG_OWNER}`,
-      });
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, []);
+  const [pageState, setPageState] = useState<GitHubPageState>(getInitialState);
+  const [busy, setBusy] = useState(false);
+  const [githubLogin, setGithubLogin] = useState<string | null>(
+    () => (userId ? githubService.getGithubLogin(userId) : null),
+  );
 
-  // ─── Repos list (stored locally after creation) ───────────────────────────
-  const [repos, setRepos] = useState<GitHubRepo[]>(() => {
-    try {
-      const raw = localStorage.getItem('pip_github_repos');
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  });
+  // â”€â”€â”€ Repos persisted per user â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const [repos, setRepos] = useState<GitHubRepo[]>(
+    () => (userId ? githubService.getRepos(userId) : []),
+  );
 
   const persistRepos = (list: GitHubRepo[]) => {
-    localStorage.setItem('pip_github_repos', JSON.stringify(list));
+    if (!userId) return;
+    githubService.persistRepos(userId, list);
     setRepos(list);
   };
 
-  // ─── Create repo modal ────────────────────────────────────────────────────
+  // â”€â”€â”€ Handle GitHub redirect callbacks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  useEffect(() => {
+    if (!userId) return;
+    const params = new URLSearchParams(window.location.search);
+
+    // 1) GitHub App installation callback: ?installation_id=XXX&setup_action=install
+    const installationId = params.get('installation_id');
+    const setupAction = params.get('setup_action');
+    if (installationId && setupAction === 'install') {
+      window.history.replaceState({}, '', window.location.pathname);
+      githubService
+        .linkInstallation({ user_id: Number(userId), installation_id: Number(installationId) })
+        .then(() => {
+          githubService.markAppLinked(userId);
+          setPageState('needs_oauth');
+          toast.success('Â¡App de GitHub instalada!', {
+            description: 'Ahora conecta tu cuenta de GitHub para continuar.',
+          });
+        })
+        .catch((err) => {
+          const detail = err instanceof Error ? err.message : 'Error desconocido';
+          toast.error('Error al vincular la instalaciÃ³n', { description: detail });
+        });
+      return;
+    }
+
+    // 2) OAuth callback: ?github=connected
+    if (params.get('github') === 'connected') {
+      window.history.replaceState({}, '', window.location.pathname);
+      const login = params.get('github_login') ?? undefined;
+      githubService.markOAuthConnected(userId, login);
+      if (login) setGithubLogin(login);
+      setPageState('connected');
+      toast.success('Â¡Cuenta de GitHub conectada!', {
+        description: `Conectado a la organizaciÃ³n ${ORG_OWNER}`,
+      });
+    }
+  }, [userId]);
+
+  // â”€â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const handleInstallApp = async () => {
+    setBusy(true);
+    try {
+      await githubService.startAppInstall();
+    } catch {
+      toast.error('No se pudo obtener la URL de instalaciÃ³n');
+      setBusy(false);
+    }
+  };
+
+  const handleConnectOAuth = async () => {
+    setBusy(true);
+    try {
+      await githubService.startOAuth();
+    } catch {
+      toast.error('No se pudo iniciar la conexiÃ³n con GitHub');
+      setBusy(false);
+    }
+  };
+
+  const handleDisconnect = () => {
+    if (!userId) return;
+    githubService.disconnect(userId); // clears app link + OAuth + repos
+    setRepos([]);
+    setGithubLogin(null);
+    setPageState('not_installed');
+    toast.info('Cuenta de GitHub desconectada');
+  };
+
+  // â”€â”€â”€ Create repo modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState<CreateRepoForm>({
     name: '',
@@ -64,37 +129,20 @@ export default function GitHub() {
   const resetForm = () =>
     setForm({ name: '', description: '', private: true, auto_init: true });
 
-  const handleConnect = async () => {
-    setConnectingOAuth(true);
-    try {
-      await githubService.startOAuth();
-    } catch {
-      toast.error('No se pudo iniciar la conexión con GitHub');
-      setConnectingOAuth(false);
-    }
-  };
-
-  const handleDisconnect = () => {
-    githubService.disconnect();
-    persistRepos([]);
-    setConnected(false);
-    toast.info('Cuenta de GitHub desconectada');
-  };
-
   const handleCreateRepo = async () => {
     if (!form.name.trim()) {
       toast.error('El nombre del repositorio es obligatorio');
       return;
     }
-    if (!user) {
-      toast.error('No hay sesión activa');
+    if (!userId) {
+      toast.error('No hay sesiÃ³n activa');
       return;
     }
 
     setCreating(true);
     try {
       const result = await githubService.createRepo({
-        user_id: Number(user.id),
+        user_id: Number(userId),
         owner_type: 'org',
         owner: ORG_OWNER,
         name: form.name.trim(),
@@ -121,15 +169,11 @@ export default function GitHub() {
       setShowModal(false);
       resetForm();
     } catch (err) {
-      // Any 400/404 from the repos endpoint means the GitHub connection is
-      // missing or expired in the backend — auto-disconnect regardless of
-      // the exact error message text.
       const isConnectionError =
-        err instanceof ApiRequestError &&
-        (err.status === 400 || err.status === 404);
+        err instanceof ApiRequestError && (err.status === 400 || err.status === 404);
       if (isConnectionError) {
         handleDisconnect();
-        toast.error('Tu conexión de GitHub expiró', {
+        toast.error('Tu conexiÃ³n de GitHub expirÃ³', {
           description: 'Vuelve a conectar tu cuenta para continuar',
         });
       } else {
@@ -145,41 +189,107 @@ export default function GitHub() {
     persistRepos(repos.filter((r) => r.id !== repoId));
   };
 
-  // ─── Not connected screen ─────────────────────────────────────────────────
-  if (!connected) {
+  // â”€â”€â”€ Step 1: Install GitHub App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  if (pageState === 'not_installed') {
     return (
       <div className="px-4 pb-6 pt-3 max-w-[1600px]">
         <CommandBar actions={[]} />
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+          {/* Progress steps */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">
+                1
+              </span>
+              <span className="text-[11px] font-medium text-foreground">Instalar App</span>
+            </div>
+            <div className="w-8 h-px bg-border" />
+            <div className="flex items-center gap-1.5">
+              <span className="w-6 h-6 bg-muted text-muted-foreground rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">
+                2
+              </span>
+              <span className="text-[11px] text-muted-foreground">Conectar cuenta</span>
+            </div>
+          </div>
+
           <div className="w-16 h-16 bg-card border border-border rounded-full flex items-center justify-center">
             <Github className="w-8 h-8 text-muted-foreground" />
           </div>
+
           <div className="text-center">
             <h2 className="text-[15px] font-semibold text-foreground mb-1">
-              Conecta tu cuenta de GitHub
+              Instala la app de GitHub
             </h2>
             <p className="text-[12px] text-muted-foreground max-w-sm">
-              Vincula tu cuenta de GitHub para crear repositorios, gestionar webhooks y conectar
-              proyectos con tu código.
+              Para crear repositorios y recibir webhooks, primero instala la app de GitHub en la
+              organizaciÃ³n{' '}
+              <span className="font-mono text-foreground">{ORG_OWNER}</span>.
             </p>
           </div>
+
           <button
-            onClick={handleConnect}
-            disabled={connectingOAuth}
+            onClick={handleInstallApp}
+            disabled={busy}
             className="flex items-center gap-2 px-5 py-2.5 bg-[#24292e] hover:bg-[#1b1f23] text-white rounded-[4px] text-[13px] font-medium transition-colors disabled:opacity-60"
           >
             <Github className="w-4 h-4" />
-            {connectingOAuth ? 'Redirigiendo a GitHub...' : 'Conectar con GitHub'}
+            {busy ? 'Redirigiendo...' : 'Instalar GitHub App'}
           </button>
-          <p className="text-[10px] text-muted-foreground">
-            Organización: <span className="font-mono text-foreground">{ORG_OWNER}</span>
-          </p>
         </div>
       </div>
     );
   }
 
-  // ─── Connected screen ─────────────────────────────────────────────────────
+  // â”€â”€â”€ Step 2: Connect GitHub account (OAuth) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  if (pageState === 'needs_oauth') {
+    return (
+      <div className="px-4 pb-6 pt-3 max-w-[1600px]">
+        <CommandBar actions={[]} />
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+          {/* Progress steps */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+              <span className="text-[11px] text-muted-foreground">Instalar App</span>
+            </div>
+            <div className="w-8 h-px bg-border" />
+            <div className="flex items-center gap-1.5">
+              <span className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">
+                2
+              </span>
+              <span className="text-[11px] font-medium text-foreground">Conectar cuenta</span>
+            </div>
+          </div>
+
+          <div className="w-16 h-16 bg-card border border-border rounded-full flex items-center justify-center">
+            <Github className="w-8 h-8 text-muted-foreground" />
+          </div>
+
+          <div className="text-center">
+            <h2 className="text-[15px] font-semibold text-foreground mb-1">
+              Conecta tu cuenta de GitHub
+            </h2>
+            <p className="text-[12px] text-muted-foreground max-w-sm">
+              La app estÃ¡ instalada. Autoriza el acceso a tu usuario de GitHub para crear
+              repositorios en{' '}
+              <span className="font-mono text-foreground">{ORG_OWNER}</span>.
+            </p>
+          </div>
+
+          <button
+            onClick={handleConnectOAuth}
+            disabled={busy}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#24292e] hover:bg-[#1b1f23] text-white rounded-[4px] text-[13px] font-medium transition-colors disabled:opacity-60"
+          >
+            <Github className="w-4 h-4" />
+            {busy ? 'Redirigiendo a GitHub...' : 'Conectar con GitHub'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // â”€â”€â”€ Step 3: Connected â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <div className="px-4 pb-6 pt-3 space-y-3 max-w-[1600px]">
       <CommandBar
@@ -202,8 +312,14 @@ export default function GitHub() {
           <div>
             <p className="text-[13px] font-semibold text-foreground">GitHub conectado</p>
             <p className="text-[11px] text-muted-foreground">
-              Organización:{' '}
+              OrganizaciÃ³n:{' '}
               <span className="font-mono text-foreground">{ORG_OWNER}</span>
+              {githubLogin && (
+                <>
+                  {' Â· '}
+                  <span className="font-mono text-foreground">{githubLogin}</span>
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -231,7 +347,7 @@ export default function GitHub() {
         {repos.length === 0 ? (
           <div className="flex flex-col items-center py-8 gap-2 text-center">
             <Github className="w-6 h-6 text-muted-foreground/40" />
-            <p className="text-[12px] text-muted-foreground">No has creado repositorios aún.</p>
+            <p className="text-[12px] text-muted-foreground">No has creado repositorios aÃºn.</p>
             <button
               onClick={() => setShowModal(true)}
               className="text-[11px] text-primary hover:underline mt-1"
@@ -285,20 +401,20 @@ export default function GitHub() {
 
       {/* Info card */}
       <div className="bg-card border border-border rounded-[4px] p-4">
-        <h2 className="text-[12px] font-semibold text-foreground mb-2">¿Cómo funciona?</h2>
+        <h2 className="text-[12px] font-semibold text-foreground mb-2">Â¿CÃ³mo funciona?</h2>
         <ul className="space-y-1.5 text-[11px] text-muted-foreground">
           <li className="flex gap-2">
             <span className="w-4 h-4 bg-primary/10 text-primary rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">
               1
             </span>
-            Crea un repositorio aquí y queda vinculado a la organización{' '}
+            Crea un repositorio aquÃ­ y queda vinculado a la organizaciÃ³n{' '}
             <span className="font-mono text-foreground">{ORG_OWNER}</span>.
           </li>
           <li className="flex gap-2">
             <span className="w-4 h-4 bg-primary/10 text-primary rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">
               2
             </span>
-            El backend configura automáticamente un{' '}
+            El backend configura automÃ¡ticamente un{' '}
             <span className="text-foreground font-medium">webhook de push</span>.
           </li>
           <li className="flex gap-2">
@@ -306,7 +422,7 @@ export default function GitHub() {
               3
             </span>
             Cada push actualiza el avance de las historias de usuario en tus proyectos
-            automáticamente.
+            automÃ¡ticamente.
           </li>
           <li className="flex gap-2">
             <span className="w-4 h-4 bg-primary/10 text-primary rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">
@@ -350,7 +466,7 @@ export default function GitHub() {
               {/* Owner (fixed) */}
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">
-                  Organización
+                  OrganizaciÃ³n
                 </label>
                 <div className="mt-1 w-full h-7 bg-muted/30 border border-border rounded-[3px] px-2.5 flex items-center">
                   <span className="text-[11px] text-muted-foreground font-mono">{ORG_OWNER}</span>
@@ -376,12 +492,12 @@ export default function GitHub() {
               {/* Description */}
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">
-                  Descripción{' '}
+                  DescripciÃ³n{' '}
                   <span className="normal-case text-muted-foreground/60">(opcional)</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="Descripción del repositorio"
+                  placeholder="DescripciÃ³n del repositorio"
                   value={form.description}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                   className="mt-1 w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/30"
@@ -436,3 +552,5 @@ export default function GitHub() {
     </div>
   );
 }
+
+

@@ -111,18 +111,28 @@ export interface PaginatedResponse<T> {
 
 // ─── GitHub integration ───────────────────────────────────────────────────────
 
+export interface GitHubAppInstallStartResponse {
+  install_url: string;
+}
+
+export interface GitHubAppLinkPayload {
+  user_id: number;
+  installation_id: number;
+}
+
 export interface GitHubOAuthStartResponse {
   authorize_url: string;
 }
 
 export interface GitHubCreateRepoPayload {
   user_id: number;
-  owner_type: 'org' | 'user';
-  owner: string;
+  owner_type?: 'org' | 'user';
+  owner?: string;
   name: string;
   description?: string;
   private: boolean;
   auto_init: boolean;
+  installation_id?: number;
 }
 
 export interface GitHubRepo {
