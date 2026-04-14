@@ -140,8 +140,7 @@ export default function Dashboard() {
       {/* Main grid: projects table (left) + charts (right) */}
       <div className="grid xl:grid-cols-[1fr_300px] gap-3 items-start">
 
-        {/* Projects table + SVG test */}
-        <div className="flex flex-col gap-3">
+        {/* Projects table */}
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
@@ -210,15 +209,6 @@ export default function Dashboard() {
             </div>
           )}
         </motion.div>
-
-          {/* SVG test — verificar transparencia */}
-          <div className="bg-muted rounded-[4px] p-4 flex items-center justify-center">
-            <img src="/pickup-truck.svg" alt="pickup truck test (fondo gris)" className="max-h-32" />
-          </div>
-          <div className="bg-blue-500 rounded-[4px] p-4 flex items-center justify-center">
-            <img src="/pickup-truck.svg" alt="pickup truck test (fondo azul)" className="max-h-32" />
-          </div>
-        </div>
 
         {/* Right column: charts */}
         <div className="flex flex-col gap-3">
