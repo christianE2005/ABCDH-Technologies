@@ -73,16 +73,35 @@ export default function GitHub() {
       return;
     }
 
-    // 2) OAuth callback: ?github=connected
+    // 2) OAuth callback: ?github=connected&code=...&state=...
+    const code = params.get('code');
+    const state = params.get('state');
+    if (params.get('github') === 'connected' && code && state) {
+      window.history.replaceState({}, '', window.location.pathname);
+      setBusy(true);
+      githubService
+        .completeOAuth({ code, state })
+        .then((res) => {
+          const login = res.github_login;
+          githubService.markOAuthConnected(userId, login);
+          if (login) setGithubLogin(login);
+          setPageState('connected');
+          toast.success('¡Cuenta de GitHub conectada!', {
+            description: `Conectado como ${login ?? 'usuario'} en ${ORG_OWNER}`,
+          });
+        })
+        .catch((err) => {
+          const detail = err instanceof Error ? err.message : 'Error desconocido';
+          toast.error('Error al completar la conexión con GitHub', { description: detail });
+        })
+        .finally(() => setBusy(false));
+      return;
+    }
+
+    // Fallback: ?github=connected without code (shouldn't happen normally)
     if (params.get('github') === 'connected') {
       window.history.replaceState({}, '', window.location.pathname);
-      const login = params.get('github_login') ?? undefined;
-      githubService.markOAuthConnected(userId, login);
-      if (login) setGithubLogin(login);
-      setPageState('connected');
-      toast.success('Â¡Cuenta de GitHub conectada!', {
-        description: `Conectado a la organizaciÃ³n ${ORG_OWNER}`,
-      });
+      toast.error('Faltó el código de autorización de GitHub. Intenta de nuevo.');
     }
   }, [userId]);
 
@@ -109,10 +128,8 @@ export default function GitHub() {
 
   const handleDisconnect = () => {
     if (!userId) return;
-    githubService.disconnect(userId); // clears app link + OAuth + repos
-    setRepos([]);
-    setGithubLogin(null);
-    setPageState('not_installed');
+    githubService.disconnect(userId);
+    setPageState('needs_oauth'); // keep app linked, only remove OAuth
     toast.info('Cuenta de GitHub desconectada');
   };
 

@@ -124,6 +124,16 @@ export interface GitHubOAuthStartResponse {
   authorize_url: string;
 }
 
+export interface GitHubOAuthCallbackPayload {
+  code: string;
+  state: string;
+}
+
+export interface GitHubOAuthCallbackResponse {
+  github_login: string;
+  message?: string;
+}
+
 export interface GitHubCreateRepoPayload {
   user_id: number;
   owner_type?: 'org' | 'user';

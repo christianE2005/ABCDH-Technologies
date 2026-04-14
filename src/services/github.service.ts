@@ -3,6 +3,8 @@ import type {
   GitHubAppInstallStartResponse,
   GitHubAppLinkPayload,
   GitHubOAuthStartResponse,
+  GitHubOAuthCallbackPayload,
+  GitHubOAuthCallbackResponse,
   GitHubCreateRepoPayload,
   GitHubCreateRepoResponse,
   GitHubRepo,
@@ -66,6 +68,11 @@ export const githubService = {
   async startOAuth(): Promise<void> {
     const data = await api.get<GitHubOAuthStartResponse>('/github/app/oauth/start/');
     window.location.href = data.authorize_url;
+  },
+
+  /** POST /api/github/app/oauth/callback/ → exchange code for access token, saves github_connection */
+  async completeOAuth(payload: GitHubOAuthCallbackPayload): Promise<GitHubOAuthCallbackResponse> {
+    return api.post<GitHubOAuthCallbackResponse>('/github/app/oauth/callback/', payload);
   },
 
   // ─── Repos (persisted per user) ───────────────────────────────────────────
