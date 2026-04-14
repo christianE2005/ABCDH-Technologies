@@ -182,7 +182,17 @@ export default function GitHub() {
           description: 'Vuelve a conectar tu cuenta para continuar',
         });
       } else {
-        const detail = err instanceof Error ? err.message : 'Error desconocido';
+        let detail = 'Error desconocido';
+        if (err instanceof ApiRequestError) {
+          const body = err.body as Record<string, unknown>;
+          detail = body.detail
+            ? String(body.detail)
+            : Object.entries(body)
+                .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+                .join(' | ') || `HTTP ${err.status}`;
+        } else if (err instanceof Error) {
+          detail = err.message;
+        }
         toast.error('Error al crear el repositorio', { description: detail });
       }
     } finally {
