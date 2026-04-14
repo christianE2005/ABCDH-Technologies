@@ -1,5 +1,5 @@
-﻿import { useState, useEffect } from 'react';
-import { Github, Plus, ExternalLink, Lock, Unlock, X, Trash2, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Github, Plus, ExternalLink, Lock, Unlock, X, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CommandBar } from '../components/CommandBar';
 import { githubService } from '../../services/github.service';
@@ -9,7 +9,7 @@ import type { GitHubRepo } from '../../services/types';
 
 const ORG_OWNER = 'ABCDH-Technologies';
 
-type GitHubPageState = 'not_installed' | 'needs_oauth' | 'connected';
+type GitHubPageState = 'not_connected' | 'connected';
 
 interface CreateRepoForm {
   name: string;
@@ -24,9 +24,8 @@ export default function GitHub() {
 
   // â”€â”€â”€ Derive initial UI state from per-user localStorage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const getInitialState = (): GitHubPageState => {
-    if (!userId) return 'not_installed';
-    if (!githubService.isAppLinked(userId)) return 'not_installed';
-    if (!githubService.isOAuthConnected(userId)) return 'needs_oauth';
+    if (!userId) return 'not_connected';
+    if (!githubService.isOAuthConnected(userId)) return 'not_connected';
     return 'connected';
   };
 
@@ -52,35 +51,29 @@ export default function GitHub() {
     if (!userId) return;
     const params = new URLSearchParams(window.location.search);
 
-    // 1) GitHub App installation callback: ?installation_id=XXX&setup_action=install
-    const installationId = params.get('installation_id');
-    const setupAction = params.get('setup_action');
-    if (installationId && setupAction === 'install') {
-      window.history.replaceState({}, '', window.location.pathname);
-      githubService
-        .linkInstallation({ user_id: Number(userId), installation_id: Number(installationId) })
-        .then(() => {
-          githubService.markAppLinked(userId);
-          setPageState('needs_oauth');
-          toast.success('Â¡App de GitHub instalada!', {
-            description: 'Ahora conecta tu cuenta de GitHub para continuar.',
-          });
-        })
-        .catch((err) => {
-          const detail = err instanceof Error ? err.message : 'Error desconocido';
-          toast.error('Error al vincular la instalaciÃ³n', { description: detail });
-        });
-      return;
-    }
-
-    // 2) OAuth callback: ?github=connected&code=...&state=...
+    // GitHub callback: ?github=connected&code=...&state=... (and optionally installation_id)
+    // The GitHub App has "Request OAuth during installation" enabled, so install + OAuth
+    // happen in a single redirect. After installing the app GitHub redirects here with
+    // code, state, and installation_id all at once.
     const code = params.get('code');
     const state = params.get('state');
+    const installationId = params.get('installation_id');
+
     if (params.get('github') === 'connected' && code && state) {
       window.history.replaceState({}, '', window.location.pathname);
       setBusy(true);
-      githubService
-        .completeOAuth({ code, state })
+
+      // Step 1: if installation_id present, link it first
+      const linkPromise = installationId
+        ? githubService.linkInstallation({
+            user_id: Number(userId),
+            installation_id: Number(installationId),
+          })
+        : Promise.resolve();
+
+      // Step 2: exchange code + state for access token
+      linkPromise
+        .then(() => githubService.completeOAuth({ code, state }))
         .then((res) => {
           const login = res.github_login;
           githubService.markOAuthConnected(userId, login);
@@ -98,7 +91,7 @@ export default function GitHub() {
       return;
     }
 
-    // Fallback: ?github=connected without code (shouldn't happen normally)
+    // Fallback: ?github=connected without code
     if (params.get('github') === 'connected') {
       window.history.replaceState({}, '', window.location.pathname);
       toast.error('Faltó el código de autorización de GitHub. Intenta de nuevo.');
@@ -106,22 +99,12 @@ export default function GitHub() {
   }, [userId]);
 
   // â”€â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const handleInstallApp = async () => {
+  const handleConnect = async () => {
     setBusy(true);
     try {
       await githubService.startAppInstall();
     } catch {
-      toast.error('No se pudo obtener la URL de instalaciÃ³n');
-      setBusy(false);
-    }
-  };
-
-  const handleConnectOAuth = async () => {
-    setBusy(true);
-    try {
-      await githubService.startOAuth();
-    } catch {
-      toast.error('No se pudo iniciar la conexiÃ³n con GitHub');
+      toast.error('No se pudo iniciar la conexión con GitHub');
       setBusy(false);
     }
   };
@@ -129,7 +112,9 @@ export default function GitHub() {
   const handleDisconnect = () => {
     if (!userId) return;
     githubService.disconnect(userId);
-    setPageState('needs_oauth'); // keep app linked, only remove OAuth
+    setRepos([]);
+    setGithubLogin(null);
+    setPageState('not_connected');
     toast.info('Cuenta de GitHub desconectada');
   };
 
@@ -206,78 +191,13 @@ export default function GitHub() {
     persistRepos(repos.filter((r) => r.id !== repoId));
   };
 
-  // â”€â”€â”€ Step 1: Install GitHub App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  if (pageState === 'not_installed') {
+
+  // --- Not connected: install app + OAuth in one step ---
+  if (pageState === 'not_connected') {
     return (
       <div className="px-4 pb-6 pt-3 max-w-[1600px]">
         <CommandBar actions={[]} />
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
-          {/* Progress steps */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">
-                1
-              </span>
-              <span className="text-[11px] font-medium text-foreground">Instalar App</span>
-            </div>
-            <div className="w-8 h-px bg-border" />
-            <div className="flex items-center gap-1.5">
-              <span className="w-6 h-6 bg-muted text-muted-foreground rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">
-                2
-              </span>
-              <span className="text-[11px] text-muted-foreground">Conectar cuenta</span>
-            </div>
-          </div>
-
-          <div className="w-16 h-16 bg-card border border-border rounded-full flex items-center justify-center">
-            <Github className="w-8 h-8 text-muted-foreground" />
-          </div>
-
-          <div className="text-center">
-            <h2 className="text-[15px] font-semibold text-foreground mb-1">
-              Instala la app de GitHub
-            </h2>
-            <p className="text-[12px] text-muted-foreground max-w-sm">
-              Para crear repositorios y recibir webhooks, primero instala la app de GitHub en la
-              organizaciÃ³n{' '}
-              <span className="font-mono text-foreground">{ORG_OWNER}</span>.
-            </p>
-          </div>
-
-          <button
-            onClick={handleInstallApp}
-            disabled={busy}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#24292e] hover:bg-[#1b1f23] text-white rounded-[4px] text-[13px] font-medium transition-colors disabled:opacity-60"
-          >
-            <Github className="w-4 h-4" />
-            {busy ? 'Redirigiendo...' : 'Instalar GitHub App'}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // â”€â”€â”€ Step 2: Connect GitHub account (OAuth) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  if (pageState === 'needs_oauth') {
-    return (
-      <div className="px-4 pb-6 pt-3 max-w-[1600px]">
-        <CommandBar actions={[]} />
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
-          {/* Progress steps */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
-              <span className="text-[11px] text-muted-foreground">Instalar App</span>
-            </div>
-            <div className="w-8 h-px bg-border" />
-            <div className="flex items-center gap-1.5">
-              <span className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">
-                2
-              </span>
-              <span className="text-[11px] font-medium text-foreground">Conectar cuenta</span>
-            </div>
-          </div>
-
           <div className="w-16 h-16 bg-card border border-border rounded-full flex items-center justify-center">
             <Github className="w-8 h-8 text-muted-foreground" />
           </div>
@@ -287,26 +207,30 @@ export default function GitHub() {
               Conecta tu cuenta de GitHub
             </h2>
             <p className="text-[12px] text-muted-foreground max-w-sm">
-              La app estÃ¡ instalada. Autoriza el acceso a tu usuario de GitHub para crear
-              repositorios en{' '}
+              Instala la app y vincula tu cuenta de GitHub para crear repositorios, gestionar
+              webhooks y conectar proyectos con tu código en{' '}
               <span className="font-mono text-foreground">{ORG_OWNER}</span>.
             </p>
           </div>
 
           <button
-            onClick={handleConnectOAuth}
+            onClick={handleConnect}
             disabled={busy}
             className="flex items-center gap-2 px-5 py-2.5 bg-[#24292e] hover:bg-[#1b1f23] text-white rounded-[4px] text-[13px] font-medium transition-colors disabled:opacity-60"
           >
             <Github className="w-4 h-4" />
             {busy ? 'Redirigiendo a GitHub...' : 'Conectar con GitHub'}
           </button>
+
+          <p className="text-[10px] text-muted-foreground">
+            Organización: <span className="font-mono text-foreground">{ORG_OWNER}</span>
+          </p>
         </div>
       </div>
     );
   }
 
-  // â”€â”€â”€ Step 3: Connected â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- Connected ---
   return (
     <div className="px-4 pb-6 pt-3 space-y-3 max-w-[1600px]">
       <CommandBar
@@ -569,5 +493,4 @@ export default function GitHub() {
     </div>
   );
 }
-
 

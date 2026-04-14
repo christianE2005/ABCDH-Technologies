@@ -54,9 +54,12 @@ export const githubService = {
     window.dispatchEvent(new CustomEvent('githubConnectionChanged', { detail: true }));
   },
 
-  /** Clears the OAuth session for this user (app installation is kept). */
+  /** Clears ALL GitHub state for this user (OAuth + repos + login). */
   disconnect(userId: number | string): void {
     localStorage.removeItem(k.oauthConnected(userId));
+    localStorage.removeItem(k.appLinked(userId));
+    localStorage.removeItem(k.githubLogin(userId));
+    localStorage.removeItem(k.repos(userId));
     window.dispatchEvent(new CustomEvent('githubConnectionChanged', { detail: false }));
   },
 
