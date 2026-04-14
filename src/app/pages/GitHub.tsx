@@ -39,7 +39,6 @@ export default function GitHub() {
     setRepos(list);
   };
 
-  // â”€â”€â”€ Handle GitHub redirect callbacks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // On mount: handle OAuth callback OR check connection status
   useEffect(() => {
     if (!userId) { setLoading(false); return; }
@@ -56,13 +55,13 @@ export default function GitHub() {
         .then((res) => {
           setGithubLogin(res.github_login);
           setPageState('connected');
-          toast.success('¡Cuenta de GitHub conectada!', {
+          toast.success('Cuenta de GitHub conectada', {
             description: `Conectado como ${res.github_login} en ${ORG_OWNER}`,
           });
         })
         .catch((err) => {
           const detail = err instanceof Error ? err.message : 'Error desconocido';
-          toast.error('Error al completar la conexión con GitHub', { description: detail });
+          toast.error('Error al completar la conexion con GitHub', { description: detail });
           setPageState('not_connected');
         })
         .finally(() => { setBusy(false); setLoading(false); });
@@ -72,7 +71,7 @@ export default function GitHub() {
     // Fallback: callback without code
     if (params.get('github') === 'connected') {
       window.history.replaceState({}, '', window.location.pathname);
-      toast.error('Faltó el código de autorización. Intenta de nuevo.');
+      toast.error('Falto el codigo de autorizacion. Intenta de nuevo.');
     }
 
     // Flow 3: verify connection status with backend
@@ -82,21 +81,22 @@ export default function GitHub() {
           setPageState('connected');
           setGithubLogin(status.github_login);
         } else if (status.reason === 'token_expired') {
-          toast.info('Tu conexión con GitHub expiró. Vuelve a conectar.');
+          toast.info('Tu conexion con GitHub expiro. Vuelve a conectar.');
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        // Endpoint may not exist yet (404) — silently stay on not_connected
+      })
       .finally(() => setLoading(false));
   }, [userId]);
 
-  // â”€â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Flow 1: start OAuth connection (all users)
   const handleConnect = async () => {
     setBusy(true);
     try {
       await githubService.startOAuth();
     } catch {
-      toast.error('No se pudo iniciar la conexión con GitHub');
+      toast.error('No se pudo iniciar la conexion con GitHub');
       setBusy(false);
     }
   };
@@ -108,7 +108,7 @@ export default function GitHub() {
       await githubService.startAppInstall();
     } catch (err) {
       const detail = err instanceof Error ? err.message : 'Error desconocido';
-      toast.error('No se pudo iniciar la instalación', { description: detail });
+      toast.error('No se pudo iniciar la instalacion', { description: detail });
       setBusy(false);
     }
   };
@@ -119,10 +119,10 @@ export default function GitHub() {
     setRepos([]);
     setGithubLogin(null);
     setPageState('not_connected');
-    toast.info('Sesión de GitHub desconectada');
+    toast.info('Sesion de GitHub desconectada');
   };
 
-  // â”€â”€â”€ Create repo modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Create repo modal
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState<CreateRepoForm>({
     name: '',
@@ -141,7 +141,7 @@ export default function GitHub() {
       return;
     }
     if (!userId) {
-      toast.error('No hay sesiÃ³n activa');
+      toast.error('No hay sesion activa');
       return;
     }
 
@@ -175,11 +175,10 @@ export default function GitHub() {
       setShowModal(false);
       resetForm();
     } catch (err) {
-      const isConnectionError =
-        err instanceof ApiRequestError && (err.status === 400 || err.status === 404);
-      if (isConnectionError) {
+      // Only treat 401 as expired connection; other errors are repo-level problems
+      if (err instanceof ApiRequestError && err.status === 401) {
         handleDisconnect();
-        toast.error('Tu conexiÃ³n de GitHub expirÃ³', {
+        toast.error('Tu conexion de GitHub expiro', {
           description: 'Vuelve a conectar tu cuenta para continuar',
         });
       } else {
@@ -195,14 +194,13 @@ export default function GitHub() {
     persistRepos(repos.filter((r) => r.id !== repoId));
   };
 
-
   // --- Loading: verifying connection status ---
   if (loading) {
     return (
       <div className="px-4 pb-6 pt-3 max-w-[1600px]">
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-[12px] text-muted-foreground">Verificando conexión con GitHub...</p>
+          <p className="text-[12px] text-muted-foreground">Verificando conexion con GitHub...</p>
         </div>
       </div>
     );
@@ -224,7 +222,7 @@ export default function GitHub() {
             </h2>
             <p className="text-[12px] text-muted-foreground max-w-sm">
               Vincula tu cuenta de GitHub para crear repositorios, gestionar
-              webhooks y conectar proyectos con tu código en{' '}
+              webhooks y conectar proyectos con tu codigo en{' '}
               <span className="font-mono text-foreground">{ORG_OWNER}</span>.
             </p>
           </div>
@@ -246,13 +244,13 @@ export default function GitHub() {
                 className="flex items-center gap-2 px-4 py-2 border border-border hover:bg-accent/30 text-foreground rounded-[4px] text-[12px] font-medium transition-colors disabled:opacity-60"
               >
                 <Shield className="w-3.5 h-3.5" />
-                Instalar App en organización
+                Instalar App en organizacion
               </button>
             )}
           </div>
 
           <p className="text-[10px] text-muted-foreground">
-            Organización: <span className="font-mono text-foreground">{ORG_OWNER}</span>
+            Organizacion: <span className="font-mono text-foreground">{ORG_OWNER}</span>
           </p>
         </div>
       </div>
@@ -282,11 +280,11 @@ export default function GitHub() {
           <div>
             <p className="text-[13px] font-semibold text-foreground">GitHub conectado</p>
             <p className="text-[11px] text-muted-foreground">
-              OrganizaciÃ³n:{' '}
+              {'Organizacion: '}
               <span className="font-mono text-foreground">{ORG_OWNER}</span>
               {githubLogin && (
                 <>
-                  {' Â· '}
+                  {' · '}
                   <span className="font-mono text-foreground">{githubLogin}</span>
                 </>
               )}
@@ -317,7 +315,7 @@ export default function GitHub() {
         {repos.length === 0 ? (
           <div className="flex flex-col items-center py-8 gap-2 text-center">
             <Github className="w-6 h-6 text-muted-foreground/40" />
-            <p className="text-[12px] text-muted-foreground">No has creado repositorios aÃºn.</p>
+            <p className="text-[12px] text-muted-foreground">No has creado repositorios aun.</p>
             <button
               onClick={() => setShowModal(true)}
               className="text-[11px] text-primary hover:underline mt-1"
@@ -371,20 +369,20 @@ export default function GitHub() {
 
       {/* Info card */}
       <div className="bg-card border border-border rounded-[4px] p-4">
-        <h2 className="text-[12px] font-semibold text-foreground mb-2">Â¿CÃ³mo funciona?</h2>
+        <h2 className="text-[12px] font-semibold text-foreground mb-2">Como funciona</h2>
         <ul className="space-y-1.5 text-[11px] text-muted-foreground">
           <li className="flex gap-2">
             <span className="w-4 h-4 bg-primary/10 text-primary rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">
               1
             </span>
-            Crea un repositorio aquÃ­ y queda vinculado a la organizaciÃ³n{' '}
+            Crea un repositorio aqui y queda vinculado a la organizacion{' '}
             <span className="font-mono text-foreground">{ORG_OWNER}</span>.
           </li>
           <li className="flex gap-2">
             <span className="w-4 h-4 bg-primary/10 text-primary rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">
               2
             </span>
-            El backend configura automÃ¡ticamente un{' '}
+            El backend configura automaticamente un{' '}
             <span className="text-foreground font-medium">webhook de push</span>.
           </li>
           <li className="flex gap-2">
@@ -392,7 +390,7 @@ export default function GitHub() {
               3
             </span>
             Cada push actualiza el avance de las historias de usuario en tus proyectos
-            automÃ¡ticamente.
+            automaticamente.
           </li>
           <li className="flex gap-2">
             <span className="w-4 h-4 bg-primary/10 text-primary rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">
@@ -436,7 +434,7 @@ export default function GitHub() {
               {/* Owner (fixed) */}
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">
-                  OrganizaciÃ³n
+                  Organizacion
                 </label>
                 <div className="mt-1 w-full h-7 bg-muted/30 border border-border rounded-[3px] px-2.5 flex items-center">
                   <span className="text-[11px] text-muted-foreground font-mono">{ORG_OWNER}</span>
@@ -462,12 +460,12 @@ export default function GitHub() {
               {/* Description */}
               <div>
                 <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">
-                  DescripciÃ³n{' '}
+                  Descripcion{' '}
                   <span className="normal-case text-muted-foreground/60">(opcional)</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="DescripciÃ³n del repositorio"
+                  placeholder="Descripcion del repositorio"
                   value={form.description}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                   className="mt-1 w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/30"
@@ -522,4 +520,3 @@ export default function GitHub() {
     </div>
   );
 }
-
