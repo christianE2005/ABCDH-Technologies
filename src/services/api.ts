@@ -1,7 +1,7 @@
 import type { ApiError } from './types';
 
 // ─── Base URL ──────────────────────────────────────────────────────────────
-const BASE_URL = import.meta.env.VITE_API_TARGET || 'https://abcdhtechnologiesbackend-production-bc91.up.railway.app/api';
+const BASE_URL = import.meta.env.VITE_API_TARGET || 'https://abcdhtechnologiesbackend-production.up.railway.app/api';
 
 // ─── Token storage keys ──────────────────────────────────────────────────────
 const STORAGE_ACCESS = 'pip_access_token';
