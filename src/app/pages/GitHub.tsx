@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Github, Plus, ExternalLink, Lock, Unlock, X, Trash2 } from 'lucide-react';
+import { Github, Plus, ExternalLink, Lock, Unlock, X, Trash2, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { CommandBar } from '../components/CommandBar';
 import { githubService } from '../../services/github.service';
@@ -20,22 +20,15 @@ interface CreateRepoForm {
 
 export default function GitHub() {
   const { user } = useAuth();
-  const userId = user?.id ?? null; // string from AuthContext
+  const userId = user?.id ?? null;
 
-  // â”€â”€â”€ Derive initial UI state from per-user localStorage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const getInitialState = (): GitHubPageState => {
-    if (!userId) return 'not_connected';
-    if (!githubService.isOAuthConnected(userId)) return 'not_connected';
-    return 'connected';
-  };
-
-  const [pageState, setPageState] = useState<GitHubPageState>(getInitialState);
+  const [pageState, setPageState] = useState<GitHubPageState>('not_connected');
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [githubLogin, setGithubLogin] = useState<string | null>(
-    () => (userId ? githubService.getGithubLogin(userId) : null),
-  );
+  const [githubLogin, setGithubLogin] = useState<string | null>(null);
+  const [isAdmin] = useState(() => githubService.isAdmin());
 
-  // â”€â”€â”€ Repos persisted per user â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Repos (cached per user in localStorage)
   const [repos, setRepos] = useState<GitHubRepo[]>(
     () => (userId ? githubService.getRepos(userId) : []),
   );
@@ -47,75 +40,86 @@ export default function GitHub() {
   };
 
   // â”€â”€â”€ Handle GitHub redirect callbacks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // On mount: handle OAuth callback OR check connection status
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) { setLoading(false); return; }
     const params = new URLSearchParams(window.location.search);
-
-    // GitHub callback: ?github=connected&code=...&state=... (and optionally installation_id)
-    // The GitHub App has "Request OAuth during installation" enabled, so install + OAuth
-    // happen in a single redirect. After installing the app GitHub redirects here with
-    // code, state, and installation_id all at once.
     const code = params.get('code');
     const state = params.get('state');
-    const installationId = params.get('installation_id');
 
+    // Flow 1 step 4: GitHub redirected back with ?github=connected&code=...&state=...
     if (params.get('github') === 'connected' && code && state) {
       window.history.replaceState({}, '', window.location.pathname);
       setBusy(true);
 
-      // Step 1: if installation_id present, link it first
-      const linkPromise = installationId
-        ? githubService.linkInstallation({
-            user_id: Number(userId),
-            installation_id: Number(installationId),
-          })
-        : Promise.resolve();
-
-      // Step 2: exchange code + state for access token
-      linkPromise
-        .then(() => githubService.completeOAuth({ code, state }))
+      githubService.completeOAuth({ code, state })
         .then((res) => {
-          const login = res.github_login;
-          githubService.markOAuthConnected(userId, login);
-          if (login) setGithubLogin(login);
+          setGithubLogin(res.github_login);
           setPageState('connected');
           toast.success('¡Cuenta de GitHub conectada!', {
-            description: `Conectado como ${login ?? 'usuario'} en ${ORG_OWNER}`,
+            description: `Conectado como ${res.github_login} en ${ORG_OWNER}`,
           });
         })
         .catch((err) => {
           const detail = err instanceof Error ? err.message : 'Error desconocido';
           toast.error('Error al completar la conexión con GitHub', { description: detail });
+          setPageState('not_connected');
         })
-        .finally(() => setBusy(false));
+        .finally(() => { setBusy(false); setLoading(false); });
       return;
     }
 
-    // Fallback: ?github=connected without code
+    // Fallback: callback without code
     if (params.get('github') === 'connected') {
       window.history.replaceState({}, '', window.location.pathname);
-      toast.error('Faltó el código de autorización de GitHub. Intenta de nuevo.');
+      toast.error('Faltó el código de autorización. Intenta de nuevo.');
     }
+
+    // Flow 3: verify connection status with backend
+    githubService.checkConnectionStatus()
+      .then((status) => {
+        if (status.connected) {
+          setPageState('connected');
+          setGithubLogin(status.github_login);
+        } else if (status.reason === 'token_expired') {
+          toast.info('Tu conexión con GitHub expiró. Vuelve a conectar.');
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [userId]);
 
   // â”€â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Flow 1: start OAuth connection (all users)
   const handleConnect = async () => {
     setBusy(true);
     try {
-      await githubService.startAppInstall();
+      await githubService.startOAuth();
     } catch {
       toast.error('No se pudo iniciar la conexión con GitHub');
       setBusy(false);
     }
   };
 
+  // Flow 2: install GitHub App on org (admin only)
+  const handleInstallApp = async () => {
+    setBusy(true);
+    try {
+      await githubService.startAppInstall();
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : 'Error desconocido';
+      toast.error('No se pudo iniciar la instalación', { description: detail });
+      setBusy(false);
+    }
+  };
+
   const handleDisconnect = () => {
     if (!userId) return;
-    githubService.disconnect(userId);
+    githubService.clearRepos(userId);
     setRepos([]);
     setGithubLogin(null);
     setPageState('not_connected');
-    toast.info('Cuenta de GitHub desconectada');
+    toast.info('Sesión de GitHub desconectada');
   };
 
   // â”€â”€â”€ Create repo modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -192,7 +196,19 @@ export default function GitHub() {
   };
 
 
-  // --- Not connected: install app + OAuth in one step ---
+  // --- Loading: verifying connection status ---
+  if (loading) {
+    return (
+      <div className="px-4 pb-6 pt-3 max-w-[1600px]">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-[12px] text-muted-foreground">Verificando conexión con GitHub...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Not connected ---
   if (pageState === 'not_connected') {
     return (
       <div className="px-4 pb-6 pt-3 max-w-[1600px]">
@@ -207,20 +223,33 @@ export default function GitHub() {
               Conecta tu cuenta de GitHub
             </h2>
             <p className="text-[12px] text-muted-foreground max-w-sm">
-              Instala la app y vincula tu cuenta de GitHub para crear repositorios, gestionar
+              Vincula tu cuenta de GitHub para crear repositorios, gestionar
               webhooks y conectar proyectos con tu código en{' '}
               <span className="font-mono text-foreground">{ORG_OWNER}</span>.
             </p>
           </div>
 
-          <button
-            onClick={handleConnect}
-            disabled={busy}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#24292e] hover:bg-[#1b1f23] text-white rounded-[4px] text-[13px] font-medium transition-colors disabled:opacity-60"
-          >
-            <Github className="w-4 h-4" />
-            {busy ? 'Redirigiendo a GitHub...' : 'Conectar con GitHub'}
-          </button>
+          <div className="flex flex-col items-center gap-3">
+            <button
+              onClick={handleConnect}
+              disabled={busy}
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#24292e] hover:bg-[#1b1f23] text-white rounded-[4px] text-[13px] font-medium transition-colors disabled:opacity-60"
+            >
+              <Github className="w-4 h-4" />
+              {busy ? 'Redirigiendo a GitHub...' : 'Conectar con GitHub'}
+            </button>
+
+            {isAdmin && (
+              <button
+                onClick={handleInstallApp}
+                disabled={busy}
+                className="flex items-center gap-2 px-4 py-2 border border-border hover:bg-accent/30 text-foreground rounded-[4px] text-[12px] font-medium transition-colors disabled:opacity-60"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                Instalar App en organización
+              </button>
+            )}
+          </div>
 
           <p className="text-[10px] text-muted-foreground">
             Organización: <span className="font-mono text-foreground">{ORG_OWNER}</span>

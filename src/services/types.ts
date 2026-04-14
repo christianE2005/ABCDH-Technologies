@@ -115,11 +115,6 @@ export interface GitHubAppInstallStartResponse {
   install_url: string;
 }
 
-export interface GitHubAppLinkPayload {
-  user_id: number;
-  installation_id: number;
-}
-
 export interface GitHubOAuthStartResponse {
   authorize_url: string;
 }
@@ -130,8 +125,18 @@ export interface GitHubOAuthCallbackPayload {
 }
 
 export interface GitHubOAuthCallbackResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
   github_login: string;
-  message?: string;
+  authorized_orgs: string[];
+  user: ApiUserAccount;
+}
+
+export interface GitHubConnectionStatusResponse {
+  connected: boolean;
+  github_login: string | null;
+  reason?: string;
 }
 
 export interface GitHubCreateRepoPayload {
