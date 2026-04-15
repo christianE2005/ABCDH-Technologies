@@ -15,6 +15,7 @@ import {
 } from '../hooks/useProjectData';
 import { projectsService } from '../../services';
 import type { ApiProject } from '../../services';
+import { GitHubReposView } from '../components/GitHubReposView';
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -118,7 +119,7 @@ export default function ProjectDetail() {
   };
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'resumen' | 'tareas' | 'equipo'>('resumen');
+  const [activeTab, setActiveTab] = useState<'resumen' | 'tareas' | 'repositorios' | 'equipo'>('resumen');
 
   const loading = loadingProject || loadingBoards;
 
@@ -201,6 +202,7 @@ export default function ProjectDetail() {
           {([
             { key: 'resumen', label: 'Overview' },
             { key: 'tareas', label: 'Tareas' },
+            { key: 'repositorios', label: 'Repositorios' },
             { key: 'equipo', label: 'Equipo' },
           ] as const).map((tab) => (
             <button
@@ -354,6 +356,11 @@ export default function ProjectDetail() {
               )}
             </div>
           </div>
+        )}
+
+        {/* REPOSITORIOS */}
+        {activeTab === 'repositorios' && (
+          <GitHubReposView />
         )}
 
         {/* EQUIPO */}

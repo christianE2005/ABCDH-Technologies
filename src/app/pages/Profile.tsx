@@ -1,10 +1,11 @@
 ﻿import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { User, Mail, Shield, Moon, Sun, Lock } from 'lucide-react';
+import { User, Mail, Shield, Moon, Sun, Lock, Github } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { useApiProjectMembers, useApiProjects } from '../hooks/useProjectData';
+import { GitHubConnectSection } from '../components/GitHubConnectSection';
 
 export default function Profile() {
   const { user } = useAuth();
@@ -96,6 +97,15 @@ export default function Profile() {
                   {user?.role.replace('_', ' ')}
                 </div>
               </div>
+
+              {/* GitHub connection */}
+              <div>
+                <label className="block text-[11px] font-medium text-foreground mb-1">
+                  <Github className="w-3 h-3 inline mr-1" /> GitHub
+                </label>
+                <GitHubConnectSection />
+              </div>
+
               {editing && (
                 <button
                   onClick={handleSave}
