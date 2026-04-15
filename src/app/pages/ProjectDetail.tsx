@@ -16,6 +16,7 @@ import {
 import { projectsService } from '../../services';
 import type { ApiProject } from '../../services';
 import { GitHubReposView } from '../components/GitHubReposView';
+import { CodeReviewPanel } from '../components/CodeReviewPanel';
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -119,7 +120,7 @@ export default function ProjectDetail() {
   };
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'resumen' | 'tareas' | 'repositorios' | 'equipo'>('resumen');
+  const [activeTab, setActiveTab] = useState<'resumen' | 'tareas' | 'code-review' | 'repositorios' | 'equipo'>('resumen');
 
   const loading = loadingProject || loadingBoards;
 
@@ -202,6 +203,7 @@ export default function ProjectDetail() {
           {([
             { key: 'resumen', label: 'Overview' },
             { key: 'tareas', label: 'Tareas' },
+            { key: 'code-review', label: 'Code Review' },
             { key: 'repositorios', label: 'Repositorios' },
             { key: 'equipo', label: 'Equipo' },
           ] as const).map((tab) => (
@@ -356,6 +358,14 @@ export default function ProjectDetail() {
               )}
             </div>
           </div>
+        )}
+
+        {/* CODE REVIEW */}
+        {activeTab === 'code-review' && (
+          <CodeReviewPanel
+            projectId={projectId}
+            repoFullName={project?.github_repo_full_name ?? null}
+          />
         )}
 
         {/* REPOSITORIOS */}

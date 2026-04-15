@@ -15,6 +15,7 @@ export interface ApiProject {
   end_date: string | null;   // ISO date YYYY-MM-DD
   status: string | null;     // free-text e.g. "active", "on_hold", "completed"
   created_by: number | null;
+  github_repo_full_name: string | null;
 }
 
 export interface ApiRole {
@@ -166,6 +167,57 @@ export interface GitHubWebhook {
 export interface GitHubCreateRepoResponse {
   repository: GitHubRepo;
   webhook: GitHubWebhook;
+}
+
+// ─── Task Warnings ───────────────────────────────────────────────────────────
+
+export interface ApiTaskWarning {
+  id_warning: number;
+  message: string;
+  status: 'active' | 'resolved';
+  created_at: string;
+  resolved_at: string | null;
+  task: number;
+  resolved_in_push: number | null;
+}
+
+// ─── GitHub Push Events ──────────────────────────────────────────────────────
+
+export interface ApiGithubPushEvent {
+  id_push: number;
+  repo_full_name: string;
+  ref: string;
+  pusher: string | null;
+  commits: unknown;
+  received_at: string;
+  project: number | null;
+}
+
+export interface ApiGithubCommitDiff {
+  sha: string;
+  message: string;
+  stats?: {
+    additions: number;
+    deletions: number;
+    total: number;
+  };
+  files: Array<{
+    filename: string;
+    status: string;
+    additions: number;
+    deletions: number;
+    patch?: string;
+  }>;
+}
+
+export interface ApiGithubContent {
+  name: string;
+  path: string;
+  type: 'file' | 'dir';
+  size?: number;
+  sha?: string;
+  content?: string;
+  download_url?: string;
 }
 
 // ─── API error shape ─────────────────────────────────────────────────────────

@@ -6,9 +6,10 @@ import { CSS } from '@dnd-kit/utilities';
 import { Plus, GripVertical, Calendar, User, AlertCircle, X, LayoutGrid, List, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
-import { useApiProjects, useApiBoards, useApiTasks } from '../hooks/useProjectData';
+import { useApiProjects, useApiBoards, useApiTasks, useApiUsers } from '../hooks/useProjectData';
 import { tasksService } from '../../services';
 import type { ApiTask, ApiTaskStatus, ApiTaskPriority } from '../../services';
+import { TaskDetailPanel } from '../components/TaskDetailPanel';
 
 // ── Helpers ──
 
@@ -65,6 +66,8 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   return <div ref={setNodeRef}>{children}</div>;
 }
 
+const WIP_LIMIT = 10; // Per-column WIP limit
+
 // ── Main component ──
 
 export default function Backlog() {
@@ -81,6 +84,14 @@ export default function Backlog() {
 
   // Tasks for the selected board
   const { data: tasks, loading: loadingTasks, statuses, priorities, refetch: refetchTasks } = useApiTasks(selectedBoard);
+
+  // Users for the detail panel
+  const { data: users } = useApiUsers();
+  const userMap = useMemo(() => {
+    const m = new Map<number, string>();
+    (users ?? []).forEach((u) => m.set(u.id_user, u.username));
+    return m;
+  }, [users]);
 
   const loading = loadingProjects || loadingBoards || loadingTasks;
 
@@ -300,12 +311,14 @@ export default function Backlog() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}>
             {columns.map((col, colIndex) => (
               <DroppableColumn key={col.status.id_status} id={String(col.status.id_status)}>
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: colIndex * 0.1, ease: 'easeOut' }} className="bg-surface-secondary/50 border border-border rounded-[4px] p-2.5">
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: colIndex * 0.1, ease: 'easeOut' }} className={`bg-surface-secondary/50 border rounded-[4px] p-2.5 ${col.tasks.length >= WIP_LIMIT ? 'border-warning/50' : 'border-border'}`}>
                   <div className="flex items-center justify-between mb-2 px-1">
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full ${col.dotColor}`} />
                       <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">{col.status.name}</h2>
-                      <span className="text-[10px] text-muted-foreground font-medium bg-card px-1.5 py-0.5 rounded-full">{col.tasks.length}</span>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${col.tasks.length >= WIP_LIMIT ? 'bg-warning/20 text-warning' : 'bg-card text-muted-foreground'}`}>
+                        {col.tasks.length}{col.tasks.length >= WIP_LIMIT ? ` / ${WIP_LIMIT}` : ''}
+                      </span>
                     </div>
                   </div>
                   <SortableContext items={col.tasks.map((t) => t.id_task)} strategy={verticalListSortingStrategy}>
@@ -420,53 +433,15 @@ export default function Backlog() {
         </div>
       )}
 
-      {/* Task Slideout Panel */}
-      <div className={`fixed top-0 right-0 h-full w-[380px] bg-card border-l border-border z-40 transition-transform duration-300 ease-in-out flex flex-col ${selectedTask ? 'translate-x-0' : 'translate-x-full'}`}>
-        {selectedTask && (() => {
-          const st = statuses.find((s) => s.id_status === selectedTask.status);
-          const pr = priorities.find((p) => p.id_priority === selectedTask.priority);
-          return (
-            <>
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-secondary/50">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">{pr?.name ?? 'Sin prioridad'}</span>
-                <button onClick={() => setSelectedTask(null)} className="p-0.5 rounded-[3px] hover:bg-surface-secondary transition-colors"><X className="w-3.5 h-3.5 text-muted-foreground" /></button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                <div>
-                  <h2 className="text-[13px] font-semibold text-foreground leading-snug">{selectedTask.title}</h2>
-                  {selectedTask.description && <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">{selectedTask.description}</p>}
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-[0.06em]">Estado</span>
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{st?.name ?? '—'}</span>
-                  </div>
-                  {selectedTask.due_date && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-[0.06em]">Fecha límite</span>
-                      <span className="text-[11px] text-foreground flex items-center gap-1"><Calendar className="w-3 h-3" />{selectedTask.due_date}</span>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-2">Cambiar estado</p>
-                  <div className="flex gap-1.5">
-                    {statuses.map((s) => (
-                      <button key={s.id_status} onClick={() => handleStatusChange(selectedTask, s.id_status)} className={`flex-1 py-1 text-[10px] font-medium rounded-[3px] border transition-colors ${selectedTask.status === s.id_status ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-muted-foreground hover:text-foreground hover:bg-surface-secondary'}`}>
-                        {s.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="px-4 py-3 border-t border-border">
-                <button onClick={() => setSelectedTask(null)} className="w-full h-7 bg-surface-secondary hover:bg-accent text-foreground text-[11px] font-medium rounded-[3px] transition-colors">Cerrar</button>
-              </div>
-            </>
-          );
-        })()}
-      </div>
-      {selectedTask && <div className="fixed inset-0 z-30 bg-black/20" onClick={() => setSelectedTask(null)} />}
+      {/* Task Detail Panel */}
+      <TaskDetailPanel
+        task={selectedTask}
+        statuses={statuses}
+        priorities={priorities}
+        userMap={userMap}
+        onClose={() => setSelectedTask(null)}
+        onStatusChange={handleStatusChange}
+      />
     </div>
   );
 }

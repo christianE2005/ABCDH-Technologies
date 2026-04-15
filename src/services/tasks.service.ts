@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { ApiTask, ApiTaskStatus, ApiTaskPriority, ApiTaskComment, ApiBoard } from './types';
+import type { ApiTask, ApiTaskStatus, ApiTaskPriority, ApiTaskComment, ApiBoard, ApiTaskWarning } from './types';
 
 export interface CreateTaskPayload {
   board: number;
@@ -68,5 +68,15 @@ export const tasksService = {
 
   createBoard(projectId: number, name: string, description?: string): Promise<ApiBoard> {
     return api.post<ApiBoard>('/boards/', { project: projectId, name, description });
+  },
+
+  // ── Warnings ───────────────────────────────────────────────────
+  listWarnings(filters?: { task_id?: number; project_id?: number; status?: 'active' | 'resolved' }): Promise<ApiTaskWarning[]> {
+    const params = new URLSearchParams();
+    if (filters?.task_id) params.set('task_id', String(filters.task_id));
+    if (filters?.project_id) params.set('project_id', String(filters.project_id));
+    if (filters?.status) params.set('status', filters.status);
+    const qs = params.toString();
+    return api.get<ApiTaskWarning[]>(`/task-warnings/${qs ? `?${qs}` : ''}`);
   },
 };

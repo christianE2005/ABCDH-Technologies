@@ -8,6 +8,8 @@ import type {
   GitHubCreateRepoPayload,
   GitHubCreateRepoResponse,
   GitHubRepo,
+  ApiGithubPushEvent,
+  ApiGithubCommitDiff,
 } from './types';
 
 // Per-user localStorage key for repos cache only
@@ -69,6 +71,35 @@ export const githubService = {
   /** POST /api/github/repos/ → creates repository in the given org */
   async createRepo(payload: GitHubCreateRepoPayload): Promise<GitHubCreateRepoResponse> {
     return api.post<GitHubCreateRepoResponse>('/github/repos/', payload);
+  },
+
+  // ─── Push Events ───────────────────────────────────────────────────────────
+
+  /** GET /api/github/pushes/ → list push events, optionally filtered */
+  async listPushes(filters?: { project_id?: number; repo?: string }): Promise<ApiGithubPushEvent[]> {
+    const params = new URLSearchParams();
+    if (filters?.project_id) params.set('project_id', String(filters.project_id));
+    if (filters?.repo) params.set('repo', filters.repo);
+    const qs = params.toString();
+    return api.get<ApiGithubPushEvent[]>(`/github/pushes/${qs ? `?${qs}` : ''}`);
+  },
+
+  /** GET /api/github/commits/diff/ → get diff for a specific commit */
+  async getCommitDiff(repo: string, commitSha: string): Promise<ApiGithubCommitDiff> {
+    return api.get<ApiGithubCommitDiff>(`/github/commits/diff/?repo=${encodeURIComponent(repo)}&commit=${encodeURIComponent(commitSha)}`);
+  },
+
+  /** GET /api/github/contents/ → browse repo file tree */
+  async getContents(repo: string, path = '', ref?: string): Promise<unknown[]> {
+    const params = new URLSearchParams({ repo });
+    if (path) params.set('path', path);
+    if (ref) params.set('ref', ref);
+    return api.get<unknown[]>(`/github/contents/?${params.toString()}`);
+  },
+
+  /** GET /api/github/repos/ → list repos from backend */
+  async listRepos(): Promise<GitHubRepo[]> {
+    return api.get<GitHubRepo[]>('/github/repos/');
   },
 
   // ─── Admin check (decode JWT without verification) ─────────────────────────

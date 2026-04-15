@@ -12,13 +12,15 @@ import {
 import { KPICard } from '../components/KPICard';
 import { StatusBadge } from '../components/StatusBadge';
 import { CommandBar } from '../components/CommandBar';
-import { useApiProjects, useApiTasks } from '../hooks/useProjectData';
+import { useApiProjects, useApiTasks, useApiTaskWarnings, useApiGithubPushes } from '../hooks/useProjectData';
 import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { data: projects, loading: loadingProjects, error: errorProjects, refetch: refetchProjects } = useApiProjects();
   const { data: tasks, loading: loadingTasks, statuses, refetch: refetchTasks } = useApiTasks();
+  const { data: warnings } = useApiTaskWarnings({ status: 'active' });
+  const { data: pushes } = useApiGithubPushes();
 
   const loading = loadingProjects || loadingTasks;
 
@@ -42,6 +44,12 @@ export default function Dashboard() {
 
     return { totalProjects, totalTasks, completedTasks, openTasks, overdueTasks };
   }, [projects, tasks]);
+
+  const activeWarningsCount = (warnings ?? []).length;
+  const myTasks = useMemo(() => {
+    if (!tasks || !user) return [];
+    return tasks.filter((t) => t.assigned_to === Number(user.id) && !t.completed_at);
+  }, [tasks, user]);
 
   // ── Task distribution by status for chart ──
   const statusChartData = useMemo(() => {
@@ -107,9 +115,9 @@ export default function Dashboard() {
       />
 
       {/* KPI Row */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
         {loading ? (
-          Array.from({ length: 5 }).map((_, i) => (
+          Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="bg-card border border-border rounded-[4px] h-[80px] animate-pulse" />
           ))
         ) : (
@@ -119,6 +127,7 @@ export default function Dashboard() {
             { title: 'Completadas', value: kpis.completedTasks, subtitle: 'tareas terminadas', icon: <CheckCircle2 className="w-4 h-4" /> },
             { title: 'Pendientes', value: kpis.openTasks, subtitle: 'tareas abiertas', icon: <Timer className="w-4 h-4" /> },
             { title: 'Vencidas', value: kpis.overdueTasks, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" /> },
+            { title: 'Warnings', value: activeWarningsCount, subtitle: 'alertas activas', icon: <AlertTriangle className="w-4 h-4 text-warning" /> },
           ].map((kpi, i) => (
             <motion.div
               key={kpi.title}
@@ -270,6 +279,82 @@ export default function Dashboard() {
             )}
           </motion.div>
         </div>
+      </div>
+
+      {/* Bottom row: My Tasks + Recent Activity */}
+      <div className="grid xl:grid-cols-2 gap-3">
+        {/* My Tasks */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.4, ease: 'easeOut' }}
+          className="bg-card border border-border rounded-[4px]"
+        >
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+            <h2 className="text-[13px] font-semibold text-foreground">Mis Tareas Pendientes</h2>
+            <Link to="/backlog" className="text-[11px] text-primary hover:underline font-medium inline-flex items-center gap-1">
+              Ver Backlog <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          {myTasks.length === 0 ? (
+            <div className="py-8 text-center text-[12px] text-muted-foreground">Sin tareas asignadas pendientes.</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {myTasks.slice(0, 6).map((task) => {
+                const isOverdue = task.due_date && new Date(task.due_date) < new Date();
+                return (
+                  <div key={task.id_task} className="px-4 py-2 hover:bg-accent/30 transition-colors">
+                    <p className="text-[12px] font-medium text-foreground truncate">{task.title}</p>
+                    <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground">
+                      {task.due_date && (
+                        <span className={isOverdue ? 'text-destructive font-semibold' : ''}>
+                          {task.due_date}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Recent Push Activity */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.45, ease: 'easeOut' }}
+          className="bg-card border border-border rounded-[4px]"
+        >
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+            <h2 className="text-[13px] font-semibold text-foreground">Actividad Reciente (Git)</h2>
+            <Link to="/github" className="text-[11px] text-primary hover:underline font-medium inline-flex items-center gap-1">
+              Ver GitHub <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          {!pushes || pushes.length === 0 ? (
+            <div className="py-8 text-center text-[12px] text-muted-foreground">Sin push events recientes.</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {pushes.slice(0, 5).map((push) => {
+                const commitCount = Array.isArray(push.commits) ? push.commits.length : 0;
+                return (
+                  <div key={push.id_push} className="px-4 py-2 hover:bg-accent/30 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-medium text-foreground">{push.pusher ?? 'unknown'}</span>
+                      <span className="text-[10px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded-[2px]">
+                        {push.ref?.replace('refs/heads/', '') ?? 'main'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {commitCount} commit{commitCount !== 1 ? 's' : ''} · {new Date(push.received_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </motion.div>
       </div>
     </div>
   );

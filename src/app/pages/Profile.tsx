@@ -1,16 +1,18 @@
 ﻿import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { User, Mail, Shield, Moon, Sun, Lock, Github } from 'lucide-react';
+import { User, Mail, Shield, Moon, Sun, Lock, Github, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { useApiProjectMembers, useApiProjects } from '../hooks/useProjectData';
 import { GitHubConnectSection } from '../components/GitHubConnectSection';
+import { usersService } from '../../services';
 
 export default function Profile() {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -23,9 +25,21 @@ export default function Profile() {
   const myMemberships = (allMembers ?? []).filter((m) => m.user === userId);
   const projectMap = new Map((projects ?? []).map((p) => [p.id_project, p.name]));
 
-  const handleSave = () => {
-    setEditing(false);
-    toast.success('Perfil actualizado exitosamente');
+  const handleSave = async () => {
+    if (!userId) return;
+    setSaving(true);
+    try {
+      await usersService.update(userId, {
+        username: formData.name,
+        email: formData.email,
+      });
+      setEditing(false);
+      toast.success('Perfil actualizado exitosamente');
+    } catch {
+      toast.error('Error al actualizar el perfil');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -109,9 +123,11 @@ export default function Profile() {
               {editing && (
                 <button
                   onClick={handleSave}
-                  className="w-full h-7 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors"
+                  disabled={saving}
+                  className="w-full h-7 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
-                  Guardar
+                  {saving && <Loader2 className="w-3 h-3 animate-spin" />}
+                  {saving ? 'Guardando…' : 'Guardar'}
                 </button>
               )}
             </div>

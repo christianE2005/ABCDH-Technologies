@@ -25,12 +25,12 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutGrid, group: 'main' },
-  { name: 'Proyectos', path: '/projects', icon: Briefcase, group: 'main' },
   { name: 'Backlog', path: '/backlog', icon: ListChecks, group: 'main' },
+  { name: 'Proyectos', path: '/projects', icon: Briefcase, group: 'main' },
   { name: 'GitHub', path: '/github', icon: Github, group: 'integrations' },
+  { name: 'Actividad', path: '/logs', icon: ScrollText, group: 'integrations' },
   { name: 'Perfil', path: '/profile', icon: CircleUser, group: 'user' },
   { name: 'Configuración', path: '/settings', icon: SlidersHorizontal, group: 'user' },
-  { name: 'Logs', path: '/logs', icon: ScrollText, roles: ['admin'], group: 'user' },
 ];
 
 export function Sidebar() {

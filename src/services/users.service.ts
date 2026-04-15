@@ -12,6 +12,11 @@ export const usersService = {
     return api.get<ApiUserAccount>(`/user-accounts/${id}/`);
   },
 
+  /** PATCH /api/user-accounts/:id/ */
+  update(id: number, payload: Partial<Pick<ApiUserAccount, 'email' | 'username'>>): Promise<ApiUserAccount> {
+    return api.patch<ApiUserAccount>(`/user-accounts/${id}/`, payload);
+  },
+
   // ── Project members ────────────────────────────────────────────
   listMembers(projectId?: number): Promise<ApiProjectMember[]> {
     const url = projectId ? `/project-members/?project=${projectId}` : '/project-members/';
