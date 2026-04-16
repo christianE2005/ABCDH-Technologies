@@ -27,6 +27,12 @@ function statusDotColor(index: number, total: number) {
 
 // ── Task Card (draggable) ──
 
+function priorityBorderColor(level: number) {
+  if (level >= 3) return 'border-l-destructive';
+  if (level === 2) return 'border-l-warning';
+  return 'border-l-info';
+}
+
 function TaskCard({ task, priorities }: { task: ApiTask; statuses?: ApiTaskStatus[]; priorities: ApiTaskPriority[] }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id_task });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
@@ -35,7 +41,7 @@ function TaskCard({ task, priorities }: { task: ApiTask; statuses?: ApiTaskStatu
   const prioLevel = prio?.level ?? 0;
 
   return (
-    <div ref={setNodeRef} style={style} className="bg-card border border-border rounded-[4px] p-2.5 mb-1.5 hover:border-primary/30 transition-colors cursor-move group" {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={style} className={`bg-card border border-border border-l-[3px] ${priorityBorderColor(prioLevel)} rounded-[4px] p-2.5 mb-1.5 hover:border-primary/30 transition-colors cursor-move group`} {...attributes} {...listeners}>
       <div className="flex items-start gap-2">
         <GripVertical className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
@@ -46,10 +52,12 @@ function TaskCard({ task, priorities }: { task: ApiTask; statuses?: ApiTaskStatu
           {task.description && <p className="text-[11px] text-muted-foreground line-clamp-2 ml-3.5">{task.description}</p>}
         </div>
       </div>
-      <div className="flex items-center justify-between mt-2.5 ml-3.5">
+      <div className="flex items-center justify-between mt-2 ml-3.5">
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
           {task.assigned_to && (
-            <span className="flex items-center gap-1"><User className="w-3 h-3" />#{task.assigned_to}</span>
+            <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-medium shrink-0">
+              #{task.assigned_to}
+            </span>
           )}
           {task.due_date && (
             <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{task.due_date}</span>

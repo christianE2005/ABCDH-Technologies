@@ -19,6 +19,9 @@ interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   rowClassName?: (row: T) => string;
   stickyHeader?: boolean;
+  selectable?: boolean;
+  selectedKeys?: Set<string>;
+  onSelectionChange?: (keys: Set<string>) => void;
 }
 
 type SortDir = 'asc' | 'desc' | null;
@@ -37,7 +40,10 @@ export function DataTable<T>({
   density = 'normal',
   onRowClick,
   rowClassName,
-  stickyHeader = false,
+  stickyHeader = true,
+  selectable = false,
+  selectedKeys,
+  onSelectionChange,
 }: DataTableProps<T>) {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
@@ -74,6 +80,23 @@ export function DataTable<T>({
       <table className="w-full border-collapse text-[12px]">
         <thead>
           <tr className={`border-b border-border ${stickyHeader ? 'sticky top-0 bg-card z-10' : 'bg-card'}`}>
+            {selectable && (
+              <th className={`${px} px-3 w-8`}>
+                <input
+                  type="checkbox"
+                  className="rounded border-border"
+                  checked={sorted.length > 0 && selectedKeys?.size === sorted.length}
+                  onChange={(e) => {
+                    if (!onSelectionChange) return;
+                    if (e.target.checked) {
+                      onSelectionChange(new Set(sorted.map((r) => String(r[keyField]))));
+                    } else {
+                      onSelectionChange(new Set());
+                    }
+                  }}
+                />
+              </th>
+            )}
             {columns.map((col) => {
               const isSorted = sortCol === col.id;
               return (
@@ -109,22 +132,43 @@ export function DataTable<T>({
           {sorted.length === 0 ? (
             <tr>
               <td
-                colSpan={columns.length}
+                colSpan={columns.length + (selectable ? 1 : 0)}
                 className="px-3 py-8 text-center text-muted-foreground text-[12px]"
               >
                 {emptyMessage}
               </td>
             </tr>
           ) : (
-            sorted.map((row) => (
-              <tr
-                key={String(row[keyField])}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={`border-b border-border last:border-0 transition-colors ${
-                  onRowClick ? 'cursor-pointer hover:bg-accent/40' : 'hover:bg-accent/20'
-                } ${rowClassName ? rowClassName(row) : ''}`}
-              >
-                {columns.map((col) => (
+            sorted.map((row) => {
+              const key = String(row[keyField]);
+              const isSelected = selectedKeys?.has(key);
+              return (
+                <tr
+                  key={key}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={`border-b border-border/60 last:border-0 transition-colors ${
+                    isSelected ? 'bg-primary/5' : ''
+                  } ${
+                    onRowClick ? 'cursor-pointer hover:bg-accent/40' : 'hover:bg-accent/20'
+                  } ${rowClassName ? rowClassName(row) : ''}`}
+                >
+                  {selectable && (
+                    <td className={`${px} px-3 w-8`}>
+                      <input
+                        type="checkbox"
+                        className="rounded border-border"
+                        checked={isSelected ?? false}
+                        onChange={(e) => {
+                          if (!onSelectionChange || !selectedKeys) return;
+                          const next = new Set(selectedKeys);
+                          if (e.target.checked) next.add(key); else next.delete(key);
+                          onSelectionChange(next);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </td>
+                  )}
+                  {columns.map((col) => (
                   <td
                     key={col.id}
                     className={`${px} px-3 text-foreground ${
@@ -135,7 +179,8 @@ export function DataTable<T>({
                   </td>
                 ))}
               </tr>
-            ))
+              );
+            })
           )}
         </tbody>
       </table>

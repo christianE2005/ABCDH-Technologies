@@ -9,9 +9,12 @@ import { motion } from 'motion/react';
 import { StatusBadge } from '../components/StatusBadge';
 import { KPICard } from '../components/KPICard';
 import { CommandBar } from '../components/CommandBar';
+import { ADOTabs } from '../components/ADOTabs';
+import { AvatarGroup } from '../components/AvatarGroup';
+import { ProgressBar } from '../components/ProgressBar';
 import { AssignResponsibleModal, type AssignCandidate } from '../components/AssignResponsibleModal';
 import {
-  useApiBoards, useApiProjectMembers, useApiUsers, useApiTasks,
+  useApiBoards, useApiProjectMembers, useApiUsers, useApiTasks, useApiRoles,
 } from '../hooks/useProjectData';
 import { projectsService } from '../../services';
 import type { ApiProject } from '../../services';
@@ -54,6 +57,7 @@ export default function ProjectDetail() {
   // ── Members + Users ───────────────────────────────────────────────────────
   const { data: members, loading: loadingMembers } = useApiProjectMembers(projectId);
   const { data: users, loading: loadingUsers } = useApiUsers();
+  const { data: roles } = useApiRoles();
 
   const userMap = useMemo(() => {
     const m = new Map<number, string>();
@@ -61,7 +65,11 @@ export default function ProjectDetail() {
     return m;
   }, [users]);
 
-  const roleMap = useMemo(() => new Map<number, string>(), []);
+  const roleMap = useMemo(() => {
+    const m = new Map<number, string>();
+    (roles ?? []).forEach((r) => m.set(r.id_role, r.name));
+    return m;
+  }, [roles]);
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
@@ -176,14 +184,15 @@ export default function ProjectDetail() {
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
         {[
-          { title: 'Tareas', value: kpis.total, subtitle: 'en este tablero', icon: <List className="w-4 h-4" /> },
-          { title: 'Completadas', value: kpis.completed, subtitle: 'finalizadas', icon: <CheckCircle2 className="w-4 h-4" /> },
-          { title: 'Vencidas', value: kpis.overdue, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" /> },
+          { title: 'Tareas', value: kpis.total, subtitle: 'en este tablero', icon: <List className="w-4 h-4" />, accentColor: 'info' as const },
+          { title: 'Completadas', value: kpis.completed, subtitle: 'finalizadas', icon: <CheckCircle2 className="w-4 h-4" />, accentColor: 'success' as const },
+          { title: 'Vencidas', value: kpis.overdue, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" />, accentColor: 'destructive' as const },
           {
             title: 'Días Restantes',
             value: daysLabel,
             subtitle: project?.end_date ?? '—',
             icon: <Clock className="w-4 h-4" />,
+            accentColor: 'warning' as const,
           },
         ].map((card, i) => (
           <motion.div
@@ -192,35 +201,23 @@ export default function ProjectDetail() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.22, delay: i * 0.05, ease: 'easeOut' }}
           >
-            <KPICard title={card.title} value={card.value} subtitle={card.subtitle} icon={card.icon} />
+            <KPICard title={card.title} value={card.value} subtitle={card.subtitle} icon={card.icon} accentColor={card.accentColor} />
           </motion.div>
         ))}
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-border">
-        <div className="flex gap-0">
-          {([
-            { key: 'resumen', label: 'Overview' },
-            { key: 'tareas', label: 'Tareas' },
-            { key: 'code-review', label: 'Code Review' },
-            { key: 'repositorios', label: 'Repositorios' },
-            { key: 'equipo', label: 'Equipo' },
-          ] as const).map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 text-[12px] font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === tab.key
-                  ? 'border-primary text-foreground'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <ADOTabs
+        tabs={[
+          { id: 'resumen', label: 'Overview' },
+          { id: 'tareas', label: 'Tareas', count: (tasks ?? []).length },
+          { id: 'code-review', label: 'Code Review' },
+          { id: 'repositorios', label: 'Repositorios' },
+          { id: 'equipo', label: 'Equipo', count: (members ?? []).length },
+        ]}
+        activeTab={activeTab}
+        onTabChange={(id) => setActiveTab(id as typeof activeTab)}
+      />
 
       <motion.div
         key={activeTab}
@@ -256,6 +253,24 @@ export default function ProjectDetail() {
                   <div className="h-20 animate-pulse bg-secondary rounded" />
                 )}
               </div>
+
+              {/* Completion progress bar */}
+              {kpis.total > 0 && (
+                <div className="bg-card border border-border rounded-[4px] p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">
+                      Avance
+                    </h2>
+                    <span className="text-[12px] font-semibold text-foreground">
+                      {Math.round((kpis.completed / kpis.total) * 100)}%
+                    </span>
+                  </div>
+                  <ProgressBar value={Math.round((kpis.completed / kpis.total) * 100)} height={6} />
+                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                    {kpis.completed} de {kpis.total} tareas completadas
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Task status breakdown */}
@@ -377,9 +392,20 @@ export default function ProjectDetail() {
         {activeTab === 'equipo' && (
           <div className="bg-card border border-border rounded-[4px] p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">
-                Miembros del Proyecto
-              </h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">
+                  Miembros del Proyecto
+                </h2>
+                {members && members.length > 0 && (
+                  <AvatarGroup
+                    users={(members ?? []).map((m) => ({
+                      name: userMap.get(m.user) ?? `Usuario #${m.user}`,
+                    }))}
+                    max={5}
+                    size={24}
+                  />
+                )}
+              </div>
               <button
                 onClick={() => setShowAssignModal(true)}
                 className="flex items-center gap-1.5 text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-[3px] transition-colors"

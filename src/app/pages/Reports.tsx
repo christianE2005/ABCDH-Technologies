@@ -10,7 +10,7 @@ import {
 import { KPICard } from '../components/KPICard';
 import { CommandBar } from '../components/CommandBar';
 import {
-  useApiProjects, useApiTasks, useApiTaskWarnings,
+  useApiProjects, useApiTasks, useApiTaskWarnings, useApiBoards,
 } from '../hooks/useProjectData';
 
 const CHART_COLORS = ['#D4192C', '#F59E0B', '#10B981', '#6366F1', '#8B5CF6', '#EC4899', '#14B8A6'];
@@ -19,24 +19,33 @@ export default function Reports() {
   const { data: projects, loading: loadingProjects, refetch: refetchProjects } = useApiProjects();
   const { data: tasks, loading: loadingTasks, statuses, priorities, refetch: refetchTasks } = useApiTasks();
   const { data: warnings, refetch: refetchWarnings } = useApiTaskWarnings();
+  const { data: boards } = useApiBoards();
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
 
   const loading = loadingProjects || loadingTasks;
   const refetchAll = () => { refetchProjects(); refetchTasks(); refetchWarnings(); };
 
-  // Filter tasks by project (using board → project mapping isn't available; filter on assigned board or show all)
+  // Build board→project lookup for filtering tasks by project
+  const boardProjectMap = useMemo(() => {
+    const m = new Map<number, number>();
+    (boards ?? []).forEach((b) => m.set(b.id_board, b.project));
+    return m;
+  }, [boards]);
+
+  // Filter tasks by project via board→project mapping
   const filteredTasks = useMemo(() => {
     const t = tasks ?? [];
-    // No project filter for now — tasks don't have a direct project field
-    return t;
-  }, [tasks]);
+    if (!selectedProject) return t;
+    return t.filter((task) => boardProjectMap.get(task.board) === selectedProject);
+  }, [tasks, selectedProject, boardProjectMap]);
 
+  // Filter warnings by project via task→board→project chain
   const filteredWarnings = useMemo(() => {
     const w = warnings ?? [];
     if (!selectedProject) return w;
-    // Warnings have task FK, not project FK directly — show all for now
-    return w;
-  }, [warnings, selectedProject]);
+    const taskIds = new Set(filteredTasks.map((t) => t.id_task));
+    return w.filter((wr) => taskIds.has(wr.task));
+  }, [warnings, selectedProject, filteredTasks]);
 
   // ── KPIs ──
   const kpis = useMemo(() => {

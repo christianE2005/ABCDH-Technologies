@@ -11,20 +11,23 @@ interface ToggleItem {
 
 function ToggleRow({ item, onChange }: { item: ToggleItem; onChange: (v: boolean) => void }) {
   return (
-    <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
-      <div>
+    <button
+      type="button"
+      onClick={() => onChange(!item.enabled)}
+      className="flex items-center justify-between w-full py-2.5 px-3 -mx-3 rounded-[3px] hover:bg-accent/30 transition-colors border-b border-border last:border-0 cursor-pointer"
+    >
+      <div className="text-left">
         <p className="text-[12px] text-foreground">{item.label}</p>
         {item.description && <p className="text-[10px] text-muted-foreground mt-0.5">{item.description}</p>}
       </div>
-      <button
-        onClick={() => onChange(!item.enabled)}
+      <div
         role="switch"
         aria-checked={item.enabled}
-        className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${item.enabled ? 'bg-primary' : 'bg-muted'}`}
+        className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ml-4 ${item.enabled ? 'bg-primary' : 'bg-muted'}`}
       >
         <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${item.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
-      </button>
-    </div>
+      </div>
+    </button>
   );
 }
 

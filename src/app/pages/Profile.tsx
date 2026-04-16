@@ -51,7 +51,7 @@ export default function Profile() {
         <div className="lg:col-span-2 space-y-4">
 
           {/* Basic Info */}
-          <div className="bg-card border border-border rounded-[4px] p-4">
+          <div className="bg-card border border-border border-l-[3px] border-l-primary rounded-[4px] p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[12px] font-semibold text-foreground">Información Personal</h2>
               <button

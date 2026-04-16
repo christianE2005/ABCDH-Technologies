@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import {
@@ -23,6 +23,7 @@ function getDaysLabel(days: number | null) {
 }
 
 export default function Projects() {
+  const navigate = useNavigate();
   const { data: projects, loading, refetch } = useApiProjects();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
@@ -130,7 +131,8 @@ export default function Projects() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.25, delay: i * 0.04, ease: 'easeOut' }}
-                      className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors group"
+                      className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors group cursor-pointer"
+                      onClick={() => navigate(`/projects/${project.id_project}`)}
                     >
                       <td className="py-1.5 px-4">
                         <p className="text-[12px] font-medium text-foreground truncate max-w-[220px]">{project.name}</p>
@@ -144,9 +146,9 @@ export default function Projects() {
                         <span className={`text-[12px] ${dl.cls}`}>{dl.label}</span>
                       </td>
                       <td className="py-1.5 px-3 text-right">
-                        <Link to={`/projects/${project.id_project}`} className="text-[11px] text-primary opacity-0 group-hover:opacity-100 transition-opacity font-medium hover:underline whitespace-nowrap">
-                          Ver →
-                        </Link>
+                        <span className="text-[11px] text-primary opacity-0 group-hover:opacity-100 transition-opacity font-medium whitespace-nowrap">
+                          →
+                        </span>
                       </td>
                     </motion.tr>
                   );

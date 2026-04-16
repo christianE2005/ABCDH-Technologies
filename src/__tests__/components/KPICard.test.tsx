@@ -48,10 +48,10 @@ describe('KPICard', () => {
     expect(container.querySelector('.w-8.h-8')).toBeNull();
   });
 
-  it('applies primary accentColor border by default', () => {
+  it('does not apply accentColor border by default', () => {
     const { container } = render(<KPICard title="KPI" value="1" />);
     const card = container.firstChild as HTMLElement;
-    expect(card.className).toContain('border-l-primary');
+    expect(card.className).not.toContain('border-l-');
   });
 
   it('applies success accentColor border', () => {
@@ -76,7 +76,7 @@ describe('KPICard', () => {
     const { container } = render(
       <KPICard title="KPI" value="1" trend="up" trendValue="+5%" />
     );
-    const badge = container.querySelector('[class*="bg-success"]');
+    const badge = container.querySelector('[class*="text-success"]');
     expect(badge).toBeInTheDocument();
   });
 
@@ -84,7 +84,7 @@ describe('KPICard', () => {
     const { container } = render(
       <KPICard title="KPI" value="1" trend="down" trendValue="-3%" />
     );
-    const badge = container.querySelector('[class*="bg-destructive"]');
+    const badge = container.querySelector('[class*="text-destructive"]');
     expect(badge).toBeInTheDocument();
   });
 
@@ -92,8 +92,7 @@ describe('KPICard', () => {
     const { container } = render(
       <KPICard title="KPI" value="1" trend="neutral" trendValue="±1%" />
     );
-    // neutral uses bg-muted
-    const badge = container.querySelector('[class*="bg-muted"]');
+    const badge = container.querySelector('[class*="text-muted-foreground"]');
     expect(badge).toBeInTheDocument();
   });
 });

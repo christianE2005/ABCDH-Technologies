@@ -63,6 +63,30 @@ export default function Alerts() {
     return `hace ${days}d`;
   };
 
+  // Date grouping
+  const dateGroup = (iso: string) => {
+    const d = new Date(iso);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today.getTime() - 86_400_000);
+    const weekAgo = new Date(today.getTime() - 7 * 86_400_000);
+    if (d >= today) return 'Hoy';
+    if (d >= yesterday) return 'Ayer';
+    if (d >= weekAgo) return 'Esta semana';
+    return 'Anterior';
+  };
+
+  const groupedWarnings = useMemo(() => {
+    const groups: { label: string; items: typeof filtered }[] = [];
+    const seen = new Map<string, typeof filtered>();
+    for (const w of filtered) {
+      const g = dateGroup(w.created_at);
+      if (!seen.has(g)) { seen.set(g, []); groups.push({ label: g, items: seen.get(g)! }); }
+      seen.get(g)!.push(w);
+    }
+    return groups;
+  }, [filtered]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full gap-2 text-muted-foreground">
@@ -126,8 +150,14 @@ export default function Alerts() {
             </span>
           </div>
         ) : (
-          <div className="divide-y divide-border">
-            {filtered.map((w) => {
+          <div>
+            {groupedWarnings.map((group) => (
+              <div key={group.label}>
+                <div className="sticky top-0 z-10 px-6 py-1.5 bg-surface-secondary/80 backdrop-blur-sm border-b border-border">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{group.label}</span>
+                </div>
+                <div className="divide-y divide-border">
+                  {group.items.map((w) => {
               const taskInfo = taskMap.get(w.task);
               const isActive = w.status === 'active';
               const isSelected = selectedWarning === w.id_warning;
@@ -192,6 +222,9 @@ export default function Alerts() {
                 </button>
               );
             })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

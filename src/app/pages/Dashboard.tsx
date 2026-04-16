@@ -122,12 +122,12 @@ export default function Dashboard() {
           ))
         ) : (
           [
-            { title: 'Proyectos', value: kpis.totalProjects, subtitle: 'total activos', icon: <Briefcase className="w-4 h-4" /> },
-            { title: 'Tareas', value: kpis.totalTasks, subtitle: 'en todos los proyectos', icon: <ListChecks className="w-4 h-4" /> },
-            { title: 'Completadas', value: kpis.completedTasks, subtitle: 'tareas terminadas', icon: <CheckCircle2 className="w-4 h-4" /> },
-            { title: 'Pendientes', value: kpis.openTasks, subtitle: 'tareas abiertas', icon: <Timer className="w-4 h-4" /> },
-            { title: 'Vencidas', value: kpis.overdueTasks, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" /> },
-            { title: 'Warnings', value: activeWarningsCount, subtitle: 'alertas activas', icon: <AlertTriangle className="w-4 h-4 text-warning" /> },
+            { title: 'Proyectos', value: kpis.totalProjects, subtitle: 'total activos', icon: <Briefcase className="w-4 h-4" />, accentColor: 'primary' as const },
+            { title: 'Tareas', value: kpis.totalTasks, subtitle: 'en todos los proyectos', icon: <ListChecks className="w-4 h-4" />, accentColor: 'info' as const },
+            { title: 'Completadas', value: kpis.completedTasks, subtitle: 'tareas terminadas', icon: <CheckCircle2 className="w-4 h-4" />, accentColor: 'success' as const },
+            { title: 'Pendientes', value: kpis.openTasks, subtitle: 'tareas abiertas', icon: <Timer className="w-4 h-4" />, accentColor: 'warning' as const },
+            { title: 'Vencidas', value: kpis.overdueTasks, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" />, accentColor: 'destructive' as const },
+            { title: 'Warnings', value: activeWarningsCount, subtitle: 'alertas activas', icon: <AlertTriangle className="w-4 h-4 text-warning" />, accentColor: 'warning' as const },
           ].map((kpi, i) => (
             <motion.div
               key={kpi.title}
@@ -140,6 +140,7 @@ export default function Dashboard() {
                 value={kpi.value}
                 subtitle={kpi.subtitle}
                 icon={kpi.icon}
+                accentColor={kpi.accentColor}
               />
             </motion.div>
           ))
@@ -303,15 +304,14 @@ export default function Dashboard() {
               {myTasks.slice(0, 6).map((task) => {
                 const isOverdue = task.due_date && new Date(task.due_date) < new Date();
                 return (
-                  <div key={task.id_task} className="px-4 py-2 hover:bg-accent/30 transition-colors">
-                    <p className="text-[12px] font-medium text-foreground truncate">{task.title}</p>
-                    <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground">
-                      {task.due_date && (
-                        <span className={isOverdue ? 'text-destructive font-semibold' : ''}>
-                          {task.due_date}
-                        </span>
-                      )}
-                    </div>
+                  <div key={task.id_task} className="px-4 py-2 hover:bg-accent/30 transition-colors flex items-center gap-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                    <p className="text-[12px] font-medium text-foreground truncate flex-1">{task.title}</p>
+                    {task.due_date && (
+                      <span className={`text-[10px] whitespace-nowrap ${isOverdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                        {task.due_date}
+                      </span>
+                    )}
                   </div>
                 );
               })}

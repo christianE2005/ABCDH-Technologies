@@ -6,6 +6,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 import { NotificationBell } from './NotificationBell';
+import { projectsService } from '../../services';
 
 /* ── Breadcrumb route labels ── */
 const routeLabels: Record<string, string> = {
@@ -27,6 +28,7 @@ export function Topbar() {
   const params = useParams();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const [projectName, setProjectName] = useState<string | null>(null);
 
   const handleLogout = () => {
     logout();
@@ -50,6 +52,20 @@ export function Topbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showUserMenu]);
 
+  // Resolve project name for breadcrumb
+  useEffect(() => {
+    if (params.id && segments[0] === 'projects') {
+      const pid = Number(params.id);
+      if (pid) {
+        projectsService.get(pid)
+          .then((p) => setProjectName(p.name))
+          .catch(() => setProjectName(null));
+      }
+    } else {
+      setProjectName(null);
+    }
+  }, [params.id]);
+
   /* ── Breadcrumbs ── */
   const segments = location.pathname.split('/').filter(Boolean);
   const crumbs: { label: string; path?: string }[] = [];
@@ -58,7 +74,7 @@ export function Topbar() {
     const path = '/' + segments.slice(0, i + 1).join('/');
     const isLast = i === segments.length - 1;
     if (i === 1 && segments[0] === 'projects' && params.id) {
-      crumbs.push({ label: `Proyecto #${params.id}`, path: isLast ? undefined : path });
+      crumbs.push({ label: projectName ?? `Proyecto #${params.id}`, path: isLast ? undefined : path });
     } else {
       crumbs.push({ label: routeLabels[segment] || segment, path: isLast ? undefined : path });
     }

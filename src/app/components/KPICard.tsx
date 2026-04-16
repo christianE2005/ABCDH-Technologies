@@ -13,6 +13,15 @@ interface KPICardProps {
   sparkline?: number[];
 }
 
+const accentMap: Record<string, string> = {
+  primary: 'border-l-primary',
+  success: 'border-l-success',
+  warning: 'border-l-warning',
+  destructive: 'border-l-destructive',
+  info: 'border-l-info',
+  ai: 'border-l-[var(--ai)]',
+};
+
 export function KPICard({
   title,
   value,
@@ -20,6 +29,7 @@ export function KPICard({
   trend,
   trendValue,
   icon,
+  accentColor,
   sparkline,
 }: KPICardProps) {
   const getTrendIcon = () => {
@@ -34,38 +44,38 @@ export function KPICard({
     return 'text-muted-foreground';
   };
 
+  const borderClass = accentColor ? `border-l-[3px] ${accentMap[accentColor] ?? ''}` : '';
+
   return (
-    <div className="bg-card border border-border rounded-[4px] px-4 py-3 transition-colors duration-100 hover:border-foreground/15 group">
-      <div className="flex items-start justify-between gap-2">
+    <div className={`bg-card border border-border rounded-[4px] px-3.5 py-2.5 transition-colors duration-100 hover:border-foreground/15 group ${borderClass}`}>
+      <div className="flex items-center gap-3">
+        {icon && (
+          <div className="text-muted-foreground/50 group-hover:text-muted-foreground transition-colors shrink-0">
+            {icon}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground truncate">
+          <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground truncate">
             {title}
           </p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-[22px] font-semibold text-foreground tracking-tight leading-none">
+          <div className="flex items-baseline gap-2 mt-0.5">
+            <span className="text-[20px] font-semibold text-foreground tracking-tight leading-none">
               {value}
             </span>
             {trendValue && (
-              <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${getTrendColor()}`}>
+              <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${getTrendColor()}`}>
                 {getTrendIcon()}
                 {trendValue}
               </span>
             )}
           </div>
           {subtitle && (
-            <p className="text-[11px] text-muted-foreground mt-1 truncate">{subtitle}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{subtitle}</p>
           )}
         </div>
-        <div className="flex flex-col items-end gap-1.5">
-          {icon && (
-            <div className="text-muted-foreground/50 group-hover:text-muted-foreground transition-colors shrink-0">
-              {icon}
-            </div>
-          )}
-          {sparkline && sparkline.length > 1 && (
-            <MiniSparkline data={sparkline} />
-          )}
-        </div>
+        {sparkline && sparkline.length > 1 && (
+          <MiniSparkline data={sparkline} />
+        )}
       </div>
     </div>
   );

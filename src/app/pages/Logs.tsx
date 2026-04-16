@@ -38,6 +38,18 @@ export default function Logs() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 50;
 
+  function relativeTime(iso: string) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'ahora';
+    if (mins < 60) return `hace ${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `hace ${hours}h`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `hace ${days}d`;
+    return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+  }
+
   // Unique actions from real data
   const uniqueActions = useMemo(() => {
     if (!logs) return [];
@@ -100,18 +112,23 @@ export default function Logs() {
         rightSlot={
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
+              <label className="text-[10px] text-muted-foreground sr-only" htmlFor="log-date-from">Desde</label>
               <Calendar className="w-3 h-3 text-muted-foreground" />
               <input
+                id="log-date-from"
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
+                aria-label="Fecha desde"
                 className="h-7 bg-surface-secondary border border-border rounded-[3px] px-2 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20 w-[120px]"
               />
               <span className="text-[10px] text-muted-foreground">–</span>
               <input
+                id="log-date-to"
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
+                aria-label="Fecha hasta"
                 className="h-7 bg-surface-secondary border border-border rounded-[3px] px-2 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20 w-[120px]"
               />
             </div>
@@ -186,8 +203,8 @@ export default function Logs() {
                       </td>
                       <td className="py-1.5 px-4 text-[12px] text-muted-foreground">{log.entity_type ?? '—'}</td>
                       <td className="py-1.5 px-4 text-[11px] text-muted-foreground">{log.entity_id ?? '—'}</td>
-                      <td className="py-1.5 px-4 text-[11px] text-muted-foreground whitespace-nowrap">
-                        {new Date(log.created_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
+                      <td className="py-1.5 px-4 text-[11px] text-muted-foreground whitespace-nowrap" title={new Date(log.created_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}>
+                        {relativeTime(log.created_at)}
                       </td>
                     </tr>
                   );

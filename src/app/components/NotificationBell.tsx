@@ -1,13 +1,19 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Bell, AlertTriangle, CheckCircle2, X } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useApiTaskWarnings } from '../hooks/useProjectData';
 
 export function NotificationBell() {
-  const { data: warnings } = useApiTaskWarnings();
+  const { data: warnings, refetch } = useApiTaskWarnings();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // Poll every 30 seconds
+  useEffect(() => {
+    const id = setInterval(() => refetch(), 30_000);
+    return () => clearInterval(id);
+  }, [refetch]);
 
   const activeWarnings = (warnings ?? []).filter((w) => w.status === 'active');
   const recent = (warnings ?? [])
