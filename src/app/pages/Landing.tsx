@@ -195,7 +195,7 @@ export default function Landing() {
       </section>
 
       {/* Features */}
-      <section id="features" className="container mx-auto px-6 py-20 max-w-6xl scroll-mt-20">
+      <section id="features" className="container mx-auto px-6 py-20 max-w-6xl scroll-mt-15">
         <div className="text-center mb-14">
           <p className="text-xs font-medium text-primary uppercase tracking-wider mb-2">Funciones</p>
           <h2 className="text-2xl md:text-3xl font-semibold text-foreground mb-3">
@@ -223,7 +223,7 @@ export default function Landing() {
       </section>
 
       {/* How it works */}
-      <section id="how-it-works" className="bg-card/50 border-y border-border scroll-mt-20">
+      <section id="how-it-works" className="bg-card/50 border-y border-border scroll-mt-15">
         <div className="container mx-auto px-6 py-20 max-w-6xl">
           <div className="text-center mb-14">
             <p className="text-xs font-medium text-primary uppercase tracking-wider mb-2">Proceso</p>
@@ -254,7 +254,7 @@ export default function Landing() {
       </section>
 
       {/* Social Proof / Testimonial */}
-      <section id="testimonios" className="container mx-auto px-6 py-20 max-w-6xl scroll-mt-20">
+      <section id="testimonios" className="container mx-auto px-6 py-20 max-w-6xl scroll-mt-15">
         <div className="max-w-3xl mx-auto text-center">
           <Globe className="w-8 h-8 text-primary/40 mx-auto mb-6" />
           <blockquote className="text-lg md:text-xl font-medium text-foreground leading-relaxed mb-6 italic">
