@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Bell, AlertTriangle, CheckCircle2, X } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useApiTaskWarnings } from '../hooks/useProjectData';

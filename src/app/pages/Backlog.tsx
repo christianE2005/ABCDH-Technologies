@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router';
 import { DndContext, DragEndEvent, DragOverlay, closestCenter, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, GripVertical, Calendar, User, AlertCircle, X, LayoutGrid, List, Search, Loader2 } from 'lucide-react';
+import { Plus, GripVertical, Calendar, AlertCircle, X, LayoutGrid, List, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { useApiProjects, useApiBoards, useApiTasks, useApiUsers } from '../hooks/useProjectData';
