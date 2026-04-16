@@ -74,6 +74,7 @@ export default function Landing() {
           <nav className="hidden md:flex items-center gap-6" aria-label="Navegación principal">
             <a href="#features" className="text-[12px] text-muted-foreground hover:text-foreground transition-colors">Funciones</a>
             <a href="#how-it-works" className="text-[12px] text-muted-foreground hover:text-foreground transition-colors">Cómo funciona</a>
+            <a href="#testimonios" className="text-[12px] text-muted-foreground hover:text-foreground transition-colors">Testimonios</a>
           </nav>
           <div className="flex items-center gap-3">
             <Link 
@@ -194,7 +195,7 @@ export default function Landing() {
       </section>
 
       {/* Features */}
-      <section id="features" className="container mx-auto px-6 py-20 max-w-6xl">
+      <section id="features" className="container mx-auto px-6 py-20 max-w-6xl scroll-mt-20">
         <div className="text-center mb-14">
           <p className="text-xs font-medium text-primary uppercase tracking-wider mb-2">Funciones</p>
           <h2 className="text-2xl md:text-3xl font-semibold text-foreground mb-3">
@@ -222,7 +223,7 @@ export default function Landing() {
       </section>
 
       {/* How it works */}
-      <section id="how-it-works" className="bg-card/50 border-y border-border">
+      <section id="how-it-works" className="bg-card/50 border-y border-border scroll-mt-20">
         <div className="container mx-auto px-6 py-20 max-w-6xl">
           <div className="text-center mb-14">
             <p className="text-xs font-medium text-primary uppercase tracking-wider mb-2">Proceso</p>
@@ -253,7 +254,7 @@ export default function Landing() {
       </section>
 
       {/* Social Proof / Testimonial */}
-      <section className="container mx-auto px-6 py-20 max-w-6xl">
+      <section id="testimonios" className="container mx-auto px-6 py-20 max-w-6xl scroll-mt-20">
         <div className="max-w-3xl mx-auto text-center">
           <Globe className="w-8 h-8 text-primary/40 mx-auto mb-6" />
           <blockquote className="text-lg md:text-xl font-medium text-foreground leading-relaxed mb-6 italic">
