@@ -201,7 +201,7 @@ export default function GitHub() {
   };
 
   const handleRemoveFromList = (repoId: number) => {
-    persistRepos(repos.filter((r) => r.id !== repoId));
+    persistRepos(repos.filter((r) => r.id_repo !== repoId));
   };
 
   // --- Loading: verifying connection status ---
@@ -337,7 +337,7 @@ export default function GitHub() {
           <div className="space-y-1.5">
             {repos.map((repo) => (
               <div
-                key={repo.id}
+                key={repo.id_repo}
                 className="flex items-center justify-between py-2 px-3 border border-border rounded-[4px] hover:border-primary/30 transition-colors group"
               >
                 <div className="flex items-center gap-2 min-w-0">
@@ -364,7 +364,7 @@ export default function GitHub() {
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                   <button
-                    onClick={() => handleRemoveFromList(repo.id)}
+                    onClick={() => handleRemoveFromList(repo.id_repo)}
                     className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
                     title="Quitar de la lista"
                   >

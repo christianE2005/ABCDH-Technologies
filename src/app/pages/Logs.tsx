@@ -1,5 +1,5 @@
-﻿import { useState, useMemo } from 'react';
-import { Search, Download, RefreshCw, Loader2 } from 'lucide-react';
+﻿import { useState, useMemo, useEffect } from 'react';
+import { Search, Download, RefreshCw, Loader2, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { CommandBar } from '../components/CommandBar';
 import { motion } from 'motion/react';
 import { useApiActivityLogs, useApiUsers } from '../hooks/useProjectData';
@@ -33,6 +33,10 @@ export default function Logs() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAction, setFilterAction] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
 
   // Unique actions from real data
   const uniqueActions = useMemo(() => {
@@ -51,9 +55,18 @@ export default function Logs() {
         (log.action ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (log.entity_type ?? '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchAction = filterAction === 'all' || log.action === filterAction;
-      return matchSearch && matchAction;
+      const logDate = log.created_at.slice(0, 10);
+      const matchDateFrom = !dateFrom || logDate >= dateFrom;
+      const matchDateTo = !dateTo || logDate <= dateTo;
+      return matchSearch && matchAction && matchDateFrom && matchDateTo;
     });
-  }, [logs, searchTerm, filterAction, userMap]);
+  }, [logs, searchTerm, filterAction, userMap, dateFrom, dateTo]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginatedLogs = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Reset to page 1 when filters change
+  useEffect(() => { setPage(1); }, [searchTerm, filterAction, dateFrom, dateTo]);
 
   return (
     <div className="px-4 pb-6 pt-3 space-y-3 max-w-[1600px]">
@@ -85,15 +98,33 @@ export default function Logs() {
           })),
         ]}
         rightSlot={
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Buscar…"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-7 bg-surface-secondary border border-border rounded-[3px] pl-7 pr-3 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20 w-36"
-            />
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <Calendar className="w-3 h-3 text-muted-foreground" />
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="h-7 bg-surface-secondary border border-border rounded-[3px] px-2 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20 w-[120px]"
+              />
+              <span className="text-[10px] text-muted-foreground">–</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="h-7 bg-surface-secondary border border-border rounded-[3px] px-2 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20 w-[120px]"
+              />
+            </div>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Buscar…"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-7 bg-surface-secondary border border-border rounded-[3px] pl-7 pr-3 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20 w-36"
+              />
+            </div>
           </div>
         }
       />
@@ -136,7 +167,7 @@ export default function Logs() {
                       No se encontraron registros.
                     </td>
                   </tr>
-                ) : filtered.map((log) => {
+                ) : paginatedLogs.map((log) => {
                   const userName = log.user ? (userMap.get(log.user) ?? `#${log.user}`) : '—';
                   return (
                     <tr key={log.id_activity} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
@@ -163,6 +194,31 @@ export default function Logs() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-2 border-t border-border bg-surface-secondary/50">
+            <span className="text-[11px] text-muted-foreground">
+              Página {page} de {totalPages}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="p-1 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="p-1 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            </div>
           </div>
         )}
       </motion.div>

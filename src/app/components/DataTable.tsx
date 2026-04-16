@@ -60,8 +60,11 @@ export function DataTable<T>({
     const av = a[col.sortKey];
     const bv = b[col.sortKey];
     if (av === bv) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
     const mul = sortDir === 'asc' ? 1 : -1;
-    return String(av) < String(bv) ? -mul : mul;
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * mul;
+    return String(av).localeCompare(String(bv)) * mul;
   });
 
   const px = densityPadding[density];

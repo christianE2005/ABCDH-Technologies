@@ -23,7 +23,7 @@ export default function Login() {
     }
     setIsLoading(true);
     try {
-      await login(email, password, selectedRole);
+      await login(email, password, import.meta.env.DEV ? selectedRole : undefined);
       toast.success('¡Bienvenido a PI Platform!');
       navigate('/dashboard');
     } catch (err) {
@@ -167,7 +167,8 @@ export default function Login() {
               <ArrowRight className="w-3.5 h-3.5" />
             </LoadingButton>
 
-            {/* QA Role Selector (hidden by default) */}
+            {/* QA Role Selector — DEV only */}
+            {import.meta.env.DEV && (
             <details
               open={showRoleSelector}
               onToggle={(e) => setShowRoleSelector((e.target as HTMLDetailsElement).open)}
@@ -189,6 +190,7 @@ export default function Login() {
                 </select>
               </div>
             </details>
+            )}
           </form>
 
           <p className="text-center text-[12px] text-muted-foreground mt-6">

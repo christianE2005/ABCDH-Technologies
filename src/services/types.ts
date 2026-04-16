@@ -5,6 +5,8 @@ export interface ApiUserAccount {
   email: string;
   username: string;
   created_at: string;
+  system_role: number | null;
+  system_role_name: string;
 }
 
 export interface ApiProject {
@@ -142,6 +144,7 @@ export interface GitHubConnectionStatusResponse {
 
 export interface GitHubCreateRepoPayload {
   user_id: number;
+  project_id?: number;
   owner_type?: 'org' | 'user';
   owner?: string;
   name: string;
@@ -149,14 +152,20 @@ export interface GitHubCreateRepoPayload {
   private: boolean;
   auto_init: boolean;
   installation_id?: number;
+  webhook_url?: string;
 }
 
 export interface GitHubRepo {
-  id: number;
+  id_repo: number;
+  github_repo_id: number;
   name: string;
   full_name: string;
+  owner: string;
   html_url: string;
   private: boolean;
+  created_at: string;
+  user: number;
+  project: number | null;
 }
 
 export interface GitHubWebhook {

@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
+import { NotificationBell } from './NotificationBell';
 
 /* ── Breadcrumb route labels ── */
 const routeLabels: Record<string, string> = {
@@ -14,6 +15,8 @@ const routeLabels: Record<string, string> = {
   profile: 'Perfil',
   settings: 'Configuración',
   logs: 'Logs',
+  reports: 'Reportes',
+  alerts: 'Alertas',
 };
 
 export function Topbar() {
@@ -102,6 +105,9 @@ export function Topbar() {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-0.5">
+        {/* Notification Bell */}
+        <NotificationBell />
+
         {/* Theme Toggle */}
         <Tooltip>
           <TooltipTrigger asChild>

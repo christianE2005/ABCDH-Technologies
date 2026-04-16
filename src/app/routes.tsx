@@ -23,6 +23,8 @@ const GitHub = lazy(() => import('./pages/GitHub'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Logs = lazy(() => import('./pages/Logs'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Alerts = lazy(() => import('./pages/Alerts'));
 
 function withSuspense(Component: React.LazyExoticComponent<React.ComponentType>, Fallback: React.ComponentType = GenericPageSkeleton) {
   return (
@@ -57,6 +59,8 @@ export const router = createBrowserRouter([
       { path: 'profile', element: withSuspense(Profile) },
       { path: 'settings', element: withSuspense(Settings) },
       { path: 'logs', element: withSuspense(Logs) },
+      { path: 'reports', element: withSuspense(Reports) },
+      { path: 'alerts', element: withSuspense(Alerts) },
     ],
   },
   {

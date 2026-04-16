@@ -10,6 +10,8 @@ import {
   ChevronRight,
   Zap,
   Github,
+  BarChart3,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
@@ -27,6 +29,8 @@ const navItems: NavItem[] = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutGrid, group: 'main' },
   { name: 'Backlog', path: '/backlog', icon: ListChecks, group: 'main' },
   { name: 'Proyectos', path: '/projects', icon: Briefcase, group: 'main' },
+  { name: 'Reportes', path: '/reports', icon: BarChart3, group: 'analytics' },
+  { name: 'Alertas', path: '/alerts', icon: Bell, group: 'analytics' },
   { name: 'GitHub', path: '/github', icon: Github, group: 'integrations' },
   { name: 'Actividad', path: '/logs', icon: ScrollText, group: 'integrations' },
   { name: 'Perfil', path: '/profile', icon: CircleUser, group: 'user' },

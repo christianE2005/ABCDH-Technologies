@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authService, tokenStore, usersService, ApiRequestError } from '../../services';
+import { authService, tokenStore, ApiRequestError } from '../../services';
 import type { ApiUserAccount } from '../../services';
 
 export type UserRole = 'admin' | 'project_manager' | 'operative' | 'executive';
@@ -12,9 +12,8 @@ export interface User {
   avatar?: string;
 }
 
-// Resolve user role from project_member entries.
-// Fetches memberships + roles, picks the "highest" role across all projects.
-const ROLE_PRIORITY: Record<string, UserRole> = {
+// Map backend system_role_name (or project role names) to frontend UserRole
+const ROLE_MAP: Record<string, UserRole> = {
   admin: 'admin',
   administrador: 'admin',
   executive: 'executive',
@@ -23,36 +22,18 @@ const ROLE_PRIORITY: Record<string, UserRole> = {
   'project manager': 'project_manager',
   manager: 'project_manager',
   pm: 'project_manager',
-};
-const ROLE_RANK: Record<UserRole, number> = {
-  admin: 4,
-  executive: 3,
-  project_manager: 2,
-  operative: 1,
+  user: 'operative',
+  operative: 'operative',
+  operativo: 'operative',
 };
 
-async function resolveRole(userId: number): Promise<UserRole> {
-  try {
-    const [memberships, roles] = await Promise.all([
-      usersService.listMembers(),
-      usersService.listRoles(),
-    ]);
-    const roleMap = new Map(roles.map((r) => [r.id_role, r.name]));
-    const userMemberships = memberships.filter((m) => m.user === userId);
-    let best: UserRole = 'operative';
-    for (const m of userMemberships) {
-      if (m.role == null) continue;
-      const roleName = (roleMap.get(m.role) ?? '').toLowerCase();
-      const mapped = ROLE_PRIORITY[roleName] ?? 'operative';
-      if (ROLE_RANK[mapped] > ROLE_RANK[best]) best = mapped;
-    }
-    return best;
-  } catch {
-    return 'operative';
-  }
+function mapRole(roleName: string | undefined | null): UserRole {
+  if (!roleName) return 'operative';
+  return ROLE_MAP[roleName.toLowerCase()] ?? 'operative';
 }
 
-function apiUserToUser(apiUser: ApiUserAccount, role: UserRole = 'operative'): User {
+function apiUserToUser(apiUser: ApiUserAccount, roleOverride?: UserRole): User {
+  const role = roleOverride ?? mapRole(apiUser.system_role_name);
   return {
     id: String(apiUser.id_user),
     name: apiUser.username,
@@ -94,9 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string, role?: UserRole) => {
     try {
       const data = await authService.login(email, password);
-      // Resolve role from project_member entries (or use override for dev/demo)
-      const resolvedRole = role ?? await resolveRole(data.user.id_user);
-      const u = apiUserToUser(data.user, resolvedRole);
+      const u = apiUserToUser(data.user, role);
       setUser(u);
       localStorage.setItem('pip_user', JSON.stringify(u));
     } catch (err) {
