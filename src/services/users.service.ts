@@ -18,8 +18,12 @@ export const usersService = {
   },
 
   // ── Project members ────────────────────────────────────────────
-  listMembers(projectId?: number): Promise<ApiProjectMember[]> {
-    const url = projectId ? `/project-members/?project=${projectId}` : '/project-members/';
+  listMembers(projectId?: number, userId?: number): Promise<ApiProjectMember[]> {
+    const params = new URLSearchParams();
+    if (projectId) params.set('project', String(projectId));
+    if (userId) params.set('user', String(userId));
+    const query = params.toString();
+    const url = query ? `/project-members/?${query}` : '/project-members/';
     return api.get<ApiProjectMember[]>(url);
   },
 

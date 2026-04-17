@@ -1,14 +1,30 @@
 ﻿import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { User, Mail, Shield, Moon, Sun, Lock, Github, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
-import { useApiProjectMembers, useApiProjects } from '../hooks/useProjectData';
+import { useApiProjects } from '../hooks/useProjectData';
 import { GitHubConnectSection } from '../components/GitHubConnectSection';
+import { StatusBadge } from '../components/StatusBadge';
 import { usersService } from '../../services';
 
+function getDaysRemaining(endDate: string | null) {
+  if (!endDate) return null;
+  return Math.ceil((new Date(endDate).getTime() - Date.now()) / 86_400_000);
+}
+
+function getDaysLabel(days: number | null) {
+  if (days === null) return { label: '—', cls: 'text-muted-foreground' };
+  if (days < 0) return { label: 'Vencido', cls: 'text-destructive font-semibold' };
+  if (days === 0) return { label: 'Hoy', cls: 'text-destructive font-semibold' };
+  if (days <= 7) return { label: `${days}d`, cls: 'text-warning font-semibold' };
+  return { label: `${days}d`, cls: 'text-muted-foreground' };
+}
+
 export default function Profile() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [editing, setEditing] = useState(false);
@@ -19,11 +35,8 @@ export default function Profile() {
   });
 
   const userId = Number(user?.id ?? 0);
-  const { data: allMembers, loading: loadingMembers } = useApiProjectMembers();
   const { data: projects, loading: loadingProjects } = useApiProjects();
-
-  const myMemberships = (allMembers ?? []).filter((m) => m.user === userId);
-  const projectMap = new Map((projects ?? []).map((p) => [p.id_project, p.name]));
+  const myProjects = projects ?? [];
 
   const handleSave = async () => {
     if (!userId) return;
@@ -138,32 +151,69 @@ export default function Profile() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
-            className="bg-card border border-border rounded-[4px] p-4"
+            className="bg-card border border-border rounded-[4px] overflow-hidden"
           >
-            <h2 className="text-[12px] font-semibold text-foreground mb-3">
-              Mis Proyectos ({myMemberships.length})
-            </h2>
-            {(loadingMembers || loadingProjects) ? (
-              <div className="space-y-2">
+            <div className="px-4 py-3 border-b border-border">
+              <h2 className="text-[12px] font-semibold text-foreground">
+                Mis Proyectos ({myProjects.length})
+              </h2>
+            </div>
+            {loadingProjects ? (
+              <div className="p-4 space-y-2">
                 {[1, 2, 3].map((i) => <div key={i} className="h-8 animate-pulse bg-secondary rounded" />)}
               </div>
-            ) : myMemberships.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground">No tienes proyectos asignados.</p>
+            ) : myProjects.length === 0 ? (
+              <div className="py-12 text-center">
+                <p className="text-[11px] text-muted-foreground">No tienes proyectos asignados.</p>
+              </div>
             ) : (
-              <div className="space-y-1">
-                {myMemberships.map((m) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center justify-between py-2 px-3 border border-border rounded-[4px] hover:bg-accent/30 transition-colors"
-                  >
-                    <p className="text-[12px] font-medium text-foreground">
-                      {projectMap.get(m.project) ?? `Proyecto #${m.project}`}
-                    </p>
-                    <span className="text-[10px] text-muted-foreground">
-                      desde {m.joined_at.slice(0, 10)}
-                    </span>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[600px]">
+                  <thead>
+                    <tr className="border-b border-border bg-surface-secondary/50">
+                      <th className="text-left py-1.5 px-4 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Proyecto</th>
+                      <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</th>
+                      <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Fecha Fin</th>
+                      <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Días rest.</th>
+                      <th className="py-1.5 px-3 w-[60px]" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {myProjects.map((project, i) => {
+                      const days = getDaysRemaining(project.end_date);
+                      const dl = getDaysLabel(days);
+                      return (
+                        <motion.tr
+                          key={project.id_project}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.25, delay: i * 0.04, ease: 'easeOut' }}
+                          className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors group cursor-pointer"
+                          onClick={() => navigate(`/projects/${project.id_project}`)}
+                        >
+                          <td className="py-1.5 px-4">
+                            <p className="text-[12px] font-medium text-foreground truncate max-w-[220px]">{project.name}</p>
+                            {project.description && (
+                              <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{project.description}</p>
+                            )}
+                          </td>
+                          <td className="py-1.5 px-3">
+                            <StatusBadge status={(project.status ?? 'neutral') as 'success'|'warning'|'danger'|'info'|'neutral'|'on_track'|'at_risk'|'delayed'} size="sm" />
+                          </td>
+                          <td className="py-1.5 px-3 text-[11px] text-muted-foreground whitespace-nowrap">{project.end_date ?? '—'}</td>
+                          <td className="py-1.5 px-3">
+                            <span className={`text-[12px] ${dl.cls}`}>{dl.label}</span>
+                          </td>
+                          <td className="py-1.5 px-3 text-right">
+                            <span className="text-[11px] text-primary opacity-0 group-hover:opacity-100 transition-opacity font-medium whitespace-nowrap">
+                              →
+                            </span>
+                          </td>
+                        </motion.tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </motion.div>
