@@ -5,11 +5,9 @@ import {
   ListChecks,
   CircleUser,
   SlidersHorizontal,
-  ScrollText,
   ChevronLeft,
   ChevronRight,
   Zap,
-  Github,
   BarChart3,
   Bell,
 } from 'lucide-react';
@@ -31,8 +29,6 @@ const navItems: NavItem[] = [
   { name: 'Proyectos', path: '/projects', icon: Briefcase, group: 'main' },
   { name: 'Reportes', path: '/reports', icon: BarChart3, group: 'analytics' },
   { name: 'Alertas', path: '/alerts', icon: Bell, group: 'analytics' },
-  { name: 'GitHub', path: '/github', icon: Github, group: 'integrations' },
-  { name: 'Actividad', path: '/logs', icon: ScrollText, group: 'integrations' },
   { name: 'Perfil', path: '/profile', icon: CircleUser, group: 'user' },
   { name: 'Configuración', path: '/settings', icon: SlidersHorizontal, group: 'user' },
 ];

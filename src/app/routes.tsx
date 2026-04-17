@@ -19,10 +19,8 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Projects = lazy(() => import('./pages/Projects'));
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
 const Backlog = lazy(() => import('./pages/Backlog'));
-const GitHub = lazy(() => import('./pages/GitHub'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Settings = lazy(() => import('./pages/Settings'));
-const Logs = lazy(() => import('./pages/Logs'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Alerts = lazy(() => import('./pages/Alerts'));
 
@@ -55,10 +53,8 @@ export const router = createBrowserRouter([
       { path: 'projects', element: withSuspense(Projects, ProjectsSkeleton) },
       { path: 'projects/:id', element: withSuspense(ProjectDetail, GenericPageSkeleton) },
       { path: 'backlog', element: withSuspense(Backlog, BacklogSkeleton) },
-      { path: 'github', element: withSuspense(GitHub) },
       { path: 'profile', element: withSuspense(Profile) },
       { path: 'settings', element: withSuspense(Settings) },
-      { path: 'logs', element: withSuspense(Logs) },
       { path: 'reports', element: withSuspense(Reports) },
       { path: 'alerts', element: withSuspense(Alerts) },
     ],
