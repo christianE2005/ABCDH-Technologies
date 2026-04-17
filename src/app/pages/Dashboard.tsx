@@ -328,9 +328,6 @@ export default function Dashboard() {
         >
           <div className="flex items-center justify-between px-4 py-2 border-b border-border">
             <h2 className="text-[13px] font-semibold text-foreground">Actividad Reciente (Git)</h2>
-            <Link to="/github" className="text-[11px] text-primary hover:underline font-medium inline-flex items-center gap-1">
-              Ver GitHub <ArrowRight className="w-3 h-3" />
-            </Link>
           </div>
           {!pushes || pushes.length === 0 ? (
             <div className="py-8 text-center text-[12px] text-muted-foreground">Sin push events recientes.</div>
