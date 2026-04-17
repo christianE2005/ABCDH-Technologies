@@ -23,7 +23,7 @@ export default function Login() {
     }
     setIsLoading(true);
     try {
-      await login(email, password, import.meta.env.DEV ? selectedRole : undefined);
+      await login(email, password, import.meta.env.VITE_API_TARGET ? selectedRole : undefined);
       toast.success('¡Bienvenido a PI Platform!');
       navigate('/dashboard');
     } catch (err) {

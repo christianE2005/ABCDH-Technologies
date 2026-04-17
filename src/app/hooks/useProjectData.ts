@@ -146,8 +146,8 @@ export function useApiBoards(projectId?: number): UseApiState<ApiBoard[]> {
   return { data, loading, error, refetch };
 }
 
-/** Fetches project members, optionally filtered by project. */
-export function useApiProjectMembers(projectId?: number): UseApiState<ApiProjectMember[]> {
+/** Fetches project members, optionally filtered by project and/or user. */
+export function useApiProjectMembers(projectId?: number, userId?: number): UseApiState<ApiProjectMember[]> {
   const [data, setData]       = useState<ApiProjectMember[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
@@ -158,15 +158,24 @@ export function useApiProjectMembers(projectId?: number): UseApiState<ApiProject
     setLoading(true);
     setError(null);
 
-    usersService.listMembers(projectId)
+    usersService.listMembers(projectId, userId)
       .then((members) => { if (!cancelled) setData(members); })
+      .catch((err) => {
+        // Some backends don't support filtering members by user query param.
+        // Fallback: fetch by project only and filter client-side.
+        if (!userId || cancelled) throw err;
+        return usersService.listMembers(projectId)
+          .then((members) => {
+            if (!cancelled) setData(members.filter((m) => m.user === userId));
+          });
+      })
       .catch((err) => {
         if (!cancelled) setError(err instanceof ApiRequestError ? err.message : 'Error cargando miembros.');
       })
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [projectId, tick]);
+  }, [projectId, userId, tick]);
 
   const refetch = useCallback(() => setTick((t) => t + 1), []);
   return { data, loading, error, refetch };
