@@ -2,11 +2,10 @@
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { User, Mail, Shield, Moon, Sun, Lock, Github, Loader2 } from 'lucide-react';
+import { User, Mail, Shield, Moon, Sun, Lock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { useApiProjects } from '../hooks/useProjectData';
-import { GitHubConnectSection } from '../components/GitHubConnectSection';
 import { StatusBadge } from '../components/StatusBadge';
 import { usersService } from '../../services';
 
@@ -67,16 +66,23 @@ export default function Profile() {
           <div className="bg-card border border-border border-l-[3px] border-l-primary rounded-[4px] p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[12px] font-semibold text-foreground">Información Personal</h2>
-              <button
-                onClick={() => setEditing(!editing)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  editing
-                    ? 'bg-secondary hover:bg-accent text-foreground'
-                    : 'bg-primary hover:bg-primary-hover text-primary-foreground'
-                }`}
-              >
-                {editing ? 'Cancelar' : 'Editar'}
-              </button>
+              {user?.role !== 'admin' && (
+                <button
+                  onClick={() => setEditing(!editing)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    editing
+                      ? 'bg-secondary hover:bg-accent text-foreground'
+                      : 'bg-primary hover:bg-primary-hover text-primary-foreground'
+                  }`}
+                >
+                  {editing ? 'Cancelar' : 'Editar'}
+                </button>
+              )}
+              {user?.role === 'admin' && (
+                <div className="px-3 py-1 rounded-md text-xs font-medium text-muted-foreground bg-secondary/50">
+                  Solo lectura
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3 mb-4 pb-4 border-b border-border">
@@ -125,15 +131,7 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* GitHub connection */}
-              <div>
-                <label className="block text-[11px] font-medium text-foreground mb-1">
-                  <Github className="w-3 h-3 inline mr-1" /> GitHub
-                </label>
-                <GitHubConnectSection />
-              </div>
-
-              {editing && (
+              {editing && user?.role !== 'admin' && (
                 <button
                   onClick={handleSave}
                   disabled={saving}
@@ -234,8 +232,8 @@ export default function Profile() {
                   <p className="text-[10px] text-muted-foreground">{theme === 'dark' ? 'Oscuro' : 'Claro'}</p>
                 </div>
               </div>
-              <div className={`w-9 h-5 rounded-full transition-colors ${theme === 'dark' ? 'bg-primary' : 'bg-muted'}`}>
-                <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${theme === 'dark' ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              <div className={`w-9 h-5 rounded-full transition-colors flex items-center shadow-inner ${theme === 'dark' ? 'bg-primary' : 'bg-muted'}`}>
+                <div className={`w-4 h-4 bg-white rounded-full shadow transition-all ${theme === 'dark' ? 'ml-auto mr-0.5' : 'ml-0.5 mr-auto'}`} />
               </div>
             </button>
           </div>

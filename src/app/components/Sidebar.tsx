@@ -9,9 +9,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Zap,
-  Github,
   BarChart3,
   Bell,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
@@ -27,12 +27,12 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutGrid, group: 'main' },
-  { name: 'Backlog', path: '/backlog', icon: ListChecks, group: 'main' },
+  { name: 'Backlog', path: '/backlog', icon: ListChecks, group: 'main', roles: ['project_manager'] },
   { name: 'Proyectos', path: '/projects', icon: Briefcase, group: 'main' },
-  { name: 'Reportes', path: '/reports', icon: BarChart3, group: 'analytics' },
-  { name: 'Alertas', path: '/alerts', icon: Bell, group: 'analytics' },
-  { name: 'GitHub', path: '/github', icon: Github, group: 'integrations' },
-  { name: 'Actividad', path: '/logs', icon: ScrollText, group: 'integrations' },
+  { name: 'Reportes', path: '/reports', icon: BarChart3, group: 'analytics', roles: ['admin', 'project_manager'] },
+  { name: 'Alertas', path: '/alerts', icon: Bell, group: 'analytics', roles: ['admin', 'project_manager'] },
+
+  { name: 'Crear Usuarios', path: '/users', icon: Users, group: 'admin', roles: ['admin'] },
   { name: 'Perfil', path: '/profile', icon: CircleUser, group: 'user' },
   { name: 'Configuración', path: '/settings', icon: SlidersHorizontal, group: 'user' },
 ];
@@ -58,7 +58,7 @@ export function Sidebar() {
 
   const mainItems = filteredNavItems.filter((i) => i.group === 'main');
   const analyticsItems = filteredNavItems.filter((i) => i.group === 'analytics');
-  const integrationsItems = filteredNavItems.filter((i) => i.group === 'integrations');
+  const adminItems = filteredNavItems.filter((i) => i.group === 'admin');
   const userItems = filteredNavItems.filter((i) => i.group === 'user');
 
   const NavLink = ({ item }: { item: NavItem }) => {
@@ -162,11 +162,11 @@ export function Sidebar() {
           </>
         )}
 
-        {integrationsItems.length > 0 && (
+        {adminItems.length > 0 && (
           <>
-            <GroupDivider label="Integraciones" />
+            <GroupDivider label="Administración" />
             <div className="space-y-0.5">
-              {integrationsItems.map((item) => (
+              {adminItems.map((item) => (
                 <NavLink key={item.path} item={item} />
               ))}
             </div>

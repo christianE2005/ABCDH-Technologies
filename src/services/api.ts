@@ -49,7 +49,10 @@ async function request<T>(
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  const fullUrl = `${BASE_URL}${path}`;
+  console.log(`[API] ${options.method || 'GET'} ${fullUrl}`);
+
+  const res = await fetch(fullUrl, { ...options, headers });
 
   // 401 → try refresh once, then re-attempt
   if (res.status === 401 && auth) {
@@ -69,7 +72,10 @@ async function request<T>(
 async function handleResponse<T>(res: Response): Promise<T> {
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiRequestError(res.status, data as ApiError);
+  if (!res.ok) {
+    console.error(`[API] Error ${res.status} from ${res.url}:`, data);
+    throw new ApiRequestError(res.status, data as ApiError);
+  }
   return data as T;
 }
 
