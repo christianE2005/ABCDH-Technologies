@@ -224,27 +224,29 @@ export default function Dashboard() {
         <div className="flex flex-col gap-3">
 
           {/* Task distribution by status */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, delay: 0.32, ease: 'easeOut' }}
-            className="bg-card border border-border rounded-[4px] p-4"
-          >
-            <h2 className="text-[13px] font-semibold text-foreground mb-2">Tareas por Estado</h2>
-            {statusChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={statusChartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                  <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
-                  <YAxis stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '11px' }} />
-                  <Bar dataKey="count" fill="var(--color-chart-1)" name="Tareas" radius={[2, 2, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-[11px] text-muted-foreground py-8 text-center">Sin datos de tareas.</p>
-            )}
-          </motion.div>
+          {user?.role !== 'admin' && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: 0.32, ease: 'easeOut' }}
+              className="bg-card border border-border rounded-[4px] p-4"
+            >
+              <h2 className="text-[13px] font-semibold text-foreground mb-2">Tareas por Estado</h2>
+              {statusChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart data={statusChartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                    <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
+                    <Tooltip contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '11px' }} />
+                    <Bar dataKey="count" fill="var(--color-chart-1)" name="Tareas" radius={[2, 2, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-[11px] text-muted-foreground py-8 text-center">Sin datos de tareas.</p>
+              )}
+            </motion.div>
+          )}
 
           {/* Project status pie */}
           <motion.div
@@ -283,79 +285,81 @@ export default function Dashboard() {
       </div>
 
       {/* Bottom row: My Tasks + Recent Activity */}
-      <div className="grid xl:grid-cols-2 gap-3">
-        {/* My Tasks */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.4, ease: 'easeOut' }}
-          className="bg-card border border-border rounded-[4px]"
-        >
-          <div className="flex items-center justify-between px-4 py-2 border-b border-border">
-            <h2 className="text-[13px] font-semibold text-foreground">Mis Tareas Pendientes</h2>
-            <Link to="/backlog" className="text-[11px] text-primary hover:underline font-medium inline-flex items-center gap-1">
-              Ver Backlog <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          {myTasks.length === 0 ? (
-            <div className="py-8 text-center text-[12px] text-muted-foreground">Sin tareas asignadas pendientes.</div>
-          ) : (
-            <div className="divide-y divide-border">
-              {myTasks.slice(0, 6).map((task) => {
-                const isOverdue = task.due_date && new Date(task.due_date) < new Date();
-                return (
-                  <div key={task.id_task} className="px-4 py-2 hover:bg-accent/30 transition-colors flex items-center gap-3">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                    <p className="text-[12px] font-medium text-foreground truncate flex-1">{task.title}</p>
-                    {task.due_date && (
-                      <span className={`text-[10px] whitespace-nowrap ${isOverdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
-                        {task.due_date}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+      {user?.role !== 'admin' && (
+        <div className="grid xl:grid-cols-2 gap-3">
+          {/* My Tasks */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.4, ease: 'easeOut' }}
+            className="bg-card border border-border rounded-[4px]"
+          >
+            <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+              <h2 className="text-[13px] font-semibold text-foreground">Mis Tareas Pendientes</h2>
+              <Link to="/backlog" className="text-[11px] text-primary hover:underline font-medium inline-flex items-center gap-1">
+                Ver Backlog <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
-          )}
-        </motion.div>
-
-        {/* Recent Push Activity */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.45, ease: 'easeOut' }}
-          className="bg-card border border-border rounded-[4px]"
-        >
-          <div className="flex items-center justify-between px-4 py-2 border-b border-border">
-            <h2 className="text-[13px] font-semibold text-foreground">Actividad Reciente (Git)</h2>
-            <Link to="/github" className="text-[11px] text-primary hover:underline font-medium inline-flex items-center gap-1">
-              Ver GitHub <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          {!pushes || pushes.length === 0 ? (
-            <div className="py-8 text-center text-[12px] text-muted-foreground">Sin push events recientes.</div>
-          ) : (
-            <div className="divide-y divide-border">
-              {pushes.slice(0, 5).map((push) => {
-                const commitCount = Array.isArray(push.commits) ? push.commits.length : 0;
-                return (
-                  <div key={push.id_push} className="px-4 py-2 hover:bg-accent/30 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-medium text-foreground">{push.pusher ?? 'unknown'}</span>
-                      <span className="text-[10px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded-[2px]">
-                        {push.ref?.replace('refs/heads/', '') ?? 'main'}
-                      </span>
+            {myTasks.length === 0 ? (
+              <div className="py-8 text-center text-[12px] text-muted-foreground">Sin tareas asignadas pendientes.</div>
+            ) : (
+              <div className="divide-y divide-border">
+                {myTasks.slice(0, 6).map((task) => {
+                  const isOverdue = task.due_date && new Date(task.due_date) < new Date();
+                  return (
+                    <div key={task.id_task} className="px-4 py-2 hover:bg-accent/30 transition-colors flex items-center gap-3">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                      <p className="text-[12px] font-medium text-foreground truncate flex-1">{task.title}</p>
+                      {task.due_date && (
+                        <span className={`text-[10px] whitespace-nowrap ${isOverdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                          {task.due_date}
+                        </span>
+                      )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {commitCount} commit{commitCount !== 1 ? 's' : ''} · {new Date(push.received_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
+
+          {/* Recent Push Activity */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.45, ease: 'easeOut' }}
+            className="bg-card border border-border rounded-[4px]"
+          >
+            <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+              <h2 className="text-[13px] font-semibold text-foreground">Actividad Reciente (Git)</h2>
+              <Link to="/github" className="text-[11px] text-primary hover:underline font-medium inline-flex items-center gap-1">
+                Ver GitHub <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
-          )}
-        </motion.div>
-      </div>
+            {!pushes || pushes.length === 0 ? (
+              <div className="py-8 text-center text-[12px] text-muted-foreground">Sin push events recientes.</div>
+            ) : (
+              <div className="divide-y divide-border">
+                {pushes.slice(0, 5).map((push) => {
+                  const commitCount = Array.isArray(push.commits) ? push.commits.length : 0;
+                  return (
+                    <div key={push.id_push} className="px-4 py-2 hover:bg-accent/30 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-medium text-foreground">{push.pusher ?? 'unknown'}</span>
+                        <span className="text-[10px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded-[2px]">
+                          {push.ref?.replace('refs/heads/', '') ?? 'main'}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {commitCount} commit{commitCount !== 1 ? 's' : ''} · {new Date(push.received_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

@@ -34,7 +34,7 @@ const navItems: NavItem[] = [
 
   { name: 'Crear Usuarios', path: '/users', icon: Users, group: 'admin', roles: ['admin'] },
   { name: 'Perfil', path: '/profile', icon: CircleUser, group: 'user' },
-  { name: 'Configuración', path: '/settings', icon: SlidersHorizontal, group: 'user' },
+  { name: 'Configuración', path: '/settings', icon: SlidersHorizontal, group: 'user', roles: ['project_manager', 'operative', 'executive'] },
 ];
 
 export function Sidebar() {

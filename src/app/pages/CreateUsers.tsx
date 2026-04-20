@@ -30,14 +30,17 @@ export default function CreateUsers() {
     role: 'project_manager',
   });
   const [loading, setLoading] = useState(false);
-  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [allUsers, setAllUsers] = useState<ApiUserAccount[]>([]);
   const [editingUser, setEditingUser] = useState<EditingUser | null>(null);
   const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => {
-    loadAllUsers();
-  }, []);
+    // Only load users if the current user is an admin
+    if (currentUser?.role === 'admin') {
+      loadAllUsers();
+    }
+  }, [currentUser?.role]);
 
   const loadAllUsers = async () => {
     try {
@@ -110,11 +113,18 @@ export default function CreateUsers() {
 
     setEditSaving(true);
     try {
-      await usersService.update(editingUser.id, {
+      const updateData: any = {
         username: editingUser.username,
         email: editingUser.email,
         ...(editingUser.password ? { password: editingUser.password } : {}),
-      });
+      };
+      
+      // Include system_role if it has been changed
+      if (editingUser.role) {
+        updateData.system_role = editingUser.role;
+      }
+      
+      await usersService.update(editingUser.id, updateData);
       toast.success('Usuario actualizado exitosamente');
       setEditingUser(null);
       await loadAllUsers();
@@ -154,15 +164,17 @@ export default function CreateUsers() {
         2: 'Administrador',
         3: 'Usuario',
         4: 'Stakeholder',
+        5: 'Project Manager',
       };
       return mapping[role] || 'Desconocido';
     }
 
     const labels: Record<UserRole, string> = {
       admin: 'Administrador',
-      project_manager: 'Usuario',
+      project_manager: 'Project Manager',
       operative: 'Parte Interesada',
       executive: 'Directivo',
+      user: 'Usuario',
     };
     return labels[role as UserRole] || role;
   };
@@ -170,9 +182,10 @@ export default function CreateUsers() {
   const getRoleSystemValue = (role: UserRole): number => {
     const mapping: Record<UserRole, number> = {
       admin: 2,
-      project_manager: 3,
+      project_manager: 5,
       operative: 4,
       executive: 3,
+      user: 3,
     };
     return mapping[role] || 3;
   };
@@ -182,9 +195,11 @@ export default function CreateUsers() {
       case 2:
         return 'bg-destructive/10 text-destructive';
       case 3:
-        return 'bg-primary/15 text-primary';
+        return 'bg-info/15 text-info';
       case 4:
         return 'bg-warning/15 text-warning';
+      case 5:
+        return 'bg-primary/15 text-primary';
       default:
         return 'bg-secondary';
     }
@@ -298,7 +313,8 @@ export default function CreateUsers() {
                     onChange={handleRoleChange}
                     className="w-full bg-input-background border border-input rounded-[3px] pl-8 pr-3 py-2 text-[13px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors appearance-none"
                   >
-                    <option value="project_manager">Usuario</option>
+                    <option value="project_manager">Project Manager</option>
+                    <option value="user">Usuario</option>
                     <option value="operative">Stakeholder</option>
                   </select>
                 </div>
@@ -385,6 +401,18 @@ export default function CreateUsers() {
                               placeholder="Correo"
                               className="flex-1 bg-input-background border border-input rounded-[3px] px-2.5 py-1.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                             />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={editingUser.role}
+                              onChange={(e) => setEditingUser({ ...editingUser, role: Number(e.target.value) })}
+                              className="flex-1 bg-input-background border border-input rounded-[3px] px-2.5 py-1.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
+                            >
+                              <option value={2}>Administrador</option>
+                              <option value={3}>Usuario</option>
+                              <option value={4}>Stakeholder</option>
+                              <option value={5}>Project Manager</option>
+                            </select>
                           </div>
                           <div className="flex items-center gap-2">
                             <input

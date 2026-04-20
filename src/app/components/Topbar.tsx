@@ -18,6 +18,7 @@ const routeLabels: Record<string, string> = {
   logs: 'Logs',
   reports: 'Reportes',
   alerts: 'Alertas',
+  users: 'Crear Usuarios',
 };
 
 export function Topbar() {
@@ -177,12 +178,14 @@ export function Topbar() {
                 >
                   Ver perfil
                 </button>
-                <button
-                  onClick={() => { setShowUserMenu(false); navigate('/settings'); }}
-                  className="w-full text-left px-3 py-2 text-[12px] text-foreground hover:bg-accent transition-colors border-t border-border"
-                >
-                  Configuración
-                </button>
+                {user.role !== 'admin' && (
+                  <button
+                    onClick={() => { setShowUserMenu(false); navigate('/settings'); }}
+                    className="w-full text-left px-3 py-2 text-[12px] text-foreground hover:bg-accent transition-colors border-t border-border"
+                  >
+                    Configuración
+                  </button>
+                )}
                 <button
                   onClick={() => { setShowUserMenu(false); handleLogout(); }}
                   className="w-full text-left px-3 py-2 text-[12px] text-destructive hover:bg-accent transition-colors border-t border-border flex items-center gap-2"
