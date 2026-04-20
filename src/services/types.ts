@@ -9,6 +9,12 @@ export interface ApiUserAccount {
   system_role_name: string;
 }
 
+export interface ApiSystemRole {
+  id_system_role: number;
+  name: string;
+  description: string | null;
+}
+
 export interface ApiProject {
   id_project: number;
   name: string;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Eye, EyeOff, Lock, Mail, ArrowRight, Zap, BarChart3, Bell, Brain } from 'lucide-react';
-import { useAuth, UserRole } from '../context/AuthContext';
+import { Eye, EyeOff, Lock, Mail, ArrowRight, BarChart3, Bell, Brain } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { LoadingButton } from '../components/LoadingButton';
 import { toast } from 'sonner';
 
@@ -9,8 +9,6 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<UserRole>('project_manager');
-  const [showRoleSelector, setShowRoleSelector] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -23,7 +21,7 @@ export default function Login() {
     }
     setIsLoading(true);
     try {
-      await login(email, password, import.meta.env.DEV ? selectedRole : undefined);
+      await login(email, password);
       toast.success('¡Bienvenido a PI Platform!');
       navigate('/dashboard');
     } catch (err) {
@@ -42,10 +40,10 @@ export default function Login() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 mb-14">
             <div className="w-8 h-8 bg-primary rounded-[3px] flex items-center justify-center">
-              <Zap className="w-4 h-4 text-white" />
+              <span className="text-white font-bold text-xs">PI</span>
             </div>
             <div>
-              <p className="text-[13px] font-bold text-white leading-tight">PI Platform</p>
+              <p className="text-[13px] font-bold text-white leading-tight">Project Intelligence</p>
               <p className="text-[10px] text-[#8B949E] leading-tight">Tech Mahindra</p>
             </div>
           </Link>
@@ -78,11 +76,7 @@ export default function Login() {
           </div>
         </div>
 
-        {/* AI indicator */}
-          <div className="flex items-center gap-2 px-3 py-2 rounded-[3px] border border-[#7B5EA7]/30 bg-[#7B5EA7]/10">
-          <Zap className="w-3.5 h-3.5 text-[#A78BDA]" />
-          <span className="text-[11px] text-[#A78BDA] font-medium">Impulsado por Inteligencia Artificial · Mahindra Technology</span>
-        </div>
+          <p className="text-[11px] text-[#8B949E]">&copy; 2026 Tech Mahindra</p>
       </div>
 
       {/* Right Panel — Form */}
@@ -92,9 +86,9 @@ export default function Login() {
           <div className="lg:hidden text-center mb-8">
             <Link to="/" className="inline-flex items-center gap-2">
               <div className="w-8 h-8 bg-primary rounded-[3px] flex items-center justify-center">
-                <Zap className="w-4 h-4 text-white" />
+                <span className="text-white font-bold text-xs">PI</span>
               </div>
-              <span className="font-bold text-foreground text-sm">PI Platform</span>
+              <span className="font-bold text-foreground text-sm">Project Intelligence</span>
             </Link>
           </div>
 
@@ -167,36 +161,12 @@ export default function Login() {
               <ArrowRight className="w-3.5 h-3.5" />
             </LoadingButton>
 
-            {/* QA Role Selector — DEV only */}
-            {import.meta.env.DEV && (
-            <details
-              open={showRoleSelector}
-              onToggle={(e) => setShowRoleSelector((e.target as HTMLDetailsElement).open)}
-              className="border border-dashed border-border rounded-[3px] p-2"
-            >
-              <summary className="text-[11px] text-muted-foreground cursor-pointer select-none">
-                Modo demo — seleccionar rol
-              </summary>
-              <div className="mt-2">
-                <select
-                  value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value as UserRole)}
-                  className="w-full bg-input-background border border-input rounded-[3px] px-2 py-1.5 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
-                >
-                  <option value="admin">Administrador</option>
-                  <option value="project_manager">Project Manager</option>
-                  <option value="operative">Operativo</option>
-                  <option value="executive">Directivo</option>
-                </select>
-              </div>
-            </details>
-            )}
           </form>
 
           <p className="text-center text-[12px] text-muted-foreground mt-6">
             ¿No tienes cuenta?{' '}
             <Link to="/register" className="text-primary hover:underline font-medium">
-              Solicitar acceso
+              Regístrate
             </Link>
           </p>
 

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authService, tokenStore, ApiRequestError } from '../../services';
+import { authService, tokenStore, ApiRequestError, usersService } from '../../services';
 import type { ApiUserAccount } from '../../services';
 
 export type UserRole = 'admin' | 'project_manager' | 'operative' | 'executive';
@@ -46,7 +46,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string, role?: UserRole) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, systemRoleId?: number) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -85,12 +85,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (name: string, email: string, password: string, systemRoleId?: number) => {
     try {
       const apiUser = await authService.register(email, name, password);
       // Auto-login after register
       await login(email, password);
-      void apiUser; // returned data already used via login()
+      // Assign system role if provided
+      if (systemRoleId) {
+        await usersService.update(apiUser.id_user, { system_role: systemRoleId });
+      }
     } catch (err) {
       if (err instanceof ApiRequestError) throw err;
       throw new Error('Error de conexión. Verifica que el servidor esté activo.');

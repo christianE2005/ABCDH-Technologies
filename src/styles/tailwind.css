@@ -11,3 +11,9 @@
     display: none;
   }
 }
+
+/* Hide browser-native password reveal button (Edge/Chrome) */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
