@@ -113,7 +113,7 @@ export default function Landing() {
 
           <div className="flex items-center gap-3 justify-center mb-6">
             <Link 
-              to="/register"
+              to="/login"
               className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[13px] font-medium transition-colors inline-flex items-center gap-2"
             >
               Regístrate gratis
@@ -286,7 +286,7 @@ export default function Landing() {
             </p>
             <div className="flex items-center gap-3 justify-center">
               <Link 
-                to="/register"
+                to="/login"
                 className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[13px] font-medium transition-colors"
               >
                 Regístrate gratis
@@ -297,6 +297,7 @@ export default function Landing() {
                 className="inline-flex items-center gap-2 px-6 py-2.5 bg-secondary hover:bg-accent text-foreground rounded-[3px] text-[13px] font-medium transition-colors"
               >
                 Iniciar sesión
+                <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
           </div>

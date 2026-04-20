@@ -26,6 +26,7 @@ export default function Login() {
       navigate('/dashboard');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al iniciar sesión';
+      console.error(`[Login] Error:`, err);
       toast.error(msg);
     } finally {
       setIsLoading(false);

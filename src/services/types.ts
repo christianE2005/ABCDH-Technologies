@@ -5,7 +5,7 @@ export interface ApiUserAccount {
   email: string;
   username: string;
   created_at: string;
-  system_role: number | null;
+  system_role: number;
   system_role_name: string;
 }
 
