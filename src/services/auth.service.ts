@@ -19,10 +19,10 @@ export const authService = {
   /**
    * POST /api/auth/register/
    */
-  async register(email: string, username: string, password: string): Promise<RegisterResponse> {
+  async register(email: string, username: string, password: string, role?: string): Promise<RegisterResponse> {
     return api.post<RegisterResponse>(
       '/auth/register/',
-      { email, username, password },
+      { email, username, password, ...(role && { role }) },
       false,
     );
   },

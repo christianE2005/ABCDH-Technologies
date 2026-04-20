@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Eye, EyeOff, Lock, Mail, ArrowRight, Zap, BarChart3, Bell, Brain } from 'lucide-react';
-import { useAuth, UserRole } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { LoadingButton } from '../components/LoadingButton';
 import { toast } from 'sonner';
 
@@ -9,8 +9,6 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<UserRole>('project_manager');
-  const [showRoleSelector, setShowRoleSelector] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -23,11 +21,13 @@ export default function Login() {
     }
     setIsLoading(true);
     try {
-      await login(email, password, import.meta.env.DEV ? selectedRole : undefined);
+      console.log(`[Login] Attempting login for ${email}`);
+      await login(email, password);
       toast.success('¡Bienvenido a PI Platform!');
       navigate('/dashboard');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al iniciar sesión';
+      console.error(`[Login] Error:`, err);
       toast.error(msg);
     } finally {
       setIsLoading(false);
@@ -167,38 +167,10 @@ export default function Login() {
               <ArrowRight className="w-3.5 h-3.5" />
             </LoadingButton>
 
-            {/* QA Role Selector — DEV only */}
-            {import.meta.env.DEV && (
-            <details
-              open={showRoleSelector}
-              onToggle={(e) => setShowRoleSelector((e.target as HTMLDetailsElement).open)}
-              className="border border-dashed border-border rounded-[3px] p-2"
-            >
-              <summary className="text-[11px] text-muted-foreground cursor-pointer select-none">
-                Modo demo — seleccionar rol
-              </summary>
-              <div className="mt-2">
-                <select
-                  value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value as UserRole)}
-                  className="w-full bg-input-background border border-input rounded-[3px] px-2 py-1.5 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
-                >
-                  <option value="admin">Administrador</option>
-                  <option value="project_manager">Project Manager</option>
-                  <option value="operative">Operativo</option>
-                  <option value="executive">Directivo</option>
-                </select>
-              </div>
-            </details>
-            )}
+
           </form>
 
-          <p className="text-center text-[12px] text-muted-foreground mt-6">
-            ¿No tienes cuenta?{' '}
-            <Link to="/register" className="text-primary hover:underline font-medium">
-              Solicitar acceso
-            </Link>
-          </p>
+
 
           <div className="text-center mt-4">
             <Link to="/" className="text-[11px] text-muted-foreground hover:text-foreground transition-colors">

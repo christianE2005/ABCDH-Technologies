@@ -12,14 +12,28 @@ export const usersService = {
     return api.get<ApiUserAccount>(`/user-accounts/${id}/`);
   },
 
+  /** POST /api/user-accounts/ — Create a new user (admin only) */
+  create(payload: { username: string; email: string; password: string; system_role?: number }): Promise<ApiUserAccount> {
+    return api.post<ApiUserAccount>('/user-accounts/', payload);
+  },
+
   /** PATCH /api/user-accounts/:id/ */
-  update(id: number, payload: Partial<Pick<ApiUserAccount, 'email' | 'username'>>): Promise<ApiUserAccount> {
-    return api.patch<ApiUserAccount>(`/user-accounts/${id}/`, payload);
+update(id: number, payload: Partial<Pick<ApiUserAccount, 'email' | 'username'> & { password: string }>): Promise<ApiUserAccount> {
+  return api.patch<ApiUserAccount>(`/user-accounts/${id}/`, payload);
+},
+
+  /** DELETE /api/user-accounts/:id/ */
+  delete(id: number): Promise<void> {
+    return api.delete<void>(`/user-accounts/${id}/`);
   },
 
   // ── Project members ────────────────────────────────────────────
-  listMembers(projectId?: number): Promise<ApiProjectMember[]> {
-    const url = projectId ? `/project-members/?project=${projectId}` : '/project-members/';
+  listMembers(projectId?: number, userId?: number): Promise<ApiProjectMember[]> {
+    const params = new URLSearchParams();
+    if (projectId) params.set('project', String(projectId));
+    if (userId) params.set('user', String(userId));
+    const query = params.toString();
+    const url = query ? `/project-members/?${query}` : '/project-members/';
     return api.get<ApiProjectMember[]>(url);
   },
 
