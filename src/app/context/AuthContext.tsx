@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authService, tokenStore, ApiRequestError, usersService } from '../../services';
+import { authService, tokenStore, usersService } from '../../services';
 import type { ApiUserAccount } from '../../services';
 
 export type UserRole = 'admin' | 'project_manager' | 'operative' | 'executive';

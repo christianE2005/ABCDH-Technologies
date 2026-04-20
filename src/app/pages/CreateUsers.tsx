@@ -148,25 +148,6 @@ export default function CreateUsers() {
     }
   };
 
-  const getRoleLabel = (role: UserRole | string | number): string => {
-    if (typeof role === 'number') {
-      const mapping: Record<number, string> = {
-        2: 'Administrador',
-        3: 'Usuario',
-        4: 'Stakeholder',
-      };
-      return mapping[role] || 'Desconocido';
-    }
-
-    const labels: Record<UserRole, string> = {
-      admin: 'Administrador',
-      project_manager: 'Usuario',
-      operative: 'Parte Interesada',
-      executive: 'Directivo',
-    };
-    return labels[role as UserRole] || role;
-  };
-
   const getRoleSystemValue = (role: UserRole): number => {
     const mapping: Record<UserRole, number> = {
       admin: 2,
