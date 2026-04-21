@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Eye, EyeOff, Lock, Mail, ArrowRight, Zap, BarChart3, Bell, Brain } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, ArrowRight, BarChart3, Bell, Brain } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { LoadingButton } from '../components/LoadingButton';
 import { toast } from 'sonner';
@@ -21,7 +21,6 @@ export default function Login() {
     }
     setIsLoading(true);
     try {
-      console.log(`[Login] Attempting login for ${email}`);
       await login(email, password);
       toast.success('¡Bienvenido a PI Platform!');
       navigate('/dashboard');
@@ -42,10 +41,10 @@ export default function Login() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 mb-14">
             <div className="w-8 h-8 bg-primary rounded-[3px] flex items-center justify-center">
-              <Zap className="w-4 h-4 text-white" />
+              <span className="text-white font-bold text-xs">PI</span>
             </div>
             <div>
-              <p className="text-[13px] font-bold text-white leading-tight">PI Platform</p>
+              <p className="text-[13px] font-bold text-white leading-tight">Project Intelligence</p>
               <p className="text-[10px] text-[#8B949E] leading-tight">Tech Mahindra</p>
             </div>
           </Link>
@@ -78,11 +77,7 @@ export default function Login() {
           </div>
         </div>
 
-        {/* AI indicator */}
-          <div className="flex items-center gap-2 px-3 py-2 rounded-[3px] border border-[#7B5EA7]/30 bg-[#7B5EA7]/10">
-          <Zap className="w-3.5 h-3.5 text-[#A78BDA]" />
-          <span className="text-[11px] text-[#A78BDA] font-medium">Impulsado por Inteligencia Artificial · Mahindra Technology</span>
-        </div>
+          <p className="text-[11px] text-[#8B949E]">&copy; 2026 Tech Mahindra</p>
       </div>
 
       {/* Right Panel — Form */}
@@ -92,9 +87,9 @@ export default function Login() {
           <div className="lg:hidden text-center mb-8">
             <Link to="/" className="inline-flex items-center gap-2">
               <div className="w-8 h-8 bg-primary rounded-[3px] flex items-center justify-center">
-                <Zap className="w-4 h-4 text-white" />
+                <span className="text-white font-bold text-xs">PI</span>
               </div>
-              <span className="font-bold text-foreground text-sm">PI Platform</span>
+              <span className="font-bold text-foreground text-sm">Project Intelligence</span>
             </Link>
           </div>
 
@@ -167,10 +162,14 @@ export default function Login() {
               <ArrowRight className="w-3.5 h-3.5" />
             </LoadingButton>
 
-
           </form>
 
-
+          <p className="text-center text-[12px] text-muted-foreground mt-6">
+            ¿No tienes cuenta?{' '}
+            <Link to="/register" className="text-primary hover:underline font-medium">
+              Regístrate
+            </Link>
+          </p>
 
           <div className="text-center mt-4">
             <Link to="/" className="text-[11px] text-muted-foreground hover:text-foreground transition-colors">
