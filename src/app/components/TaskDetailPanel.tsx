@@ -13,6 +13,20 @@ import { DatePickerField } from './DatePickerField';
 import { useAuth } from '../context/AuthContext';
 
 const DONE_STATUS_NAMES = new Set(['done', 'completada', 'completado']);
+const EMPTY_ASSIGNABLE_USERS: Array<{ id: number; name: string }> = [];
+const EMPTY_TASK_ASSIGNMENTS: ApiTaskAssignment[] = [];
+
+function formatCommentTimestamp(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 interface TaskDetailPanelProps {
   task: ApiTask | null;
@@ -32,8 +46,8 @@ export function TaskDetailPanel({
   statuses,
   priorities,
   userMap,
-  assignableUsers = [],
-  taskAssignments = [],
+  assignableUsers = EMPTY_ASSIGNABLE_USERS,
+  taskAssignments = EMPTY_TASK_ASSIGNMENTS,
   canEditAssignment = true,
   onClose,
   onStatusChange,
@@ -91,28 +105,59 @@ export function TaskDetailPanel({
       dueDate: task.due_date ?? '',
       completed: Boolean(task.completed_at),
     });
+  }, [task, currentTaskAssignments]);
 
+  useEffect(() => {
+    if (!task) return;
+
+    let cancelled = false;
+    const targetTaskId = task.id_task;
+
+    setEditingCommentId(null);
+    setEditingCommentContent('');
+    setNewComment('');
+    setComments([]);
+    setWarnings([]);
     setLoadingComments(true);
     setLoadingWarnings(true);
 
-    tasksService.listComments(task.id_task)
-      .then(setComments)
-      .catch(() => setComments([]))
-      .finally(() => setLoadingComments(false));
+    tasksService.listComments(targetTaskId)
+      .then((nextComments) => {
+        if (!cancelled) setComments(nextComments);
+      })
+      .catch(() => {
+        if (!cancelled) setComments([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingComments(false);
+      });
 
-    tasksService.listWarnings({ task_id: task.id_task, status: 'active' })
-      .then(setWarnings)
-      .catch(() => setWarnings([]))
-      .finally(() => setLoadingWarnings(false));
-  }, [task, currentTaskAssignments]);
+    tasksService.listWarnings({ task_id: targetTaskId, status: 'active' })
+      .then((nextWarnings) => {
+        if (!cancelled) setWarnings(nextWarnings);
+      })
+      .catch(() => {
+        if (!cancelled) setWarnings([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingWarnings(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [task?.id_task]);
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!task || !newComment.trim()) return;
     setSendingComment(true);
     try {
-      const created = await tasksService.addComment(task.id_task, newComment.trim());
-      setComments((prev) => [...prev, created]);
+      const created = await tasksService.addComment(task.id_task, newComment.trim(), currentUserId ?? undefined);
+      const createdWithUser = created.user == null && currentUserId != null
+        ? { ...created, user: currentUserId }
+        : created;
+      setComments((prev) => [...prev, createdWithUser]);
       setNewComment('');
       toast.success('Comentario agregado');
     } catch {
@@ -478,7 +523,7 @@ export function TaskDetailPanel({
                             {c.user ? (userMap.get(c.user) ?? `User #${c.user}`) : 'Sistema'}
                           </span>
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-muted-foreground">{c.created_at.slice(0, 10)}</span>
+                            <span className="text-[10px] text-muted-foreground">{formatCommentTimestamp(c.created_at)}</span>
                             {currentUserId != null && c.user === currentUserId && (
                               <>
                                 <button

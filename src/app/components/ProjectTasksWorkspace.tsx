@@ -40,6 +40,8 @@ interface ProjectTasksWorkspaceProps {
   assignableUsers: Array<{ id: number; name: string }>;
   canCreateTasks: boolean;
   canCreateBoards: boolean;
+  initialTaskId?: number | null;
+  onInitialTaskHandled?: (taskId: number) => void;
 }
 
 interface OrderedColumn {
@@ -56,27 +58,34 @@ function normalizeName(name: string) {
   return name.trim().toLowerCase();
 }
 
+function getTaskStatusColor(statusName?: string | null) {
+  const normalized = (statusName ?? '').trim().toLowerCase();
+  if (normalized.includes('backlog')) return '#64748b';
+  if (normalized.includes('to do') || normalized.includes('por hacer')) return '#0ea5e9';
+  if (normalized.includes('progress') || normalized.includes('progreso')) return '#f59e0b';
+  if (normalized.includes('review') || normalized.includes('revision') || normalized.includes('revisión')) return '#8b5cf6';
+  if (normalized.includes('done') || normalized.includes('completad') || normalized.includes('finalizad')) return '#22c55e';
+  if (normalized.includes('block') || normalized.includes('bloque')) return '#ef4444';
+  return '#14b8a6';
+}
+
 function priorityColor(level: number) {
   if (level >= 3) return 'bg-destructive';
   if (level === 2) return 'bg-warning';
   return 'bg-info';
 }
 
-function priorityBorderColor(level: number) {
-  if (level >= 3) return 'border-l-destructive';
-  if (level === 2) return 'border-l-warning';
-  return 'border-l-info';
-}
-
 function TaskCard({
   task,
   priorities,
   assignedNames,
+  statusName,
   onOpen,
 }: {
   task: ApiTask;
   priorities: ApiTaskPriority[];
   assignedNames: string[];
+  statusName?: string;
   onOpen: (task: ApiTask) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -92,13 +101,15 @@ function TaskCard({
   const prio = priorities.find((p) => p.id_priority === task.priority);
   const prioLevel = prio?.level ?? 0;
   const assignedLabel = assignedNames.length > 0 ? assignedNames.join(', ') : 'Sin asignar';
+  const statusColor = getTaskStatusColor(statusName);
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
       onClick={() => onOpen(task)}
-      className={`bg-card border border-border border-l-[3px] ${priorityBorderColor(prioLevel)} rounded-[4px] p-2.5 mb-1.5 hover:border-primary/30 transition-colors cursor-pointer group`}
+      className="bg-card border border-border border-l-[3px] rounded-[4px] p-2.5 mb-1.5 hover:border-primary/30 transition-colors cursor-pointer group"
+      // Status color on the side accent makes state visible while dragging through columns.
+      style={{ ...style, borderLeftColor: statusColor }}
     >
       <div className="flex items-start gap-2">
         <button
@@ -113,7 +124,7 @@ function TaskCard({
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-1">
-            <span className={`w-2 h-2 rounded-full shrink-0 ${priorityColor(prioLevel)}`} />
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: statusColor }} />
             <h3 className="text-[12px] font-medium text-foreground truncate">{task.title}</h3>
           </div>
           {task.description && <p className="text-[11px] text-muted-foreground line-clamp-2">{task.description}</p>}
@@ -147,6 +158,8 @@ export function ProjectTasksWorkspace({
   assignableUsers,
   canCreateTasks,
   canCreateBoards,
+  initialTaskId = null,
+  onInitialTaskHandled,
 }: ProjectTasksWorkspaceProps) {
   const { user } = useAuth();
   const currentUserId = useMemo(() => {
@@ -182,12 +195,35 @@ export function ProjectTasksWorkspace({
   const [creatingBoard, setCreatingBoard] = useState(false);
   const [boardName, setBoardName] = useState('');
   const [boardDescription, setBoardDescription] = useState('');
+  const [pendingInitialTaskId, setPendingInitialTaskId] = useState<number | null>(initialTaskId);
 
   useEffect(() => {
     if (boards && boards.length > 0 && !selectedBoardId) {
       setSelectedBoardId(boards[0].id_board);
     }
   }, [boards, selectedBoardId]);
+
+  useEffect(() => {
+    setPendingInitialTaskId(initialTaskId ?? null);
+  }, [initialTaskId]);
+
+  useEffect(() => {
+    if (!pendingInitialTaskId || !boards || boards.length === 0) return;
+
+    let cancelled = false;
+    tasksService.get(pendingInitialTaskId)
+      .then((task) => {
+        if (cancelled) return;
+        if (task.board !== selectedBoardId) {
+          setSelectedBoardId(task.board);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+      });
+
+    return () => { cancelled = true; };
+  }, [pendingInitialTaskId, boards, selectedBoardId]);
 
   const loading = loadingBoards || loadingTasks;
 
@@ -209,6 +245,12 @@ export function ProjectTasksWorkspace({
   const statusByName = useMemo(() => {
     const map = new Map<string, ApiTaskStatus>();
     statuses.forEach((s) => map.set(normalizeName(s.name), s));
+    return map;
+  }, [statuses]);
+
+  const statusNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    statuses.forEach((status) => map.set(status.id_status, status.name));
     return map;
   }, [statuses]);
 
@@ -246,6 +288,16 @@ export function ProjectTasksWorkspace({
     }
     return task.assigned_to ? [userMap.get(task.assigned_to) ?? `#${task.assigned_to}`] : [];
   };
+
+  useEffect(() => {
+    if (!pendingInitialTaskId) return;
+    const targetTask = (tasks ?? []).find((task) => task.id_task === pendingInitialTaskId);
+    if (!targetTask) return;
+
+    setSelectedTask(targetTask);
+    onInitialTaskHandled?.(pendingInitialTaskId);
+    setPendingInitialTaskId(null);
+  }, [pendingInitialTaskId, tasks, onInitialTaskHandled]);
 
   const handleDragStart = (event: { active: { id: string | number } }) => {
     setActiveDragId(Number(event.active.id));
@@ -531,7 +583,10 @@ export function ProjectTasksWorkspace({
                   className={`rounded-[4px] p-2.5 border ${column.isMissing ? 'border-dashed border-border/60 bg-surface-secondary/30' : 'border-border bg-surface-secondary/50'} h-full min-h-0 flex flex-col`}
                 >
                   <div className="flex items-center justify-between mb-2 px-1">
-                    <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">{column.name}</h2>
+                    <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] inline-flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: getTaskStatusColor(column.status?.name ?? column.name) }} />
+                      {column.name}
+                    </h2>
                     <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-card text-muted-foreground">
                       {column.tasks.length}
                     </span>
@@ -549,6 +604,7 @@ export function ProjectTasksWorkspace({
                             task={task}
                             priorities={priorities}
                             assignedNames={getAssignedNames(task)}
+                            statusName={statusNameById.get(task.status ?? -1)}
                             onOpen={setSelectedTask}
                           />
                         ))}

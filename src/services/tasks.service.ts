@@ -77,8 +77,12 @@ export const tasksService = {
     return api.get<ApiTaskComment[]>(`/task-comments/?task=${taskId}`);
   },
 
-  addComment(taskId: number, content: string): Promise<ApiTaskComment> {
-    return api.post<ApiTaskComment>('/task-comments/', { task: taskId, content });
+  addComment(taskId: number, content: string, userId?: number): Promise<ApiTaskComment> {
+    return api.post<ApiTaskComment>('/task-comments/', {
+      task: taskId,
+      content,
+      ...(typeof userId === 'number' && userId > 0 ? { user: userId } : {}),
+    });
   },
 
   updateComment(commentId: number, payload: UpdateTaskCommentPayload): Promise<ApiTaskComment> {

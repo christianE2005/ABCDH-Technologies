@@ -20,34 +20,48 @@ function priorityColor(level: number) {
   return 'bg-info';
 }
 
-function statusDotColor(index: number, total: number) {
-  if (index === total - 1) return 'bg-success';
-  if (index === 0) return 'bg-muted-foreground';
-  return 'bg-warning';
+function getTaskStatusColor(statusName?: string | null) {
+  const normalized = (statusName ?? '').trim().toLowerCase();
+  if (normalized.includes('backlog')) return '#64748b';
+  if (normalized.includes('to do') || normalized.includes('por hacer')) return '#0ea5e9';
+  if (normalized.includes('progress') || normalized.includes('progreso')) return '#f59e0b';
+  if (normalized.includes('review') || normalized.includes('revision') || normalized.includes('revisión')) return '#8b5cf6';
+  if (normalized.includes('done') || normalized.includes('completad') || normalized.includes('finalizad')) return '#22c55e';
+  if (normalized.includes('block') || normalized.includes('bloque')) return '#ef4444';
+  return '#14b8a6';
 }
 
 // ── Task Card (draggable) ──
 
-function priorityBorderColor(level: number) {
-  if (level >= 3) return 'border-l-destructive';
-  if (level === 2) return 'border-l-warning';
-  return 'border-l-info';
-}
-
-function TaskCard({ task, priorities }: { task: ApiTask; statuses?: ApiTaskStatus[]; priorities: ApiTaskPriority[] }) {
+function TaskCard({ task, priorities, statusName, onOpen }: { task: ApiTask; statuses?: ApiTaskStatus[]; priorities: ApiTaskPriority[]; statusName?: string; onOpen: (task: ApiTask) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id_task });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
   const prio = priorities.find((p) => p.id_priority === task.priority);
   const prioLevel = prio?.level ?? 0;
+  const statusColor = getTaskStatusColor(statusName);
 
   return (
-    <div ref={setNodeRef} style={style} className={`bg-card border border-border border-l-[3px] ${priorityBorderColor(prioLevel)} rounded-[4px] p-2.5 mb-1.5 hover:border-primary/30 transition-colors cursor-move group`} {...attributes} {...listeners}>
+    <div
+      ref={setNodeRef}
+      style={{ ...style, borderLeftColor: statusColor }}
+      className="bg-card border border-border border-l-[3px] rounded-[4px] p-2.5 mb-1.5 hover:border-primary/30 transition-colors cursor-pointer group"
+      onClick={() => onOpen(task)}
+    >
       <div className="flex items-start gap-2">
-        <GripVertical className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5" />
+        <button
+          type="button"
+          aria-label="Mover tarea"
+          onClick={(e) => e.stopPropagation()}
+          className="mt-0.5"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+        </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-1">
-            <span className={`w-2 h-2 rounded-full shrink-0 ${priorityColor(prioLevel)}`} />
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: statusColor }} />
             <h3 className="text-[12px] font-medium text-foreground truncate">{task.title}</h3>
           </div>
           {task.description && <p className="text-[11px] text-muted-foreground line-clamp-2 ml-3.5">{task.description}</p>}
@@ -156,9 +170,9 @@ export default function Backlog() {
 
   // Build kanban columns from real statuses
   const columns = useMemo(() => {
-    return statuses.map((s, idx) => ({
+    return statuses.map((s) => ({
       status: s,
-      dotColor: statusDotColor(idx, statuses.length),
+      dotColor: getTaskStatusColor(s.name),
       tasks: filteredTasks.filter((t) => t.status === s.id_status),
     }));
   }, [statuses, filteredTasks]);
@@ -337,7 +351,7 @@ export default function Backlog() {
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: colIndex * 0.1, ease: 'easeOut' }} className={`bg-surface-secondary/50 border rounded-[4px] p-2.5 ${col.tasks.length >= WIP_LIMIT ? 'border-warning/50' : 'border-border'} h-full min-h-0 flex flex-col`}>
                   <div className="flex items-center justify-between mb-2 px-1">
                     <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${col.dotColor}`} />
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: col.dotColor }} />
                       <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">{col.status.name}</h2>
                       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${col.tasks.length >= WIP_LIMIT ? 'bg-warning/20 text-warning' : 'bg-card text-muted-foreground'}`}>
                         {col.tasks.length}{col.tasks.length >= WIP_LIMIT ? ` / ${WIP_LIMIT}` : ''}
@@ -348,7 +362,7 @@ export default function Backlog() {
                     <div className="flex-1 min-h-[200px] overflow-y-auto">
                       {col.tasks.map((task, taskIndex) => (
                         <motion.div key={task.id_task} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: colIndex * 0.1 + taskIndex * 0.05, ease: 'easeOut' }}>
-                          <TaskCard task={task} statuses={statuses} priorities={priorities} />
+                          <TaskCard task={task} statuses={statuses} priorities={priorities} statusName={col.status.name} onOpen={setSelectedTask} />
                         </motion.div>
                       ))}
                     </div>

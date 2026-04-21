@@ -171,4 +171,39 @@ describe('401 retry with token refresh', () => {
 
     window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, sessionExpiredListener);
   });
+
+  it('emits session-expired for auth requests when backend returns token-expired in non-401 response', async () => {
+    const sessionExpiredListener = vi.fn();
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, sessionExpiredListener);
+    tokenStore.set('any_access', 'any_refresh');
+
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      json: () => Promise.resolve({ detail: 'Token expirado' }),
+    });
+
+    await expect(api.get('/projects/')).rejects.toThrow(ApiRequestError);
+    expect(tokenStore.getAccess()).toBeNull();
+    expect(tokenStore.getRefresh()).toBeNull();
+    expect(sessionExpiredListener).toHaveBeenCalledTimes(1);
+
+    window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, sessionExpiredListener);
+  });
+
+  it('does not emit session-expired for public unauthenticated requests', async () => {
+    const sessionExpiredListener = vi.fn();
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, sessionExpiredListener);
+
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ detail: 'Invalid credentials' }),
+    });
+
+    await expect(api.post('/auth/login/', { email: 'x', password: 'y' }, false)).rejects.toThrow(ApiRequestError);
+    expect(sessionExpiredListener).toHaveBeenCalledTimes(0);
+
+    window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, sessionExpiredListener);
+  });
 });

@@ -12,7 +12,7 @@ import {
 import { KPICard } from '../components/KPICard';
 import { StatusBadge } from '../components/StatusBadge';
 import { CommandBar } from '../components/CommandBar';
-import { useApiProjects, useApiTasks, useApiTaskAssignments, useApiTaskWarnings, useApiGithubPushes } from '../hooks/useProjectData';
+import { useApiBoards, useApiProjectMembers, useApiProjects, useApiTasks, useApiTaskAssignments, useApiTaskWarnings, useApiGithubPushes } from '../hooks/useProjectData';
 import { useAuth } from '../context/AuthContext';
 import { compareProjectsForGenericPriority, getProjectStatusBadge, getProjectStatusChartColor, getProjectStatusLabel, normalizeProjectStatus, shouldShowInGenericProjectDisplays } from '../utils/projectStatus';
 import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
@@ -20,24 +20,99 @@ import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
 const DASHBOARD_PANEL_BATCH_SIZE = 10;
 const DASHBOARD_PROJECT_SLOTS = 8;
 
+function getTaskStatusChartColor(statusName: string) {
+  const normalized = statusName.trim().toLowerCase();
+  if (normalized.includes('backlog')) return '#64748b';
+  if (normalized.includes('to do') || normalized.includes('por hacer')) return '#0ea5e9';
+  if (normalized.includes('progress') || normalized.includes('progreso')) return '#f59e0b';
+  if (normalized.includes('review') || normalized.includes('revision') || normalized.includes('revisión')) return '#8b5cf6';
+  if (normalized.includes('done') || normalized.includes('completad') || normalized.includes('finalizad')) return '#22c55e';
+  if (normalized.includes('block') || normalized.includes('bloque')) return '#ef4444';
+  return '#14b8a6';
+}
+
+function getDueDateSortValue(dueDate: string | null) {
+  if (!dueDate) return Number.POSITIVE_INFINITY;
+  const parsed = new Date(dueDate).getTime();
+  return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const currentUserId = useMemo(() => Number(user?.id ?? 0), [user?.id]);
   const { data: projects, loading: loadingProjects, error: errorProjects, refetch: refetchProjects } = useApiProjects();
   const { data: tasks, loading: loadingTasks, statuses, refetch: refetchTasks } = useApiTasks();
+  const { data: boards, loading: loadingBoards } = useApiBoards();
+  const { data: myProjectMemberships, loading: loadingMemberships } = useApiProjectMembers(undefined, Number.isNaN(currentUserId) || currentUserId <= 0 ? undefined : currentUserId);
   const taskIds = useMemo(() => (tasks ?? []).map((task) => task.id_task), [tasks]);
   const { data: taskAssignments } = useApiTaskAssignments(taskIds);
   const { data: warnings } = useApiTaskWarnings({ status: 'active' });
   const { data: pushes } = useApiGithubPushes();
 
-  const loading = loadingProjects || loadingTasks;
+  const loading = loadingProjects || loadingTasks || loadingBoards || loadingMemberships;
+
+  const projectById = useMemo(() => {
+    const map = new Map<number, { id_project: number; name: string; created_by: number | null }>();
+    (projects ?? []).forEach((project) => {
+      map.set(project.id_project, {
+        id_project: project.id_project,
+        name: project.name,
+        created_by: project.created_by,
+      });
+    });
+    return map;
+  }, [projects]);
+
+  const boardProjectMap = useMemo(() => {
+    const map = new Map<number, number>();
+    (boards ?? []).forEach((board) => {
+      map.set(board.id_board, board.project);
+    });
+    return map;
+  }, [boards]);
+
+  const involvedProjectIds = useMemo(() => {
+    const ids = new Set<number>();
+    (myProjectMemberships ?? []).forEach((member) => ids.add(member.project));
+    (projects ?? []).forEach((project) => {
+      if (project.created_by === currentUserId) {
+        ids.add(project.id_project);
+      }
+    });
+    return ids;
+  }, [myProjectMemberships, projects, currentUserId]);
+
+  const scopedTasks = useMemo(() => {
+    const list = tasks ?? [];
+    if (involvedProjectIds.size === 0) return [];
+    return list.filter((task) => {
+      const projectId = boardProjectMap.get(task.board);
+      return projectId != null && involvedProjectIds.has(projectId);
+    });
+  }, [tasks, boardProjectMap, involvedProjectIds]);
+
+  const scopedTaskIdSet = useMemo(() => new Set(scopedTasks.map((task) => task.id_task)), [scopedTasks]);
+
+  const scopedWarnings = useMemo(
+    () => (warnings ?? []).filter((warning) => scopedTaskIdSet.has(warning.task)),
+    [warnings, scopedTaskIdSet],
+  );
+
+  const taskStatusNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    statuses.forEach((status) => {
+      map.set(status.id_status, status.name);
+    });
+    return map;
+  }, [statuses]);
 
   const refetchAll = () => { refetchProjects(); refetchTasks(); };
 
   // ── Derived KPIs ──
   const kpis = useMemo(() => {
     const pList = (projects ?? []).filter((project) => shouldShowInGenericProjectDisplays(project.status));
-    const tList = tasks ?? [];
+    const tList = scopedTasks;
     const now = new Date();
 
     const totalProjects = pList.length;
@@ -51,11 +126,11 @@ export default function Dashboard() {
     const openTasks = totalTasks - completedTasks;
 
     return { totalProjects, totalTasks, completedTasks, openTasks, overdueTasks };
-  }, [projects, tasks]);
+  }, [projects, scopedTasks]);
 
-  const activeWarningsCount = (warnings ?? []).length;
+  const activeWarningsCount = scopedWarnings.length;
   const myTasks = useMemo(() => {
-    if (!tasks || !user) return [];
+    if (!user) return [];
     const currentUserId = Number(user.id);
     const assignmentMap = new Map<number, Set<number>>();
 
@@ -65,15 +140,15 @@ export default function Dashboard() {
       assignmentMap.set(assignment.task, existing);
     });
 
-    return tasks.filter((task) => {
+    return scopedTasks.filter((task) => {
       if (task.completed_at) return false;
       const assignedUsers = assignmentMap.get(task.id_task);
       if (assignedUsers && assignedUsers.size > 0) {
         return assignedUsers.has(currentUserId);
       }
       return task.assigned_to === currentUserId;
-    });
-  }, [tasks, taskAssignments, user]);
+    }).sort((a, b) => getDueDateSortValue(a.due_date) - getDueDateSortValue(b.due_date));
+  }, [scopedTasks, taskAssignments, user]);
   const [myTasksPage, setMyTasksPage] = useState(0);
   const [pushesPage, setPushesPage] = useState(0);
 
@@ -92,17 +167,18 @@ export default function Dashboard() {
 
   // ── Task distribution by status for chart ──
   const statusChartData = useMemo(() => {
-    if (!tasks || statuses.length === 0) return [];
+    if (scopedTasks.length === 0 || statuses.length === 0) return [];
     const counts = new Map<number, number>();
-    for (const t of tasks) {
+    for (const t of scopedTasks) {
       const sid = t.status ?? 0;
       counts.set(sid, (counts.get(sid) ?? 0) + 1);
     }
     return statuses.map((s) => ({
       name: s.name,
       count: counts.get(s.id_status) ?? 0,
+      color: getTaskStatusChartColor(s.name),
     }));
-  }, [tasks, statuses]);
+  }, [scopedTasks, statuses]);
 
   const upcomingProjects = useMemo(() => {
     if (!projects) return [];
@@ -135,12 +211,29 @@ export default function Dashboard() {
       }));
   }, [projects]);
 
+  const isAuthExpiredError = useMemo(() => {
+    if (!errorProjects) return false;
+    const normalized = errorProjects.toLowerCase();
+    return normalized.includes('token') || normalized.includes('sesion') || normalized.includes('sesión') || normalized.includes('expir') || normalized.includes('venc');
+  }, [errorProjects]);
+
   if (errorProjects) {
     return (
       <div className="px-4 pt-10 text-center">
         <AlertTriangle className="w-8 h-8 text-destructive mx-auto mb-2" />
-        <p className="text-[13px] text-destructive">{errorProjects}</p>
-        <button onClick={refetchAll} className="mt-3 text-[12px] text-primary hover:underline">Reintentar</button>
+        <p className="text-[13px] text-destructive">{isAuthExpiredError ? 'Tu sesión venció. Vuelve a iniciar sesión.' : errorProjects}</p>
+        <button
+          onClick={() => {
+            if (isAuthExpiredError) {
+              window.location.href = '/';
+              return;
+            }
+            refetchAll();
+          }}
+          className="mt-3 text-[12px] text-primary hover:underline"
+        >
+          {isAuthExpiredError ? 'Ir al inicio' : 'Reintentar'}
+        </button>
       </div>
     );
   }
@@ -167,11 +260,11 @@ export default function Dashboard() {
         ) : (
           [
             { title: 'Proyectos', value: kpis.totalProjects, subtitle: 'total activos', icon: <Briefcase className="w-4 h-4" />, accentColor: 'primary' as const },
-            { title: 'Tareas', value: kpis.totalTasks, subtitle: 'en todos los proyectos', icon: <ListChecks className="w-4 h-4" />, accentColor: 'info' as const },
+            { title: 'Tareas', value: kpis.totalTasks, subtitle: 'en tus proyectos', icon: <ListChecks className="w-4 h-4" />, accentColor: 'info' as const },
             { title: 'Completadas', value: kpis.completedTasks, subtitle: 'tareas terminadas', icon: <CheckCircle2 className="w-4 h-4" />, accentColor: 'success' as const },
             { title: 'Pendientes', value: kpis.openTasks, subtitle: 'tareas abiertas', icon: <Timer className="w-4 h-4" />, accentColor: 'warning' as const },
             { title: 'Vencidas', value: kpis.overdueTasks, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" />, accentColor: 'destructive' as const },
-            { title: 'Warnings', value: activeWarningsCount, subtitle: 'alertas activas', icon: <AlertTriangle className="w-4 h-4 text-warning" />, accentColor: 'warning' as const },
+            { title: 'Warnings', value: activeWarningsCount, subtitle: 'alertas en tus tareas', icon: <AlertTriangle className="w-4 h-4 text-warning" />, accentColor: 'warning' as const },
           ].map((kpi, i) => (
             <motion.div
               key={kpi.title}
@@ -267,7 +360,7 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, delay: 0.32, ease: 'easeOut' }}
-            className="bg-card border border-border rounded-[4px] p-4 h-full min-h-0 flex flex-col"
+            className="bg-card border border-border rounded-[4px] p-4 h-full min-h-0 flex flex-col order-2"
           >
             <h2 className="text-[13px] font-semibold text-foreground mb-2">Tareas por Estado</h2>
             <div className="flex-1 min-h-0">
@@ -282,7 +375,11 @@ export default function Dashboard() {
                       labelStyle={{ color: 'var(--foreground)' }}
                       itemStyle={{ color: 'var(--foreground)' }}
                     />
-                    <Bar dataKey="count" fill="var(--color-chart-1)" name="Tareas" radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="count" name="Tareas" radius={[2, 2, 0, 0]}>
+                      {statusChartData.map((entry) => (
+                        <Cell key={`status-bar-${entry.name}`} fill={entry.color} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -296,7 +393,7 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.35, ease: 'easeOut' }}
-            className="bg-card border border-border rounded-[4px] p-4 h-full min-h-0 flex flex-col"
+            className="bg-card border border-border rounded-[4px] p-4 h-full min-h-0 flex flex-col order-1"
           >
             <h2 className="text-[13px] font-semibold text-foreground mb-2">Estado de Proyectos</h2>
             {projectStatusData.length > 0 ? (
@@ -359,16 +456,36 @@ export default function Dashboard() {
                 <div className="flex-1 min-h-0 overflow-auto divide-y divide-border">
                   {paginatedMyTasks.map((task) => {
                     const isOverdue = task.due_date && new Date(task.due_date) < new Date();
+                    const taskProjectId = boardProjectMap.get(task.board);
+                    const taskProjectName = taskProjectId ? (projectById.get(taskProjectId)?.name ?? `Proyecto #${taskProjectId}`) : 'Proyecto sin identificar';
+                    const taskStatusLabel = task.status != null ? (taskStatusNameById.get(task.status) ?? `Estado #${task.status}`) : 'Sin estado';
+                    const taskStatusColor = getTaskStatusChartColor(taskStatusLabel);
                     return (
-                      <div key={task.id_task} className="px-4 py-2 hover:bg-accent/30 transition-colors flex items-center gap-3 min-h-0">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                        <p className="text-[12px] font-medium text-foreground truncate flex-1">{task.title}</p>
+                      <button
+                        key={task.id_task}
+                        type="button"
+                        className="w-full px-4 py-2 hover:bg-accent/30 transition-colors flex items-center gap-3 min-h-0 text-left"
+                        onClick={() => {
+                          if (!taskProjectId) return;
+                          navigate(`/projects/${taskProjectId}?tab=tareas&task=${task.id_task}`);
+                        }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: taskStatusColor }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-medium text-foreground truncate">{task.title}</p>
+                          <div className="flex items-center gap-2 mt-0.5 min-w-0">
+                            <p className="text-[10px] text-muted-foreground truncate">{taskProjectName}</p>
+                            <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground whitespace-nowrap">
+                              {taskStatusLabel}
+                            </span>
+                          </div>
+                        </div>
                         {task.due_date && (
                           <span className={`text-[10px] whitespace-nowrap ${isOverdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
                             {formatProjectDate(task.due_date)}
                           </span>
                         )}
-                      </div>
+                      </button>
                     );
                   })}
                 </div>

@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Calendar, Users, Clock, CheckCircle2,
@@ -29,6 +29,7 @@ import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const projectId = Number(id) || 0;
   const canCreateTaskArtifacts = user?.role !== 'stakeholder';
@@ -185,7 +186,25 @@ export default function ProjectDetail() {
   };
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'resumen' | 'tareas' | 'code-review' | 'repositorios' | 'equipo' | 'configuracion'>('resumen');
+  const initialQueryTab = searchParams.get('tab');
+  const initialQueryTaskId = Number(searchParams.get('task'));
+  const normalizedInitialTaskId = Number.isNaN(initialQueryTaskId) || initialQueryTaskId <= 0 ? null : initialQueryTaskId;
+
+  const [activeTab, setActiveTab] = useState<'resumen' | 'tareas' | 'code-review' | 'repositorios' | 'equipo' | 'configuracion'>(
+    initialQueryTab === 'tareas' ? 'tareas' : 'resumen',
+  );
+  const [initialTaskId, setInitialTaskId] = useState<number | null>(initialQueryTab === 'tareas' ? normalizedInitialTaskId : null);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const taskId = Number(searchParams.get('task'));
+    const normalizedTaskId = Number.isNaN(taskId) || taskId <= 0 ? null : taskId;
+
+    if (tab === 'tareas') {
+      setActiveTab('tareas');
+      setInitialTaskId(normalizedTaskId);
+    }
+  }, [searchParams]);
 
   const loading = loadingProject || loadingBoards;
 
@@ -371,6 +390,13 @@ export default function ProjectDetail() {
               }))}
               canCreateTasks={canCreateTaskArtifacts}
               canCreateBoards={canCreateTaskArtifacts}
+              initialTaskId={initialTaskId}
+              onInitialTaskHandled={(taskId) => {
+                setInitialTaskId((current) => (current === taskId ? null : current));
+                const nextParams = new URLSearchParams(searchParams);
+                nextParams.delete('task');
+                setSearchParams(nextParams, { replace: true });
+              }}
             />
           </div>
         )}
