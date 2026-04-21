@@ -163,14 +163,6 @@ export default function Login() {
             </LoadingButton>
 
           </form>
-
-          <p className="text-center text-[12px] text-muted-foreground mt-6">
-            ¿No tienes cuenta?{' '}
-            <Link to="/register" className="text-primary hover:underline font-medium">
-              Regístrate
-            </Link>
-          </p>
-
           <div className="text-center mt-4">
             <Link to="/" className="text-[11px] text-muted-foreground hover:text-foreground transition-colors">
               ← Volver al inicio

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { tokenStore, api, ApiRequestError } from '../../services/api';
+import { tokenStore, api, ApiRequestError, AUTH_SESSION_EXPIRED_EVENT } from '../../services/api';
 
 // Mock localStorage
 const storage = new Map<string, string>();
@@ -145,6 +145,9 @@ describe('401 retry with token refresh', () => {
   });
 
   it('clears tokens when refresh fails', async () => {
+    const sessionExpiredListener = vi.fn();
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, sessionExpiredListener);
+
     tokenStore.set('expired_token', 'invalid_refresh');
 
     // First call returns 401
@@ -164,5 +167,8 @@ describe('401 retry with token refresh', () => {
     await expect(api.get('/tasks/')).rejects.toThrow(ApiRequestError);
     expect(tokenStore.getAccess()).toBeNull();
     expect(tokenStore.getRefresh()).toBeNull();
+    expect(sessionExpiredListener).toHaveBeenCalledTimes(1);
+
+    window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, sessionExpiredListener);
   });
 });

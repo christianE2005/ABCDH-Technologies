@@ -1,5 +1,5 @@
-﻿import { useMemo } from 'react';
-import { Link } from 'react-router';
+﻿import { useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -12,13 +12,21 @@ import {
 import { KPICard } from '../components/KPICard';
 import { StatusBadge } from '../components/StatusBadge';
 import { CommandBar } from '../components/CommandBar';
-import { useApiProjects, useApiTasks, useApiTaskWarnings, useApiGithubPushes } from '../hooks/useProjectData';
+import { useApiProjects, useApiTasks, useApiTaskAssignments, useApiTaskWarnings, useApiGithubPushes } from '../hooks/useProjectData';
 import { useAuth } from '../context/AuthContext';
+import { compareProjectsForGenericPriority, getProjectStatusBadge, getProjectStatusChartColor, getProjectStatusLabel, normalizeProjectStatus, shouldShowInGenericProjectDisplays } from '../utils/projectStatus';
+import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
+
+const DASHBOARD_PANEL_BATCH_SIZE = 10;
+const DASHBOARD_PROJECT_SLOTS = 8;
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { data: projects, loading: loadingProjects, error: errorProjects, refetch: refetchProjects } = useApiProjects();
   const { data: tasks, loading: loadingTasks, statuses, refetch: refetchTasks } = useApiTasks();
+  const taskIds = useMemo(() => (tasks ?? []).map((task) => task.id_task), [tasks]);
+  const { data: taskAssignments } = useApiTaskAssignments(taskIds);
   const { data: warnings } = useApiTaskWarnings({ status: 'active' });
   const { data: pushes } = useApiGithubPushes();
 
@@ -28,7 +36,7 @@ export default function Dashboard() {
 
   // ── Derived KPIs ──
   const kpis = useMemo(() => {
-    const pList = projects ?? [];
+    const pList = (projects ?? []).filter((project) => shouldShowInGenericProjectDisplays(project.status));
     const tList = tasks ?? [];
     const now = new Date();
 
@@ -48,8 +56,39 @@ export default function Dashboard() {
   const activeWarningsCount = (warnings ?? []).length;
   const myTasks = useMemo(() => {
     if (!tasks || !user) return [];
-    return tasks.filter((t) => t.assigned_to === Number(user.id) && !t.completed_at);
-  }, [tasks, user]);
+    const currentUserId = Number(user.id);
+    const assignmentMap = new Map<number, Set<number>>();
+
+    (taskAssignments ?? []).forEach((assignment) => {
+      const existing = assignmentMap.get(assignment.task) ?? new Set<number>();
+      existing.add(assignment.assigned_to);
+      assignmentMap.set(assignment.task, existing);
+    });
+
+    return tasks.filter((task) => {
+      if (task.completed_at) return false;
+      const assignedUsers = assignmentMap.get(task.id_task);
+      if (assignedUsers && assignedUsers.size > 0) {
+        return assignedUsers.has(currentUserId);
+      }
+      return task.assigned_to === currentUserId;
+    });
+  }, [tasks, taskAssignments, user]);
+  const [myTasksPage, setMyTasksPage] = useState(0);
+  const [pushesPage, setPushesPage] = useState(0);
+
+  const paginatedMyTasks = useMemo(() => {
+    const start = myTasksPage * DASHBOARD_PANEL_BATCH_SIZE;
+    return myTasks.slice(start, start + DASHBOARD_PANEL_BATCH_SIZE);
+  }, [myTasks, myTasksPage]);
+
+  const paginatedPushes = useMemo(() => {
+    const start = pushesPage * DASHBOARD_PANEL_BATCH_SIZE;
+    return (pushes ?? []).slice(start, start + DASHBOARD_PANEL_BATCH_SIZE);
+  }, [pushes, pushesPage]);
+
+  const myTasksTotalPages = Math.max(1, Math.ceil(myTasks.length / DASHBOARD_PANEL_BATCH_SIZE));
+  const pushesTotalPages = Math.max(1, Math.ceil((pushes ?? []).length / DASHBOARD_PANEL_BATCH_SIZE));
 
   // ── Task distribution by status for chart ──
   const statusChartData = useMemo(() => {
@@ -65,31 +104,36 @@ export default function Dashboard() {
     }));
   }, [tasks, statuses]);
 
-  const PIE_COLORS = ['var(--color-chart-1)', 'var(--color-chart-2)', 'var(--color-chart-3)', 'var(--color-chart-4)', 'var(--color-chart-5)'];
+  const upcomingProjects = useMemo(() => {
+    if (!projects) return [];
+
+    return [...projects]
+      .filter((project) => shouldShowInGenericProjectDisplays(project.status))
+      .sort(compareProjectsForGenericPriority);
+  }, [projects]);
 
   // ── Pie data: project status distribution ──
   const projectStatusData = useMemo(() => {
     if (!projects) return [];
+    const trackedStatuses = ['planning', 'in_progress', 'review', 'completed'] as const;
+    const isTrackedStatus = (status: string): status is (typeof trackedStatuses)[number] => trackedStatuses.includes(status as (typeof trackedStatuses)[number]);
     const counts = new Map<string, number>();
-    for (const p of projects) {
-      const s = p.status ?? 'sin estado';
-      counts.set(s, (counts.get(s) ?? 0) + 1);
-    }
-    return Array.from(counts.entries()).map(([name, value]) => ({ name, value }));
-  }, [projects]);
 
-  // ── Days remaining helper ──
-  const getDaysRemaining = (endDate: string | null) => {
-    if (!endDate) return null;
-    return Math.ceil((new Date(endDate).getTime() - Date.now()) / 86_400_000);
-  };
-  const getDaysLabel = (days: number | null) => {
-    if (days === null) return { label: '—', cls: 'text-muted-foreground' };
-    if (days < 0) return { label: 'Vencido', cls: 'text-destructive font-semibold' };
-    if (days === 0) return { label: 'Hoy', cls: 'text-destructive font-semibold' };
-    if (days <= 7) return { label: `${days}d`, cls: 'text-warning font-semibold' };
-    return { label: `${days}d`, cls: 'text-muted-foreground' };
-  };
+    for (const project of projects) {
+      const normalized = normalizeProjectStatus(project.status);
+      if (!normalized || !isTrackedStatus(normalized)) continue;
+      counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
+    }
+
+    return trackedStatuses
+      .filter((status) => (counts.get(status) ?? 0) > 0)
+      .map((status) => ({
+        key: status,
+        name: getProjectStatusLabel(status),
+        value: counts.get(status) ?? 0,
+        color: getProjectStatusChartColor(status),
+      }));
+  }, [projects]);
 
   if (errorProjects) {
     return (
@@ -102,7 +146,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="px-4 pb-6 pt-3 space-y-3 max-w-[1600px]">
+    <div className="px-4 pb-6 pt-3 max-w-[1600px] min-h-full flex flex-col gap-3">
       <CommandBar
         actions={[
           { label: 'Actualizar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: refetchAll },
@@ -148,14 +192,14 @@ export default function Dashboard() {
       </div>
 
       {/* Main grid: projects table (left) + charts (right) */}
-      <div className="grid xl:grid-cols-[1fr_300px] gap-3 items-start">
+      <div className="grid xl:grid-cols-[minmax(0,1fr)_320px] gap-3 items-stretch min-h-[430px]">
 
         {/* Projects table */}
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.3, ease: 'easeOut' }}
-          className="bg-card border border-border rounded-[4px]"
+          className="bg-card border border-border rounded-[4px] h-full min-h-0 flex flex-col"
         >
           <div className="flex items-center justify-between px-4 py-2 border-b border-border">
             <h2 className="text-[13px] font-semibold text-foreground">Proyectos</h2>
@@ -174,104 +218,109 @@ export default function Dashboard() {
           ) : !projects || projects.length === 0 ? (
             <div className="py-12 text-center text-[12px] text-muted-foreground">No hay proyectos registrados.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[600px]">
-                <thead>
-                  <tr className="border-b border-border bg-surface-secondary/50">
-                    <th className="text-left py-1.5 px-4 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Proyecto</th>
-                    <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</th>
-                    <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Fecha Fin</th>
-                    <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Días rest.</th>
-                    <th className="py-1.5 px-3 w-[60px]" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {projects.slice(0, 8).map((project) => {
-                    const days = getDaysRemaining(project.end_date);
-                    const dl = getDaysLabel(days);
-                    return (
-                      <tr key={project.id_project} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors group">
-                        <td className="py-1.5 px-4">
-                          <p className="text-[13px] font-medium text-foreground truncate max-w-[220px]">{project.name}</p>
-                          {project.description && (
-                            <p className="text-[10px] text-muted-foreground truncate max-w-[220px] mt-0.5">{project.description}</p>
-                          )}
-                        </td>
-                        <td className="py-1.5 px-3">
-                          <StatusBadge status={(project.status ?? 'neutral') as 'success'|'warning'|'danger'|'info'|'neutral'|'on_track'|'at_risk'|'delayed'} size="sm" />
-                        </td>
-                        <td className="py-1.5 px-3 text-[11px] text-muted-foreground whitespace-nowrap">
-                          {project.end_date ?? '—'}
-                        </td>
-                        <td className="py-1.5 px-3">
-                          <span className={`text-[11px] ${dl.cls}`}>{dl.label}</span>
-                        </td>
-                        <td className="py-1.5 px-3 text-right">
-                          <Link to={`/projects/${project.id_project}`} className="text-[11px] text-primary opacity-0 group-hover:opacity-100 transition-opacity font-medium hover:underline">
-                            Detalle →
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="flex-1 min-h-0 flex flex-col">
+              <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(112px,0.95fr)_minmax(120px,0.9fr)_minmax(84px,0.65fr)] gap-3 border-b border-border bg-surface-secondary/50 px-4 py-1.5">
+                <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Proyecto</span>
+                <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</span>
+                <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Fecha Fin</span>
+                <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Días rest.</span>
+              </div>
+
+              <div className="grid grid-rows-8 flex-1 min-h-0">
+                {upcomingProjects.slice(0, DASHBOARD_PROJECT_SLOTS).map((project) => {
+                  const dl = getProjectDaysLabel(project.end_date, project.status);
+                  return (
+                    <button
+                      key={project.id_project}
+                      type="button"
+                      className="grid grid-cols-[minmax(0,2.1fr)_minmax(112px,0.95fr)_minmax(120px,0.9fr)_minmax(84px,0.65fr)] items-center gap-3 px-4 py-1.5 border-b border-border last:border-b-0 hover:bg-accent/30 transition-colors text-left min-h-0"
+                      onClick={() => navigate(`/projects/${project.id_project}`)}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-medium text-foreground truncate">{project.name}</p>
+                      </div>
+                      <div className="min-w-0">
+                        <StatusBadge status={getProjectStatusBadge(project.status)} text={getProjectStatusLabel(project.status)} size="sm" />
+                      </div>
+                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">{formatProjectDate(project.end_date)}</span>
+                      <span className={`text-[11px] ${dl.cls}`}>{dl.label}</span>
+                    </button>
+                  );
+                })}
+
+                {Array.from({ length: Math.max(0, DASHBOARD_PROJECT_SLOTS - upcomingProjects.slice(0, DASHBOARD_PROJECT_SLOTS).length) }).map((_, index) => (
+                  <div
+                    key={`dashboard-project-slot-${index}`}
+                    className="border-b border-border last:border-b-0 bg-background/20"
+                  />
+                ))}
+              </div>
             </div>
           )}
         </motion.div>
 
         {/* Right column: charts */}
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-rows-2 gap-3 h-full min-h-0">
 
           {/* Task distribution by status */}
-          {user?.role !== 'admin' && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25, delay: 0.32, ease: 'easeOut' }}
-              className="bg-card border border-border rounded-[4px] p-4"
-            >
-              <h2 className="text-[13px] font-semibold text-foreground mb-2">Tareas por Estado</h2>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: 0.32, ease: 'easeOut' }}
+            className="bg-card border border-border rounded-[4px] p-4 h-full min-h-0 flex flex-col"
+          >
+            <h2 className="text-[13px] font-semibold text-foreground mb-2">Tareas por Estado</h2>
+            <div className="flex-1 min-h-0">
               {statusChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={160}>
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={statusChartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                     <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
                     <YAxis stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
-                    <Tooltip contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '11px' }} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '11px' }}
+                      labelStyle={{ color: 'var(--foreground)' }}
+                      itemStyle={{ color: 'var(--foreground)' }}
+                    />
                     <Bar dataKey="count" fill="var(--color-chart-1)" name="Tareas" radius={[2, 2, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
                 <p className="text-[11px] text-muted-foreground py-8 text-center">Sin datos de tareas.</p>
               )}
-            </motion.div>
-          )}
+            </div>
+          </motion.div>
 
           {/* Project status pie */}
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.35, ease: 'easeOut' }}
-            className="bg-card border border-border rounded-[4px] p-4"
+            className="bg-card border border-border rounded-[4px] p-4 h-full min-h-0 flex flex-col"
           >
             <h2 className="text-[13px] font-semibold text-foreground mb-2">Estado de Proyectos</h2>
             {projectStatusData.length > 0 ? (
               <>
-                <ResponsiveContainer width="100%" height={140}>
-                  <PieChart>
-                    <Pie data={projectStatusData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} dataKey="value" paddingAngle={2}>
-                      {projectStatusData.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '11px' }} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div className="flex-1 min-h-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={projectStatusData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} dataKey="value" paddingAngle={2}>
+                        {projectStatusData.map((item) => (
+                          <Cell key={item.key} fill={item.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '11px' }}
+                        labelStyle={{ color: 'var(--foreground)' }}
+                        itemStyle={{ color: 'var(--foreground)' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
                 <div className="flex flex-wrap justify-center gap-3 mt-1">
-                  {projectStatusData.map((d, i) => (
+                  {projectStatusData.map((d) => (
                     <span key={d.name} className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
                       {d.name} ({d.value})
                     </span>
                   ))}
@@ -285,14 +334,13 @@ export default function Dashboard() {
       </div>
 
       {/* Bottom row: My Tasks + Recent Activity */}
-      {user?.role !== 'admin' && (
-        <div className="grid xl:grid-cols-2 gap-3">
+      <div className="grid xl:grid-cols-2 gap-3 flex-1 min-h-0">
           {/* My Tasks */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.4, ease: 'easeOut' }}
-            className="bg-card border border-border rounded-[4px]"
+            className="bg-card border border-border rounded-[4px] h-full min-h-0 flex flex-col"
           >
             <div className="flex items-center justify-between px-4 py-2 border-b border-border">
               <h2 className="text-[13px] font-semibold text-foreground">Mis Tareas Pendientes</h2>
@@ -307,22 +355,48 @@ export default function Dashboard() {
             ) : myTasks.length === 0 ? (
               <div className="py-8 text-center text-[12px] text-muted-foreground">Sin tareas pendientes.</div>
             ) : (
-              <div className="divide-y divide-border">
-                {myTasks.map((task) => {
-                  const isOverdue = task.due_date && new Date(task.due_date) < new Date();
-                  return (
-                    <div key={task.id_task} className="px-4 py-2 hover:bg-accent/30 transition-colors flex items-center gap-3">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                      <p className="text-[12px] font-medium text-foreground truncate flex-1">{task.title}</p>
-                      {task.due_date && (
-                        <span className={`text-[10px] whitespace-nowrap ${isOverdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
-                          {task.due_date}
-                        </span>
-                      )}
+              <>
+                <div className="flex-1 min-h-0 overflow-auto divide-y divide-border">
+                  {paginatedMyTasks.map((task) => {
+                    const isOverdue = task.due_date && new Date(task.due_date) < new Date();
+                    return (
+                      <div key={task.id_task} className="px-4 py-2 hover:bg-accent/30 transition-colors flex items-center gap-3 min-h-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                        <p className="text-[12px] font-medium text-foreground truncate flex-1">{task.title}</p>
+                        {task.due_date && (
+                          <span className={`text-[10px] whitespace-nowrap ${isOverdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                            {formatProjectDate(task.due_date)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {myTasksTotalPages > 1 && (
+                  <div className="flex items-center justify-between px-4 py-2 border-t border-border">
+                    <span className="text-[10px] text-muted-foreground">Página {myTasksPage + 1} de {myTasksTotalPages}</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setMyTasksPage((page) => Math.max(0, page - 1))}
+                        disabled={myTasksPage === 0}
+                        className="h-6 px-2 border border-border rounded-[3px] text-[10px] font-medium text-foreground hover:bg-surface-secondary transition-colors disabled:opacity-50"
+                      >
+                        Anterior
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMyTasksPage((page) => Math.min(myTasksTotalPages - 1, page + 1))}
+                        disabled={myTasksPage >= myTasksTotalPages - 1}
+                        className="h-6 px-2 border border-border rounded-[3px] text-[10px] font-medium text-foreground hover:bg-surface-secondary transition-colors disabled:opacity-50"
+                      >
+                        Siguiente
+                      </button>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                )}
+              </>
             )}
           </motion.div>
 
@@ -331,7 +405,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.45, ease: 'easeOut' }}
-          className="bg-card border border-border rounded-[4px]"
+          className="bg-card border border-border rounded-[4px] h-full min-h-0 flex flex-col"
         >
           <div className="flex items-center justify-between px-4 py-2 border-b border-border">
             <h2 className="text-[13px] font-semibold text-foreground">Actividad Reciente (Git)</h2>
@@ -339,28 +413,53 @@ export default function Dashboard() {
           {!pushes || pushes.length === 0 ? (
             <div className="py-8 text-center text-[12px] text-muted-foreground">Sin push events recientes.</div>
           ) : (
-            <div className="divide-y divide-border">
-              {pushes.slice(0, 5).map((push) => {
-                const commitCount = Array.isArray(push.commits) ? push.commits.length : 0;
-                return (
-                  <div key={push.id_push} className="px-4 py-2 hover:bg-accent/30 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-medium text-foreground">{push.pusher ?? 'unknown'}</span>
-                      <span className="text-[10px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded-[2px]">
-                        {push.ref?.replace('refs/heads/', '') ?? 'main'}
-                      </span>
+            <>
+              <div className="flex-1 min-h-0 overflow-auto divide-y divide-border">
+                {paginatedPushes.map((push) => {
+                  const commitCount = Array.isArray(push.commits) ? push.commits.length : 0;
+                  return (
+                    <div key={push.id_push} className="px-4 py-2 hover:bg-accent/30 transition-colors min-h-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-medium text-foreground">{push.pusher ?? 'unknown'}</span>
+                        <span className="text-[10px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded-[2px]">
+                          {push.ref?.replace('refs/heads/', '') ?? 'main'}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {commitCount} commit{commitCount !== 1 ? 's' : ''} · {new Date(push.received_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </p>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {commitCount} commit{commitCount !== 1 ? 's' : ''} · {new Date(push.received_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </p>
+                  );
+                })}
+              </div>
+
+              {pushesTotalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-2 border-t border-border">
+                  <span className="text-[10px] text-muted-foreground">Página {pushesPage + 1} de {pushesTotalPages}</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPushesPage((page) => Math.max(0, page - 1))}
+                      disabled={pushesPage === 0}
+                      className="h-6 px-2 border border-border rounded-[3px] text-[10px] font-medium text-foreground hover:bg-surface-secondary transition-colors disabled:opacity-50"
+                    >
+                      Anterior
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPushesPage((page) => Math.min(pushesTotalPages - 1, page + 1))}
+                      disabled={pushesPage >= pushesTotalPages - 1}
+                      className="h-6 px-2 border border-border rounded-[3px] text-[10px] font-medium text-foreground hover:bg-surface-secondary transition-colors disabled:opacity-50"
+                    >
+                      Siguiente
+                    </button>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              )}
+            </>
           )}
         </motion.div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

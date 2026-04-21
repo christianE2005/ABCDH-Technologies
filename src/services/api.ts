@@ -6,6 +6,12 @@ const BASE_URL = import.meta.env.VITE_API_TARGET || 'https://abcdhtechnologiesba
 // ─── Token storage keys ──────────────────────────────────────────────────────
 const STORAGE_ACCESS = 'pip_access_token';
 const STORAGE_REFRESH = 'pip_refresh_token';
+export const AUTH_SESSION_EXPIRED_EVENT = 'pip:auth-session-expired';
+
+function emitSessionExpired() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(AUTH_SESSION_EXPIRED_EVENT));
+}
 
 export const tokenStore = {
   getAccess: () => localStorage.getItem(STORAGE_ACCESS),
@@ -64,6 +70,7 @@ async function request<T>(
     }
     // Refresh failed — clear tokens and bubble up
     tokenStore.clear();
+    emitSessionExpired();
   }
 
   return handleResponse<T>(res);

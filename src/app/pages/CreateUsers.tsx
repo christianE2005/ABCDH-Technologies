@@ -5,6 +5,11 @@ import { usersService } from '../../services';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import type { ApiUserAccount } from '../../services';
+import {
+  SYSTEM_ROLE_OPTIONS,
+  USER_ROLE_TO_SYSTEM_ROLE,
+  getSystemRoleLabel,
+} from '../utils/roles';
 
 interface NewUser {
   username: string;
@@ -30,7 +35,7 @@ export default function CreateUsers() {
     username: '',
     email: '',
     password: '',
-    role: 'project_manager',
+    role: 'user',
   });
   const [loading, setLoading] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -76,7 +81,7 @@ export default function CreateUsers() {
 
     // Sort users
     if (sortBy === 'role') {
-      const roleOrder: Record<number, number> = { 2: 0, 5: 1, 4: 2, 3: 3 };
+      const roleOrder: Record<number, number> = { 1: 0, 4: 1, 2: 2, 3: 3 };
       users.sort((a, b) => {
         const orderA = roleOrder[a.system_role] ?? 99;
         const orderB = roleOrder[b.system_role] ?? 99;
@@ -138,7 +143,7 @@ export default function CreateUsers() {
       });
 
       toast.success(`Usuario ${formData.username} creado exitosamente`);
-      setFormData({ username: '', email: '', password: '', role: 'project_manager' });
+      setFormData({ username: '', email: '', password: '', role: 'user' });
       setShowCreateModal(false);
       await loadAllUsers();
     } catch (err) {
@@ -211,25 +216,18 @@ export default function CreateUsers() {
   };
 
   const getRoleSystemValue = (role: UserRole): number => {
-    const mapping: Record<UserRole, number> = {
-      admin: 2,
-      project_manager: 5,
-      operative: 4,
-      executive: 3,
-      user: 3,
-    };
-    return mapping[role] || 3;
+    return USER_ROLE_TO_SYSTEM_ROLE[role] ?? USER_ROLE_TO_SYSTEM_ROLE.user;
   };
 
   const getRoleColor = (roleId: number): string => {
     switch (roleId) {
-      case 2:
+      case 1:
         return 'bg-destructive/10 text-destructive';
-      case 3:
+      case 2:
         return 'bg-info/15 text-info';
-      case 4:
+      case 3:
         return 'bg-warning/15 text-warning';
-      case 5:
+      case 4:
         return 'bg-primary/15 text-primary';
       default:
         return 'bg-secondary';
@@ -328,12 +326,7 @@ export default function CreateUsers() {
                         />
                         <span className="text-[12px] text-foreground">Todos los roles</span>
                       </label>
-                      {[
-                        { id: 2, label: 'Administrador' },
-                        { id: 5, label: 'Project Manager' },
-                        { id: 4, label: 'Stakeholder' },
-                        { id: 3, label: 'Usuario' },
-                      ].map((role) => (
+                      {SYSTEM_ROLE_OPTIONS.map((role) => (
                         <label key={role.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-[2px] hover:bg-secondary/50 transition-colors cursor-pointer">
                           <input
                             type="checkbox"
@@ -479,10 +472,9 @@ export default function CreateUsers() {
                           onChange={(e) => setEditingUser({ ...editingUser, role: Number(e.target.value) })}
                           className="flex-1 bg-input-background border border-input rounded-[3px] px-2.5 py-1.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
                         >
-                          <option value={2}>Administrador</option>
-                          <option value={3}>Usuario</option>
-                          <option value={4}>Stakeholder</option>
-                          <option value={5}>Project Manager</option>
+                          {SYSTEM_ROLE_OPTIONS.map((role) => (
+                            <option key={role.id} value={role.id}>{role.label}</option>
+                          ))}
                         </select>
                       </div>
                       <div className="flex items-center gap-2">
@@ -530,7 +522,7 @@ export default function CreateUsers() {
                         </p>
                         <div className="flex items-center gap-2">
                           <span className={`inline-block px-2 py-0.5 rounded-[2px] text-[11px] font-medium ${getRoleColor(user.system_role)}`}>
-                            {user.system_role_name}
+                            {getSystemRoleLabel(user.system_role, user.system_role_name)}
                           </span>
                         </div>
                       </div>
@@ -690,9 +682,9 @@ export default function CreateUsers() {
                     onChange={handleRoleChange}
                     className="w-full bg-input-background border border-input rounded-[3px] pl-8 pr-3 py-2 text-[13px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors appearance-none"
                   >
-                    <option value="project_manager">Project Manager</option>
-                    <option value="user">Usuario</option>
-                    <option value="operative">Stakeholder</option>
+                    {SYSTEM_ROLE_OPTIONS.map((role) => (
+                      <option key={role.id} value={role.role}>{role.label}</option>
+                    ))}
                   </select>
                 </div>
               </div>

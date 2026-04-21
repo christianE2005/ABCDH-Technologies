@@ -83,12 +83,6 @@ export default function Landing() {
             >
               Iniciar sesión
             </Link>
-            <Link 
-              to="/register" 
-              className="px-4 py-1.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[12px] font-medium transition-colors"
-            >
-              Regístrate
-            </Link>
           </div>
         </div>
       </header>
@@ -116,14 +110,8 @@ export default function Landing() {
               to="/login"
               className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[13px] font-medium transition-colors inline-flex items-center gap-2"
             >
-              Regístrate gratis
+              Acceder a la plataforma
               <ArrowRight className="w-4 h-4" />
-            </Link>
-            <Link 
-              to="/login"
-              className="px-6 py-2.5 bg-card border border-border text-foreground hover:bg-accent rounded-[3px] text-[13px] font-medium transition-colors"
-            >
-              Iniciar sesión
             </Link>
           </div>
 
@@ -289,7 +277,7 @@ export default function Landing() {
                 to="/login"
                 className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[13px] font-medium transition-colors"
               >
-                Regístrate gratis
+                Acceder a la plataforma
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link 

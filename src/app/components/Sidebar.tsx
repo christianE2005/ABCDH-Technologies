@@ -15,25 +15,26 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
+import type { UserRole } from '../context/AuthContext';
 
 interface NavItem {
   name: string;
   path: string;
   icon: React.ComponentType<{ className?: string }>;
-  roles?: string[];
+  roles?: UserRole[];
   group?: string;
 }
 
 const navItems: NavItem[] = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutGrid, group: 'main' },
-  { name: 'Backlog', path: '/backlog', icon: ListChecks, group: 'main', roles: ['project_manager'] },
+  { name: 'Backlog', path: '/backlog', icon: ListChecks, group: 'main', roles: ['admin', 'user', 'project_manager'] },
   { name: 'Proyectos', path: '/projects', icon: Briefcase, group: 'main' },
   { name: 'Reportes', path: '/reports', icon: BarChart3, group: 'analytics', roles: ['admin', 'project_manager'] },
   { name: 'Alertas', path: '/alerts', icon: Bell, group: 'analytics', roles: ['admin', 'project_manager'] },
 
   { name: 'Crear Usuarios', path: '/users', icon: Users, group: 'admin', roles: ['admin'] },
   { name: 'Perfil', path: '/profile', icon: CircleUser, group: 'user' },
-  { name: 'Configuración', path: '/settings', icon: SlidersHorizontal, group: 'user', roles: ['project_manager', 'operative', 'executive'] },
+  { name: 'Configuración', path: '/settings', icon: SlidersHorizontal, group: 'user', roles: ['admin', 'project_manager', 'user', 'stakeholder'] },
 ];
 
 export function Sidebar() {
