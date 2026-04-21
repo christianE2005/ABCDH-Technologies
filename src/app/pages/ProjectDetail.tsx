@@ -14,15 +14,16 @@ import { ADOTabs } from '../components/ADOTabs';
 import { AvatarGroup } from '../components/AvatarGroup';
 import { ProgressBar } from '../components/ProgressBar';
 import { AssignResponsibleModal, type AssignCandidate } from '../components/AssignResponsibleModal';
+import { AddMemberModal } from '../components/AddMemberModal';
 import {
   useApiBoards, useApiProjectMembers, useApiUsers, useApiTasks, useApiRoles,
 } from '../hooks/useProjectData';
-import { projectsService } from '../../services';
+import { projectsService, usersService } from '../../services';
 import type { ApiProject } from '../../services';
+import { useAuth } from '../context/AuthContext';
 import { GitHubReposView } from '../components/GitHubReposView';
 import { CodeReviewPanel } from '../components/CodeReviewPanel';
 import { ProjectTasksWorkspace } from '../components/ProjectTasksWorkspace';
-import { useAuth } from '../context/AuthContext';
 import { getProjectStatusApiValue, getProjectStatusBadge, getProjectStatusLabel, normalizeProjectStatus, PROJECT_STATUS_OPTIONS } from '../utils/projectStatus';
 import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
 
@@ -70,12 +71,33 @@ export default function ProjectDetail() {
   }, [boards, selectedBoardId]);
 
   // ── Tasks ─────────────────────────────────────────────────────────────────
-  const { data: tasks, loading: loadingTasks, statuses, refetch: refetchTasks } = useApiTasks(selectedBoardId);
+  const { data: tasks, loading: loadingTasks, statuses, refetch: refetchTasks } = useApiTasks(selectedBoardId, projectId);
 
   // ── Members + Users ───────────────────────────────────────────────────────
-  const { data: members, loading: loadingMembers } = useApiProjectMembers(projectId);
+  const { data: members, loading: loadingMembers, refetch: refetchMembers } = useApiProjectMembers(projectId);
   const { data: users, loading: loadingUsers } = useApiUsers();
   const { data: roles } = useApiRoles();
+
+  const isCreator = !!project && !!user && project.created_by === Number(user.id);
+
+  const candidatesToAdd = useMemo(() => {
+    if (!users) return [];
+    const memberIds = new Set((members ?? []).map((m) => m.user));
+    return users.filter((u) => !memberIds.has(u.id_user));
+  }, [users, members]);
+
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const handleAddMember = async (userId: number, roleId: number | null) => {
+    try {
+      await usersService.addMember(projectId, userId, roleId ?? undefined);
+      toast.success('Miembro agregado');
+      refetchMembers();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'No se pudo agregar el miembro';
+      toast.error(msg);
+      throw err;
+    }
+  };
 
   const userMap = useMemo(() => {
     const m = new Map<number, string>();
@@ -432,13 +454,15 @@ export default function ProjectDetail() {
                   />
                 )}
               </div>
-              <button
-                onClick={() => setShowAssignModal(true)}
-                className="flex items-center gap-1.5 text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-[3px] transition-colors"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                Asignar Responsable
-              </button>
+              {isCreator && (
+                <button
+                  onClick={() => setShowAddMemberModal(true)}
+                  className="flex items-center gap-1.5 text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-[3px] transition-colors"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  Agregar Miembro
+                </button>
+              )}
             </div>
 
             {(loadingMembers || loadingUsers) ? (
@@ -544,6 +568,14 @@ export default function ProjectDetail() {
           </div>
         )}
       </motion.div>
+
+      <AddMemberModal
+        open={showAddMemberModal}
+        onOpenChange={setShowAddMemberModal}
+        candidates={candidatesToAdd}
+        roles={roles ?? []}
+        onSubmit={handleAddMember}
+      />
 
       <AssignResponsibleModal
         open={showAssignModal}

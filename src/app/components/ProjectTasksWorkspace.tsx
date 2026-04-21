@@ -170,9 +170,10 @@ export function ProjectTasksWorkspace({
   const { data: boards, loading: loadingBoards, refetch: refetchBoards } = useApiBoards(projectId);
   const [selectedBoardId, setSelectedBoardId] = useState<number | undefined>(undefined);
 
-  const { data: tasks, loading: loadingTasks, statuses, priorities, refetch: refetchTasks } = useApiTasks(selectedBoardId);
+  const { data: tasks, loading: loadingTasks, statuses, priorities, refetch: refetchTasks } = useApiTasks(selectedBoardId, projectId);
   const taskIds = useMemo(() => (tasks ?? []).map((task) => task.id_task), [tasks]);
   const { data: taskAssignments, refetch: refetchTaskAssignments } = useApiTaskAssignments(taskIds);
+
 
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [activeDragId, setActiveDragId] = useState<number | null>(null);
