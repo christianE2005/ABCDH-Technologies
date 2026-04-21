@@ -29,6 +29,7 @@ import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
 
 export default function ProjectDetail() {
   const PROJECT_MANAGER_ROLE_ID = 1;
+  const PRODUCT_OWNER_ROLE_ID = 2;
   const DEVELOPER_ROLE_ID = 4;
 
   const { id } = useParams();
@@ -36,7 +37,6 @@ export default function ProjectDetail() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const projectId = Number(id) || 0;
-  const canCreateTaskArtifacts = user?.role !== 'stakeholder';
 
   // ── Project ──────────────────────────────────────────────────────────────
   const [project, setProject] = useState<ApiProject | null>(null);
@@ -88,6 +88,8 @@ export default function ProjectDetail() {
   const canAccessProject = Boolean(currentUserMember);
   const isProjectManager = currentUserMember?.role === PROJECT_MANAGER_ROLE_ID;
   const canManageProject = isProjectManager;
+  const canCreateTaskArtifacts = currentUserMember?.role === PROJECT_MANAGER_ROLE_ID || currentUserMember?.role === PRODUCT_OWNER_ROLE_ID;
+  const canDeleteTasks = canCreateTaskArtifacts;
 
   const candidatesToAdd = useMemo(() => {
     if (!users) return [];
@@ -525,6 +527,8 @@ export default function ProjectDetail() {
               }))}
               canCreateTasks={canCreateTaskArtifacts}
               canCreateBoards={canCreateTaskArtifacts}
+              canEditTasks={canCreateTaskArtifacts}
+              canDeleteTasks={canDeleteTasks}
               initialTaskId={initialTaskId}
               onInitialTaskHandled={(taskId) => {
                 setInitialTaskId((current) => (current === taskId ? null : current));

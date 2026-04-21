@@ -22,7 +22,7 @@ export default function Projects() {
   const membershipUserId = Number(user?.id ?? -1);
   const canCreateProjects = user?.role === 'admin' || user?.role === 'user' || user?.role === 'project_manager';
   const { data: projects, loading, refetch } = useApiProjects();
-  const { data: memberRows, loading: loadingMemberRows } = useApiProjectMembers(undefined, membershipUserId);
+  const { data: memberRows, loading: loadingMemberRows, refetch: refetchMemberRows } = useApiProjectMembers(undefined, membershipUserId);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [searchTerm, setSearchTerm] = useState('');
@@ -123,7 +123,17 @@ export default function Projects() {
       });
       if (user?.id) {
         try {
-          await usersService.addMember(createdProject.id_project, Number(user.id), 1);
+          const creatorId = Number(user.id);
+          const projectMembers = await usersService.listMembers(createdProject.id_project);
+          const existingCreatorMember = projectMembers.find((member) => member.user === creatorId) ?? null;
+
+          if (existingCreatorMember) {
+            if (existingCreatorMember.role !== 1) {
+              await usersService.updateMember(existingCreatorMember.id, { role: 1 });
+            }
+          } else {
+            await usersService.addMember(createdProject.id_project, creatorId, 1);
+          }
         } catch {
           toast.error('Proyecto creado, pero no se pudo asignar automáticamente como Project Manager.');
         }
@@ -131,7 +141,11 @@ export default function Projects() {
       toast.success('Proyecto creado exitosamente');
       setShowCreateModal(false);
       setFormName(''); setFormDesc(''); setFormEnd('');
+      setSearchTerm('');
+      setStatusFilter('all');
+      setCurrentPage(0);
       refetch();
+      refetchMemberRows();
     } catch {
       toast.error('Error al crear el proyecto');
     } finally {
