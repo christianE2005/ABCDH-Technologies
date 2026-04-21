@@ -1,33 +1,86 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   X, Calendar, User, MessageSquare, AlertTriangle,
-  GitCommit, Send, Loader2,
+  GitCommit, Send, Loader2, Pencil, Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { tasksService } from '../../services';
 import type { ApiTask, ApiTaskStatus, ApiTaskPriority, ApiTaskComment, ApiTaskWarning } from '../../services';
 import { WarningBadge } from './WarningBadge';
+import { useAuth } from '../context/AuthContext';
+
+const DONE_STATUS_NAMES = new Set(['done', 'completada', 'completado']);
 
 interface TaskDetailPanelProps {
   task: ApiTask | null;
   statuses: ApiTaskStatus[];
   priorities: ApiTaskPriority[];
   userMap: Map<number, string>;
+  assignableUsers?: Array<{ id: number; name: string }>;
+  canEditAssignment?: boolean;
   onClose: () => void;
   onStatusChange: (task: ApiTask, newStatusId: number) => void;
+  onTaskUpdated?: (updatedTask: ApiTask) => void;
 }
 
-export function TaskDetailPanel({ task, statuses, priorities, userMap, onClose, onStatusChange }: TaskDetailPanelProps) {
+export function TaskDetailPanel({
+  task,
+  statuses,
+  priorities,
+  userMap,
+  assignableUsers = [],
+  canEditAssignment = true,
+  onClose,
+  onStatusChange,
+  onTaskUpdated,
+}: TaskDetailPanelProps) {
+  const { user } = useAuth();
+  const currentUserId = useMemo(() => {
+    const parsed = Number(user?.id ?? 0);
+    return Number.isNaN(parsed) ? null : parsed;
+  }, [user]);
+
   const [comments, setComments] = useState<ApiTaskComment[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [warnings, setWarnings] = useState<ApiTaskWarning[]>([]);
   const [loadingWarnings, setLoadingWarnings] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [sendingComment, setSendingComment] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editingCommentContent, setEditingCommentContent] = useState('');
+
+  const [isEditingTask, setIsEditingTask] = useState(false);
+  const [savingTask, setSavingTask] = useState(false);
+  const [taskForm, setTaskForm] = useState({
+    title: '',
+    description: '',
+    status: '',
+    priority: '',
+    assignedTo: '',
+    dueDate: '',
+    completed: false,
+  });
+
+  const doneStatusIds = useMemo(
+    () => new Set(statuses.filter((s) => DONE_STATUS_NAMES.has(s.name.trim().toLowerCase())).map((s) => s.id_status)),
+    [statuses],
+  );
 
   useEffect(() => {
     if (!task) return;
+
+    setIsEditingTask(false);
+    setTaskForm({
+      title: task.title,
+      description: task.description ?? '',
+      status: task.status != null ? String(task.status) : '',
+      priority: task.priority != null ? String(task.priority) : '',
+      assignedTo: task.assigned_to != null ? String(task.assigned_to) : '',
+      dueDate: task.due_date ?? '',
+      completed: Boolean(task.completed_at),
+    });
+
     setLoadingComments(true);
     setLoadingWarnings(true);
 
@@ -58,9 +111,64 @@ export function TaskDetailPanel({ task, statuses, priorities, userMap, onClose, 
     }
   };
 
+  const handleStartEditComment = (comment: ApiTaskComment) => {
+    setEditingCommentId(comment.id_comment);
+    setEditingCommentContent(comment.content);
+  };
+
+  const handleUpdateComment = async (commentId: number) => {
+    if (!editingCommentContent.trim()) return;
+    try {
+      const updated = await tasksService.updateComment(commentId, { content: editingCommentContent.trim() });
+      setComments((prev) => prev.map((c) => (c.id_comment === commentId ? updated : c)));
+      setEditingCommentId(null);
+      setEditingCommentContent('');
+      toast.success('Comentario actualizado');
+    } catch {
+      toast.error('No se pudo actualizar el comentario (revisa si el backend lo soporta).');
+    }
+  };
+
+  const handleDeleteComment = async (commentId: number) => {
+    if (!window.confirm('¿Eliminar comentario?')) return;
+    try {
+      await tasksService.deleteComment(commentId);
+      setComments((prev) => prev.filter((c) => c.id_comment !== commentId));
+      toast.success('Comentario eliminado');
+    } catch {
+      toast.error('No se pudo eliminar el comentario (revisa si el backend lo soporta).');
+    }
+  };
+
+  const handleSaveTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!task || !taskForm.title.trim()) return;
+
+    setSavingTask(true);
+    try {
+      const updated = await tasksService.update(task.id_task, {
+        title: taskForm.title.trim(),
+        description: taskForm.description.trim() || null,
+        status: taskForm.status ? Number(taskForm.status) : null,
+        priority: taskForm.priority ? Number(taskForm.priority) : null,
+        assigned_to: taskForm.assignedTo ? Number(taskForm.assignedTo) : null,
+        due_date: taskForm.dueDate || null,
+        completed_at: taskForm.completed ? (task.completed_at ?? new Date().toISOString()) : null,
+      });
+      onTaskUpdated?.(updated);
+      setIsEditingTask(false);
+      toast.success('Historia actualizada');
+    } catch {
+      toast.error('Error al actualizar la historia');
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
   const st = task ? statuses.find((s) => s.id_status === task.status) : null;
   const pr = task ? priorities.find((p) => p.id_priority === task.priority) : null;
   const assignedName = task?.assigned_to ? (userMap.get(task.assigned_to) ?? `#${task.assigned_to}`) : null;
+  const createdByName = task?.created_by ? (userMap.get(task.created_by) ?? `#${task.created_by}`) : 'Sistema';
   const isOverdue = task && !task.completed_at && task.due_date && new Date(task.due_date) < new Date();
   const activeWarnings = warnings.filter((w) => w.status === 'active');
 
@@ -104,12 +212,147 @@ export function TaskDetailPanel({ task, statuses, priorities, userMap, onClose, 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {/* Title & Description */}
-              <div>
-                <h2 className="text-[14px] font-semibold text-foreground leading-snug">{task.title}</h2>
-                {task.description && (
-                  <p className="text-[12px] text-muted-foreground mt-1.5 leading-relaxed">{task.description}</p>
-                )}
-              </div>
+              {isEditingTask ? (
+                <form onSubmit={handleSaveTask} className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-medium text-foreground mb-1">Titulo</label>
+                    <input
+                      type="text"
+                      required
+                      value={taskForm.title}
+                      onChange={(e) => setTaskForm((prev) => ({ ...prev, title: e.target.value }))}
+                      className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-foreground mb-1">Descripcion</label>
+                    <textarea
+                      rows={3}
+                      value={taskForm.description}
+                      onChange={(e) => setTaskForm((prev) => ({ ...prev, description: e.target.value }))}
+                      className="w-full bg-surface-secondary border border-border rounded-[3px] px-2.5 py-1.5 text-[11px] resize-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-medium text-foreground mb-1">Estado</label>
+                      <select
+                        value={taskForm.status}
+                        onChange={(e) => {
+                          const nextStatus = e.target.value;
+                          const shouldBeCompleted = nextStatus ? doneStatusIds.has(Number(nextStatus)) : false;
+                          setTaskForm((prev) => ({
+                            ...prev,
+                            status: nextStatus,
+                            completed: shouldBeCompleted,
+                          }));
+                        }}
+                        className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                      >
+                        <option value="">Sin estado</option>
+                        {statuses.map((s) => (
+                          <option key={s.id_status} value={s.id_status}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-foreground mb-1">Prioridad</label>
+                      <select
+                        value={taskForm.priority}
+                        onChange={(e) => setTaskForm((prev) => ({ ...prev, priority: e.target.value }))}
+                        className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                      >
+                        <option value="">Sin prioridad</option>
+                        {priorities.map((p) => (
+                          <option key={p.id_priority} value={p.id_priority}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-medium text-foreground mb-1">Asignado</label>
+                      <select
+                        value={taskForm.assignedTo}
+                        onChange={(e) => setTaskForm((prev) => ({ ...prev, assignedTo: e.target.value }))}
+                        disabled={!canEditAssignment}
+                        className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                      >
+                        <option value="">Sin asignar</option>
+                        {assignableUsers.map((u) => (
+                          <option key={u.id} value={u.id}>{u.name}</option>
+                        ))}
+                      </select>
+                      {!canEditAssignment && (
+                        <p className="text-[10px] text-muted-foreground mt-1">Tu rol no puede reasignar tareas.</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-foreground mb-1">Fecha limite</label>
+                      <input
+                        type="date"
+                        value={taskForm.dueDate}
+                        onChange={(e) => setTaskForm((prev) => ({ ...prev, dueDate: e.target.value }))}
+                        className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-foreground mb-1">Creada por</label>
+                    <input
+                      type="text"
+                      value={createdByName}
+                      readOnly
+                      className="w-full h-7 bg-surface-secondary/60 border border-border rounded-[3px] px-2.5 text-[11px] text-muted-foreground"
+                    />
+                  </div>
+
+                  <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={taskForm.completed}
+                      onChange={(e) => setTaskForm((prev) => ({ ...prev, completed: e.target.checked }))}
+                    />
+                    Marcar como completada
+                  </label>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingTask(false)}
+                      className="h-7 px-3 border border-border rounded-[3px] text-[11px]"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={savingTask}
+                      className="h-7 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px] disabled:opacity-50"
+                    >
+                      {savingTask ? 'Guardando...' : 'Guardar cambios'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="text-[14px] font-semibold text-foreground leading-snug">{task.title}</h2>
+                    <button
+                      onClick={() => setIsEditingTask(true)}
+                      className="inline-flex items-center gap-1 h-6 px-2 border border-border rounded-[3px] text-[10px] text-muted-foreground hover:text-foreground"
+                    >
+                      <Pencil className="w-3 h-3" /> Editar
+                    </button>
+                  </div>
+                  {task.description && (
+                    <p className="text-[12px] text-muted-foreground mt-1.5 leading-relaxed">{task.description}</p>
+                  )}
+                </div>
+              )}
 
               {/* Metadata */}
               <div className="bg-surface-secondary/50 rounded-[4px] p-3 space-y-2">
@@ -138,6 +381,10 @@ export function TaskDetailPanel({ task, statuses, priorities, userMap, onClose, 
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-muted-foreground uppercase tracking-[0.06em]">Creada</span>
                   <span className="text-[11px] text-muted-foreground">{task.created_at.slice(0, 10)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-[0.06em]">Creada por</span>
+                  <span className="text-[11px] text-muted-foreground">{createdByName}</span>
                 </div>
               </div>
 
@@ -203,9 +450,58 @@ export function TaskDetailPanel({ task, statuses, priorities, userMap, onClose, 
                           <span className="text-[10px] font-medium text-foreground">
                             {c.user ? (userMap.get(c.user) ?? `User #${c.user}`) : 'Sistema'}
                           </span>
-                          <span className="text-[10px] text-muted-foreground">{c.created_at.slice(0, 10)}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground">{c.created_at.slice(0, 10)}</span>
+                            {currentUserId != null && c.user === currentUserId && (
+                              <>
+                                <button
+                                  onClick={() => handleStartEditComment(c)}
+                                  className="text-muted-foreground hover:text-foreground"
+                                  title="Editar comentario"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteComment(c.id_comment)}
+                                  className="text-muted-foreground hover:text-destructive"
+                                  title="Eliminar comentario"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-[11px] text-muted-foreground leading-relaxed">{c.content}</p>
+
+                        {editingCommentId === c.id_comment ? (
+                          <div className="space-y-1.5">
+                            <input
+                              type="text"
+                              value={editingCommentContent}
+                              onChange={(e) => setEditingCommentContent(e.target.value)}
+                              className="w-full h-7 bg-card border border-border rounded-[3px] px-2 text-[11px]"
+                            />
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => handleUpdateComment(c.id_comment)}
+                                className="h-6 px-2 bg-primary text-primary-foreground rounded-[3px] text-[10px]"
+                              >
+                                Guardar
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingCommentId(null);
+                                  setEditingCommentContent('');
+                                }}
+                                className="h-6 px-2 border border-border rounded-[3px] text-[10px]"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">{c.content}</p>
+                        )}
                       </div>
                     ))}
                   </div>
