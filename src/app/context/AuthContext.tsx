@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { authService, tokenStore, ApiRequestError } from '../../services';
 import type { ApiUserAccount } from '../../services';
 
-export type UserRole = 'admin' | 'project_manager' | 'operative' | 'executive';
+export type UserRole = 'admin' | 'project_manager' | 'operative' | 'executive' | 'user';
 
 export interface User {
   id: string;
@@ -79,9 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(u);
       localStorage.setItem('pip_user', JSON.stringify(u));
     } catch (err) {
-      // Re-throw so callers (Login page) can show specific error messages
-      if (err instanceof ApiRequestError) throw err;
-      throw new Error('Error de conexión. Verifica que el servidor esté activo.');
+      // Always return generic message for security
+      throw new Error('Correo o contraseña incorrectos.');
     }
   };
 
@@ -92,8 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await login(email, password);
       void apiUser; // returned data already used via login()
     } catch (err) {
-      if (err instanceof ApiRequestError) throw err;
-      throw new Error('Error de conexión. Verifica que el servidor esté activo.');
+      // Always return generic message for security
+      throw new Error('No se pudo completar el registro. Intenta más tarde.');
     }
   };
 

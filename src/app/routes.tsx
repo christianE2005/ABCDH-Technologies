@@ -11,7 +11,6 @@ import {
 // Eager: lightweight public pages
 import Landing from './pages/Landing';
 import Login from './pages/Login';
-import Register from './pages/Register';
 import NotFound from './pages/NotFound';
 
 // Lazy: heavier authenticated pages
@@ -23,6 +22,7 @@ const Profile = lazy(() => import('./pages/Profile'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Alerts = lazy(() => import('./pages/Alerts'));
+const CreateUsers = lazy(() => import('./pages/CreateUsers'));
 
 function withSuspense(Component: React.LazyExoticComponent<React.ComponentType>, Fallback: React.ComponentType = GenericPageSkeleton) {
   return (
@@ -42,10 +42,6 @@ export const router = createBrowserRouter([
     element: <Login />,
   },
   {
-    path: '/register',
-    element: <Register />,
-  },
-  {
     path: '/',
     element: <AppLayout />,
     children: [
@@ -57,6 +53,7 @@ export const router = createBrowserRouter([
       { path: 'settings', element: withSuspense(Settings) },
       { path: 'reports', element: withSuspense(Reports) },
       { path: 'alerts', element: withSuspense(Alerts) },
+      { path: 'users', element: withSuspense(CreateUsers) },
     ],
   },
   {

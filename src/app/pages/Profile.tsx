@@ -2,12 +2,12 @@
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { User, Mail, Shield, Moon, Sun, Lock, Github, Loader2 } from 'lucide-react';
+import { User, Mail, Shield, Moon, Sun, Lock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { useApiProjects } from '../hooks/useProjectData';
-import { GitHubConnectSection } from '../components/GitHubConnectSection';
 import { StatusBadge } from '../components/StatusBadge';
+import { GitHubConnectSection } from '../components/GitHubConnectSection';
 import { usersService } from '../../services';
 
 function getDaysRemaining(endDate: string | null) {
@@ -67,16 +67,23 @@ export default function Profile() {
           <div className="bg-card border border-border border-l-[3px] border-l-primary rounded-[4px] p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[12px] font-semibold text-foreground">Información Personal</h2>
-              <button
-                onClick={() => setEditing(!editing)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  editing
-                    ? 'bg-secondary hover:bg-accent text-foreground'
-                    : 'bg-primary hover:bg-primary-hover text-primary-foreground'
-                }`}
-              >
-                {editing ? 'Cancelar' : 'Editar'}
-              </button>
+              {user?.role !== 'admin' && (
+                <button
+                  onClick={() => setEditing(!editing)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    editing
+                      ? 'bg-secondary hover:bg-accent text-foreground'
+                      : 'bg-primary hover:bg-primary-hover text-primary-foreground'
+                  }`}
+                >
+                  {editing ? 'Cancelar' : 'Editar'}
+                </button>
+              )}
+              {user?.role === 'admin' && (
+                <div className="px-3 py-1 rounded-md text-xs font-medium text-muted-foreground bg-secondary/50">
+                  Solo lectura
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3 mb-4 pb-4 border-b border-border">
@@ -125,15 +132,7 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* GitHub connection */}
-              <div>
-                <label className="block text-[11px] font-medium text-foreground mb-1">
-                  <Github className="w-3 h-3 inline mr-1" /> GitHub
-                </label>
-                <GitHubConnectSection />
-              </div>
-
-              {editing && (
+              {editing && user?.role !== 'admin' && (
                 <button
                   onClick={handleSave}
                   disabled={saving}
@@ -146,77 +145,79 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* My project memberships */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-            className="bg-card border border-border rounded-[4px] overflow-hidden"
-          >
-            <div className="px-4 py-3 border-b border-border">
-              <h2 className="text-[12px] font-semibold text-foreground">
-                Mis Proyectos ({myProjects.length})
-              </h2>
-            </div>
-            {loadingProjects ? (
-              <div className="p-4 space-y-2">
-                {[1, 2, 3].map((i) => <div key={i} className="h-8 animate-pulse bg-secondary rounded" />)}
+          {/* My project memberships - Only show for non-admins */}
+          {user?.role !== 'admin' && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              className="bg-card border border-border rounded-[4px] overflow-hidden"
+            >
+              <div className="px-4 py-3 border-b border-border">
+                <h2 className="text-[12px] font-semibold text-foreground">
+                  Mis Proyectos ({myProjects.length})
+                </h2>
               </div>
-            ) : myProjects.length === 0 ? (
-              <div className="py-12 text-center">
-                <p className="text-[11px] text-muted-foreground">No tienes proyectos asignados.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[600px]">
-                  <thead>
-                    <tr className="border-b border-border bg-surface-secondary/50">
-                      <th className="text-left py-1.5 px-4 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Proyecto</th>
-                      <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</th>
-                      <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Fecha Fin</th>
-                      <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Días rest.</th>
-                      <th className="py-1.5 px-3 w-[60px]" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {myProjects.map((project, i) => {
-                      const days = getDaysRemaining(project.end_date);
-                      const dl = getDaysLabel(days);
-                      return (
-                        <motion.tr
-                          key={project.id_project}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.25, delay: i * 0.04, ease: 'easeOut' }}
-                          className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors group cursor-pointer"
-                          onClick={() => navigate(`/projects/${project.id_project}`)}
-                        >
-                          <td className="py-1.5 px-4">
-                            <p className="text-[12px] font-medium text-foreground truncate max-w-[220px]">{project.name}</p>
-                            {project.description && (
-                              <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{project.description}</p>
-                            )}
-                          </td>
-                          <td className="py-1.5 px-3">
-                            <StatusBadge status={(project.status ?? 'neutral') as 'success'|'warning'|'danger'|'info'|'neutral'|'on_track'|'at_risk'|'delayed'} size="sm" />
-                          </td>
-                          <td className="py-1.5 px-3 text-[11px] text-muted-foreground whitespace-nowrap">{project.end_date ?? '—'}</td>
-                          <td className="py-1.5 px-3">
-                            <span className={`text-[12px] ${dl.cls}`}>{dl.label}</span>
-                          </td>
-                          <td className="py-1.5 px-3 text-right">
-                            <span className="text-[11px] text-primary opacity-0 group-hover:opacity-100 transition-opacity font-medium whitespace-nowrap">
-                              →
-                            </span>
-                          </td>
-                        </motion.tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </motion.div>
+              {loadingProjects ? (
+                <div className="p-4 space-y-2">
+                  {[1, 2, 3].map((i) => <div key={i} className="h-8 animate-pulse bg-secondary rounded" />)}
+                </div>
+              ) : myProjects.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-[11px] text-muted-foreground">No tienes proyectos asignados.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[600px]">
+                    <thead>
+                      <tr className="border-b border-border bg-surface-secondary/50">
+                        <th className="text-left py-1.5 px-4 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Proyecto</th>
+                        <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</th>
+                        <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Fecha Fin</th>
+                        <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Días rest.</th>
+                        <th className="py-1.5 px-3 w-[60px]" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {myProjects.map((project, i) => {
+                        const days = getDaysRemaining(project.end_date);
+                        const dl = getDaysLabel(days);
+                        return (
+                          <motion.tr
+                            key={project.id_project}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.25, delay: i * 0.04, ease: 'easeOut' }}
+                            className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors group cursor-pointer"
+                            onClick={() => navigate(`/projects/${project.id_project}`)}
+                          >
+                            <td className="py-1.5 px-4">
+                              <p className="text-[12px] font-medium text-foreground truncate max-w-[220px]">{project.name}</p>
+                              {project.description && (
+                                <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{project.description}</p>
+                              )}
+                            </td>
+                            <td className="py-1.5 px-3">
+                              <StatusBadge status={(project.status ?? 'neutral') as 'success'|'warning'|'danger'|'info'|'neutral'|'on_track'|'at_risk'|'delayed'} size="sm" />
+                            </td>
+                            <td className="py-1.5 px-3 text-[11px] text-muted-foreground whitespace-nowrap">{project.end_date ?? '—'}</td>
+                            <td className="py-1.5 px-3">
+                              <span className={`text-[12px] ${dl.cls}`}>{dl.label}</span>
+                            </td>
+                            <td className="py-1.5 px-3 text-right">
+                              <span className="text-[11px] text-primary opacity-0 group-hover:opacity-100 transition-opacity font-medium whitespace-nowrap">
+                                →
+                              </span>
+                            </td>
+                          </motion.tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </motion.div>
+          )}
         </div>
 
         {/* Sidebar */}
@@ -234,35 +235,46 @@ export default function Profile() {
                   <p className="text-[10px] text-muted-foreground">{theme === 'dark' ? 'Oscuro' : 'Claro'}</p>
                 </div>
               </div>
-              <div className={`w-9 h-5 rounded-full transition-colors ${theme === 'dark' ? 'bg-primary' : 'bg-muted'}`}>
-                <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${theme === 'dark' ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              <div className={`w-9 h-5 rounded-full transition-colors flex items-center shadow-inner ${theme === 'dark' ? 'bg-primary' : 'bg-muted'}`}>
+                <div className={`w-4 h-4 bg-white rounded-full shadow transition-all ${theme === 'dark' ? 'ml-auto mr-0.5' : 'ml-0.5 mr-auto'}`} />
               </div>
             </button>
           </div>
 
-          <div className="bg-card border border-border rounded-[4px] p-4">
-            <h2 className="text-[12px] font-semibold text-foreground mb-2">Seguridad</h2>
-            <div className="space-y-1">
-              {[
-                { title: 'Cambiar contraseña', desc: 'Actualizar credenciales' },
-                { title: 'Sesiones activas', desc: 'Ver dispositivos conectados' },
-              ].map((item) => (
-                <button
-                  key={item.title}
-                  onClick={() => toast.info(item.title)}
-                  className="w-full text-left py-2 px-3 border border-border rounded-[4px] hover:border-primary/40 hover:bg-accent/30 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Lock className="w-3 h-3 text-muted-foreground" />
-                    <div>
-                      <p className="text-[12px] font-medium text-foreground">{item.title}</p>
-                      <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+          {/* Security section - Only show for non-admins */}
+          {user?.role !== 'admin' && (
+            <div className="bg-card border border-border rounded-[4px] p-4">
+              <h2 className="text-[12px] font-semibold text-foreground mb-2">Seguridad</h2>
+              <div className="space-y-1">
+                {[
+                  { title: 'Cambiar contraseña', desc: 'Actualizar credenciales' },
+                  { title: 'Sesiones activas', desc: 'Ver dispositivos conectados' },
+                ].map((item) => (
+                  <button
+                    key={item.title}
+                    onClick={() => toast.info(item.title)}
+                    className="w-full text-left py-2 px-3 border border-border rounded-[4px] hover:border-primary/40 hover:bg-accent/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-3 h-3 text-muted-foreground" />
+                      <div>
+                        <p className="text-[12px] font-medium text-foreground">{item.title}</p>
+                        <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* GitHub Connection - Only show for Users and Project Managers */}
+          {(user?.role === 'user' || user?.role === 'project_manager') && (
+            <div className="bg-card border border-border rounded-[4px] p-4">
+              <h2 className="text-[12px] font-semibold text-foreground mb-3">GitHub</h2>
+              <GitHubConnectSection />
+            </div>
+          )}
         </div>
       </div>
     </div>

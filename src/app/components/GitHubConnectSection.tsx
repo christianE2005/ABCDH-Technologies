@@ -89,6 +89,25 @@ export function GitHubConnectSection() {
     }
   };
 
+  const handleDisconnect = async () => {
+    if (!confirm('¿Estás seguro de que deseas desconectar tu cuenta de GitHub?')) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await githubService.disconnectGitHub();
+      setConnected(false);
+      setGithubLogin(null);
+      toast.success('Desconectado exitosamente', {
+        description: 'Tu cuenta de GitHub ha sido desconectada',
+      });
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : 'Error desconocido';
+      toast.error('No se pudo desconectar', { description: detail });
+      setBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-3">
@@ -118,10 +137,11 @@ export function GitHubConnectSection() {
           )}
         </div>
         <button
-          disabled
-          className="px-3 py-1.5 bg-[#24292e] text-white rounded-[3px] text-[11px] font-medium opacity-50 cursor-not-allowed"
+          onClick={handleDisconnect}
+          disabled={busy}
+          className="px-3 py-1.5 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
         >
-          Conectado
+          {busy ? 'Desconectando...' : 'Desconectar'}
         </button>
       </div>
     );

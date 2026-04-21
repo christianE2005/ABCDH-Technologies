@@ -12,9 +12,19 @@ export const usersService = {
     return api.get<ApiUserAccount>(`/user-accounts/${id}/`);
   },
 
+  /** POST /api/user-accounts/ — Create a new user (admin only) */
+  create(payload: { username: string; email: string; password: string; system_role?: number }): Promise<ApiUserAccount> {
+    return api.post<ApiUserAccount>('/user-accounts/', payload);
+  },
+
   /** PATCH /api/user-accounts/:id/ */
-  update(id: number, payload: Partial<Pick<ApiUserAccount, 'email' | 'username'>>): Promise<ApiUserAccount> {
-    return api.patch<ApiUserAccount>(`/user-accounts/${id}/`, payload);
+update(id: number, payload: Partial<Pick<ApiUserAccount, 'email' | 'username'> & { password: string }>): Promise<ApiUserAccount> {
+  return api.patch<ApiUserAccount>(`/user-accounts/${id}/`, payload);
+},
+
+  /** DELETE /api/user-accounts/:id/ */
+  delete(id: number): Promise<void> {
+    return api.delete<void>(`/user-accounts/${id}/`);
   },
 
   // ── Project members ────────────────────────────────────────────
