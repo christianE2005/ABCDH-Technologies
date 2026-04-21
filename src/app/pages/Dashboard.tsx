@@ -300,10 +300,33 @@ export default function Dashboard() {
                 Ver Backlog <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
-          )}
-        </motion.div>
+            {loadingTasks ? (
+              <div className="p-4 space-y-2">
+                {[1, 2, 3].map((i) => <div key={i} className="h-6 animate-pulse bg-secondary rounded" />)}
+              </div>
+            ) : myTasks.length === 0 ? (
+              <div className="py-8 text-center text-[12px] text-muted-foreground">Sin tareas pendientes.</div>
+            ) : (
+              <div className="divide-y divide-border">
+                {myTasks.map((task) => {
+                  const isOverdue = task.due_date && new Date(task.due_date) < new Date();
+                  return (
+                    <div key={task.id_task} className="px-4 py-2 hover:bg-accent/30 transition-colors flex items-center gap-3">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                      <p className="text-[12px] font-medium text-foreground truncate flex-1">{task.title}</p>
+                      {task.due_date && (
+                        <span className={`text-[10px] whitespace-nowrap ${isOverdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                          {task.due_date}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
 
-        {/* Recent Push Activity */}
+          {/* Recent Push Activity */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -327,11 +350,15 @@ export default function Dashboard() {
                         {push.ref?.replace('refs/heads/', '') ?? 'main'}
                       </span>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </motion.div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {commitCount} commit{commitCount !== 1 ? 's' : ''} · {new Date(push.received_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </motion.div>
         </div>
       )}
     </div>
