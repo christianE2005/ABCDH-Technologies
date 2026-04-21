@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { authService, tokenStore, usersService } from '../../services';
 import type { ApiUserAccount } from '../../services';
 
-export type UserRole = 'admin' | 'project_manager' | 'operative' | 'executive';
+export type UserRole = 'admin' | 'project_manager' | 'operative' | 'executive' | 'user';
 
 export interface User {
   id: string;

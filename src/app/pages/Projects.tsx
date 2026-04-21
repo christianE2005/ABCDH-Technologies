@@ -8,6 +8,7 @@ import {
 import { StatusBadge } from '../components/StatusBadge';
 import { CommandBar } from '../components/CommandBar';
 import { useApiProjects } from '../hooks/useProjectData';
+import { useAuth } from '../context/AuthContext';
 import { projectsService } from '../../services';
 
 function getDaysRemaining(endDate: string | null) {
@@ -24,6 +25,7 @@ function getDaysLabel(days: number | null) {
 
 export default function Projects() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: projects, loading, refetch } = useApiProjects();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
@@ -71,9 +73,9 @@ export default function Projects() {
   return (
     <div className="px-4 pb-6 pt-3 space-y-4 max-w-[1600px]">
       <CommandBar
-        actions={[
+        actions={user?.role !== 'admin' ? [
           { label: 'Nuevo Proyecto', icon: <Plus className="w-3.5 h-3.5" />, variant: 'primary', onClick: () => setShowCreateModal(true) },
-        ]}
+        ] : []}
         filters={[
           { label: 'Todos', value: 'all', active: statusFilter === 'all', onClick: () => setStatusFilter('all') },
           ...statusValues.map((s) => ({
