@@ -7,12 +7,23 @@ export interface CreateTaskPayload {
   description?: string;
   status?: number;
   priority?: number;
+  created_by?: number;
   assigned_to?: number;
   due_date?: string;   // YYYY-MM-DD
 }
 
-export interface UpdateTaskPayload extends Partial<Omit<CreateTaskPayload, 'board'>> {
+export interface UpdateTaskPayload {
+  title?: string;
+  description?: string | null;
+  status?: number | null;
+  priority?: number | null;
+  assigned_to?: number | null;
+  due_date?: string | null;
   completed_at?: string | null;
+}
+
+export interface UpdateTaskCommentPayload {
+  content: string;
 }
 
 export const tasksService = {
@@ -58,6 +69,14 @@ export const tasksService = {
 
   addComment(taskId: number, content: string): Promise<ApiTaskComment> {
     return api.post<ApiTaskComment>('/task-comments/', { task: taskId, content });
+  },
+
+  updateComment(commentId: number, payload: UpdateTaskCommentPayload): Promise<ApiTaskComment> {
+    return api.patch<ApiTaskComment>(`/task-comments/${commentId}/`, payload);
+  },
+
+  deleteComment(commentId: number): Promise<void> {
+    return api.delete<void>(`/task-comments/${commentId}/`);
   },
 
   // ── Boards ─────────────────────────────────────────────────────

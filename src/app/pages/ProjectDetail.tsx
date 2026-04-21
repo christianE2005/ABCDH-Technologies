@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Calendar, Users, Clock, CheckCircle2,
-  AlertTriangle, UserPlus, Loader2, RefreshCw, List,
+  AlertTriangle, UserPlus, RefreshCw, List,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { StatusBadge } from '../components/StatusBadge';
@@ -22,12 +22,14 @@ import type { ApiProject } from '../../services';
 import { useAuth } from '../context/AuthContext';
 import { GitHubReposView } from '../components/GitHubReposView';
 import { CodeReviewPanel } from '../components/CodeReviewPanel';
+import { ProjectTasksWorkspace } from '../components/ProjectTasksWorkspace';
 
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const projectId = Number(id) || 0;
+  const canCreateTaskArtifacts = user?.role !== 'operative';
 
   // ── Project ──────────────────────────────────────────────────────────────
   const [project, setProject] = useState<ApiProject | null>(null);
@@ -95,18 +97,27 @@ export default function ProjectDetail() {
     return m;
   }, [roles]);
 
+  const doneStatusIds = useMemo(() => {
+    const normalizedDoneNames = new Set(['done', 'completada', 'completado']);
+    return new Set(
+      statuses
+        .filter((s) => normalizedDoneNames.has(s.name.trim().toLowerCase()))
+        .map((s) => s.id_status),
+    );
+  }, [statuses]);
+
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
     const tList = tasks ?? [];
     const now = new Date();
     const total = tList.length;
-    const completed = tList.filter((t) => t.completed_at != null).length;
+    const completed = tList.filter((t) => t.completed_at != null || (t.status != null && doneStatusIds.has(t.status))).length;
     const overdue = tList.filter(
-      (t) => !t.completed_at && t.due_date && new Date(t.due_date) < now,
+      (t) => !t.completed_at && (t.status == null || !doneStatusIds.has(t.status)) && t.due_date && new Date(t.due_date) < now,
     ).length;
     const memberCount = (members ?? []).length;
     return { total, completed, overdue, memberCount };
-  }, [tasks, members]);
+  }, [tasks, members, doneStatusIds]);
 
   // ── Task-status breakdown ─────────────────────────────────────────────────
   const statusCounts = useMemo(() => {
@@ -326,77 +337,16 @@ export default function ProjectDetail() {
 
         {/* TAREAS */}
         {activeTab === 'tareas' && (
-          <div className="space-y-2">
-            {/* Board selector */}
-            {boards && boards.length > 1 && (
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-muted-foreground">Tablero:</span>
-                <div className="flex gap-1">
-                  {boards.map((b) => (
-                    <button
-                      key={b.id_board}
-                      onClick={() => setSelectedBoardId(b.id_board)}
-                      className={`px-2.5 py-1 text-[11px] font-medium rounded-[3px] border transition-colors ${
-                        selectedBoardId === b.id_board
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-card text-muted-foreground border-border hover:text-foreground'
-                      }`}
-                    >
-                      {b.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="bg-card border border-border rounded-[4px] overflow-hidden">
-              {loadingTasks ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : !tasks || tasks.length === 0 ? (
-                <div className="py-12 text-center text-[12px] text-muted-foreground">
-                  {selectedBoardId ? 'No hay tareas en este tablero.' : 'Selecciona un tablero.'}
-                </div>
-              ) : (
-                <table className="w-full min-w-[500px]">
-                  <thead>
-                    <tr className="border-b border-border bg-surface-secondary/50">
-                      <th className="text-left py-1.5 px-4 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Tarea</th>
-                      <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</th>
-                      <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Asignado</th>
-                      <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Vence</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tasks.map((task) => {
-                      const statusName = statuses.find((s) => s.id_status === task.status)?.name ?? '—';
-                      const assignedName = task.assigned_to ? (userMap.get(task.assigned_to) ?? `#${task.assigned_to}`) : '—';
-                      const isOverdue = !task.completed_at && task.due_date && new Date(task.due_date) < new Date();
-                      return (
-                        <tr key={task.id_task} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
-                          <td className="py-1.5 px-4">
-                            <p className="text-[13px] font-medium text-foreground truncate max-w-[260px]">{task.title}</p>
-                          </td>
-                          <td className="py-1.5 px-3">
-                            <span className="text-[11px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-                              {task.completed_at ? 'Completada' : statusName}
-                            </span>
-                          </td>
-                          <td className="py-1.5 px-3 text-[12px] text-muted-foreground">{assignedName}</td>
-                          <td className="py-1.5 px-3">
-                            <span className={`text-[11px] ${isOverdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
-                              {task.due_date ?? '—'}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
+          <ProjectTasksWorkspace
+            projectId={projectId}
+            userMap={userMap}
+            assignableUsers={(members ?? []).map((m) => ({
+              id: m.user,
+              name: userMap.get(m.user) ?? `Usuario #${m.user}`,
+            }))}
+            canCreateTasks={canCreateTaskArtifacts}
+            canCreateBoards={canCreateTaskArtifacts}
+          />
         )}
 
         {/* CODE REVIEW */}
