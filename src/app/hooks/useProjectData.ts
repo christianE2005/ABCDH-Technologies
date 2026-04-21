@@ -2,7 +2,7 @@
 import { projectsService, tasksService, usersService, githubService, ApiRequestError } from '../../services';
 import type {
   ApiProject, ApiTask, ApiUserAccount, ApiTaskStatus, ApiTaskPriority,
-  ApiBoard, ApiProjectMember, ApiActivityLog, ApiRole, ApiTaskWarning, ApiGithubPushEvent,
+  ApiBoard, ApiProjectMember, ApiActivityLog, ApiRole, ApiTaskWarning, ApiGithubPushEvent, ApiTaskAssignment,
 } from '../../services';
 
 // â”€â”€â”€ Real API hooks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -159,7 +159,12 @@ export function useApiProjectMembers(projectId?: number, userId?: number): UseAp
     setError(null);
 
     usersService.listMembers(projectId, userId)
-      .then((members) => { if (!cancelled) setData(members); })
+      .then((members) => {
+        if (cancelled) return;
+        // Some backends ignore the user filter; enforce it client-side.
+        const filteredMembers = userId ? members.filter((m) => m.user === userId) : members;
+        setData(filteredMembers);
+      })
       .catch((err) => {
         // Some backends don't support filtering members by user query param.
         // Fallback: fetch by project only and filter client-side.
@@ -257,6 +262,40 @@ export function useApiTaskWarnings(filters?: { task_id?: number; project_id?: nu
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey, tick]);
+
+  const refetch = useCallback(() => setTick((t) => t + 1), []);
+  return { data, loading, error, refetch };
+}
+
+/** Fetches task assignments and optionally filters them to a known set of task ids client-side. */
+export function useApiTaskAssignments(taskIds?: number[]): UseApiState<ApiTaskAssignment[]> {
+  const [data, setData]       = useState<ApiTaskAssignment[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [tick, setTick]       = useState(0);
+
+  const taskIdsKey = JSON.stringify(taskIds ?? []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    tasksService.listAssignments()
+      .then((assignments) => {
+        if (cancelled) return;
+        const nextData = taskIds && taskIds.length > 0
+          ? assignments.filter((assignment) => taskIds.includes(assignment.task))
+          : assignments;
+        setData(nextData);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof ApiRequestError ? err.message : 'Error cargando asignaciones.');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [taskIdsKey, tick, taskIds]);
 
   const refetch = useCallback(() => setTick((t) => t + 1), []);
   return { data, loading, error, refetch };

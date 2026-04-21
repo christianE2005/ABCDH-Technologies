@@ -25,11 +25,14 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
-import { useApiBoards, useApiTasks } from '../hooks/useProjectData';
+import { useApiBoards, useApiTaskAssignments, useApiTasks } from '../hooks/useProjectData';
 import { tasksService } from '../../services';
-import type { ApiTask, ApiTaskPriority, ApiTaskStatus } from '../../services';
+import type { ApiTask, ApiTaskPriority, ApiTaskStatus, ApiTaskAssignment } from '../../services';
 import { TaskDetailPanel } from './TaskDetailPanel';
+import { TaskAssigneePicker } from './TaskAssigneePicker';
+import { DatePickerField } from './DatePickerField';
 import { useAuth } from '../context/AuthContext';
+import { formatProjectDate } from '../utils/projectDates';
 
 interface ProjectTasksWorkspaceProps {
   projectId: number;
@@ -37,6 +40,8 @@ interface ProjectTasksWorkspaceProps {
   assignableUsers: Array<{ id: number; name: string }>;
   canCreateTasks: boolean;
   canCreateBoards: boolean;
+  initialTaskId?: number | null;
+  onInitialTaskHandled?: (taskId: number) => void;
 }
 
 interface OrderedColumn {
@@ -53,27 +58,34 @@ function normalizeName(name: string) {
   return name.trim().toLowerCase();
 }
 
+function getTaskStatusColor(statusName?: string | null) {
+  const normalized = (statusName ?? '').trim().toLowerCase();
+  if (normalized.includes('backlog')) return '#64748b';
+  if (normalized.includes('to do') || normalized.includes('por hacer')) return '#0ea5e9';
+  if (normalized.includes('progress') || normalized.includes('progreso')) return '#f59e0b';
+  if (normalized.includes('review') || normalized.includes('revision') || normalized.includes('revisión')) return '#8b5cf6';
+  if (normalized.includes('done') || normalized.includes('completad') || normalized.includes('finalizad')) return '#22c55e';
+  if (normalized.includes('block') || normalized.includes('bloque')) return '#ef4444';
+  return '#14b8a6';
+}
+
 function priorityColor(level: number) {
   if (level >= 3) return 'bg-destructive';
   if (level === 2) return 'bg-warning';
   return 'bg-info';
 }
 
-function priorityBorderColor(level: number) {
-  if (level >= 3) return 'border-l-destructive';
-  if (level === 2) return 'border-l-warning';
-  return 'border-l-info';
-}
-
 function TaskCard({
   task,
   priorities,
-  userMap,
+  assignedNames,
+  statusName,
   onOpen,
 }: {
   task: ApiTask;
   priorities: ApiTaskPriority[];
-  userMap: Map<number, string>;
+  assignedNames: string[];
+  statusName?: string;
   onOpen: (task: ApiTask) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -88,14 +100,16 @@ function TaskCard({
 
   const prio = priorities.find((p) => p.id_priority === task.priority);
   const prioLevel = prio?.level ?? 0;
-  const assignedName = task.assigned_to ? (userMap.get(task.assigned_to) ?? `#${task.assigned_to}`) : 'Sin asignar';
+  const assignedLabel = assignedNames.length > 0 ? assignedNames.join(', ') : 'Sin asignar';
+  const statusColor = getTaskStatusColor(statusName);
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
       onClick={() => onOpen(task)}
-      className={`bg-card border border-border border-l-[3px] ${priorityBorderColor(prioLevel)} rounded-[4px] p-2.5 mb-1.5 hover:border-primary/30 transition-colors cursor-pointer group`}
+      className="bg-card border border-border border-l-[3px] rounded-[4px] p-2.5 mb-1.5 hover:border-primary/30 transition-colors cursor-pointer group"
+      // Status color on the side accent makes state visible while dragging through columns.
+      style={{ ...style, borderLeftColor: statusColor }}
     >
       <div className="flex items-start gap-2">
         <button
@@ -110,11 +124,11 @@ function TaskCard({
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-1">
-            <span className={`w-2 h-2 rounded-full shrink-0 ${priorityColor(prioLevel)}`} />
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: statusColor }} />
             <h3 className="text-[12px] font-medium text-foreground truncate">{task.title}</h3>
           </div>
           {task.description && <p className="text-[11px] text-muted-foreground line-clamp-2">{task.description}</p>}
-          <p className="text-[10px] text-muted-foreground mt-1 truncate">Asignado: {assignedName}</p>
+          <p className="text-[10px] text-muted-foreground mt-1 truncate">Asignado: {assignedLabel}</p>
         </div>
       </div>
 
@@ -123,7 +137,7 @@ function TaskCard({
           {task.due_date && (
             <span className="flex items-center gap-1">
               <Calendar className="w-3 h-3" />
-              {task.due_date}
+              {formatProjectDate(task.due_date)}
             </span>
           )}
         </div>
@@ -135,7 +149,7 @@ function TaskCard({
 
 function DroppableColumn({ id, disabled, children }: { id: string; disabled: boolean; children: React.ReactNode }) {
   const { setNodeRef } = useDroppable({ id, disabled });
-  return <div ref={setNodeRef}>{children}</div>;
+  return <div ref={setNodeRef} className="h-full min-h-0">{children}</div>;
 }
 
 export function ProjectTasksWorkspace({
@@ -144,6 +158,8 @@ export function ProjectTasksWorkspace({
   assignableUsers,
   canCreateTasks,
   canCreateBoards,
+  initialTaskId = null,
+  onInitialTaskHandled,
 }: ProjectTasksWorkspaceProps) {
   const { user } = useAuth();
   const currentUserId = useMemo(() => {
@@ -155,6 +171,9 @@ export function ProjectTasksWorkspace({
   const [selectedBoardId, setSelectedBoardId] = useState<number | undefined>(undefined);
 
   const { data: tasks, loading: loadingTasks, statuses, priorities, refetch: refetchTasks } = useApiTasks(selectedBoardId, projectId);
+  const taskIds = useMemo(() => (tasks ?? []).map((task) => task.id_task), [tasks]);
+  const { data: taskAssignments, refetch: refetchTaskAssignments } = useApiTaskAssignments(taskIds);
+
 
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [activeDragId, setActiveDragId] = useState<number | null>(null);
@@ -170,19 +189,42 @@ export function ProjectTasksWorkspace({
   const [formDesc, setFormDesc] = useState('');
   const [formStatus, setFormStatus] = useState<number | ''>('');
   const [formPriority, setFormPriority] = useState<number | ''>('');
-  const [formAssignedTo, setFormAssignedTo] = useState<number | ''>('');
+  const [formAssignedTo, setFormAssignedTo] = useState<number[]>([]);
   const [formDueDate, setFormDueDate] = useState('');
 
   const [showBoardModal, setShowBoardModal] = useState(false);
   const [creatingBoard, setCreatingBoard] = useState(false);
   const [boardName, setBoardName] = useState('');
   const [boardDescription, setBoardDescription] = useState('');
+  const [pendingInitialTaskId, setPendingInitialTaskId] = useState<number | null>(initialTaskId);
 
   useEffect(() => {
     if (boards && boards.length > 0 && !selectedBoardId) {
       setSelectedBoardId(boards[0].id_board);
     }
   }, [boards, selectedBoardId]);
+
+  useEffect(() => {
+    setPendingInitialTaskId(initialTaskId ?? null);
+  }, [initialTaskId]);
+
+  useEffect(() => {
+    if (!pendingInitialTaskId || !boards || boards.length === 0) return;
+
+    let cancelled = false;
+    tasksService.get(pendingInitialTaskId)
+      .then((task) => {
+        if (cancelled) return;
+        if (task.board !== selectedBoardId) {
+          setSelectedBoardId(task.board);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+      });
+
+    return () => { cancelled = true; };
+  }, [pendingInitialTaskId, boards, selectedBoardId]);
 
   const loading = loadingBoards || loadingTasks;
 
@@ -207,6 +249,12 @@ export function ProjectTasksWorkspace({
     return map;
   }, [statuses]);
 
+  const statusNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    statuses.forEach((status) => map.set(status.id_status, status.name));
+    return map;
+  }, [statuses]);
+
   const doneStatusIds = useMemo(
     () => new Set(statuses.filter((s) => DONE_STATUS_NAMES.has(normalizeName(s.name))).map((s) => s.id_status)),
     [statuses],
@@ -223,6 +271,34 @@ export function ProjectTasksWorkspace({
       };
     });
   }, [statusByName, filteredTasks]);
+
+  const taskAssignmentsByTask = useMemo(() => {
+    const map = new Map<number, ApiTaskAssignment[]>();
+    (taskAssignments ?? []).forEach((assignment) => {
+      const existing = map.get(assignment.task) ?? [];
+      existing.push(assignment);
+      map.set(assignment.task, existing);
+    });
+    return map;
+  }, [taskAssignments]);
+
+  const getAssignedNames = (task: ApiTask) => {
+    const assignments = taskAssignmentsByTask.get(task.id_task) ?? [];
+    if (assignments.length > 0) {
+      return assignments.map((assignment) => userMap.get(assignment.assigned_to) ?? `#${assignment.assigned_to}`);
+    }
+    return task.assigned_to ? [userMap.get(task.assigned_to) ?? `#${task.assigned_to}`] : [];
+  };
+
+  useEffect(() => {
+    if (!pendingInitialTaskId) return;
+    const targetTask = (tasks ?? []).find((task) => task.id_task === pendingInitialTaskId);
+    if (!targetTask) return;
+
+    setSelectedTask(targetTask);
+    onInitialTaskHandled?.(pendingInitialTaskId);
+    setPendingInitialTaskId(null);
+  }, [pendingInitialTaskId, tasks, onInitialTaskHandled]);
 
   const handleDragStart = (event: { active: { id: string | number } }) => {
     setActiveDragId(Number(event.active.id));
@@ -300,29 +376,43 @@ export function ProjectTasksWorkspace({
       toast.error('Tu rol no puede crear historias.');
       return;
     }
+    if (formStatus === '') {
+      toast.error('Selecciona un estado.');
+      return;
+    }
+    if (formAssignedTo.length === 0) {
+      toast.error('Selecciona al menos una persona responsable.');
+      return;
+    }
 
     setCreatingTask(true);
     try {
-      await tasksService.create({
+      const createdTask = await tasksService.create({
         board: selectedBoardId,
         title: formTitle.trim(),
         description: formDesc.trim() || undefined,
-        status: formStatus !== '' ? formStatus : statusByName.get(normalizeName('Backlog'))?.id_status,
-        priority: formPriority !== '' ? formPriority : undefined,
+        status: formStatus,
+        priority: formPriority === '' ? undefined : formPriority,
         created_by: currentUserId ?? undefined,
-        assigned_to: formAssignedTo !== '' ? formAssignedTo : undefined,
+        assigned_to: formAssignedTo[0],
         due_date: formDueDate || undefined,
       });
+
+      await Promise.all(formAssignedTo.map((assignedUserId) => tasksService.createAssignment({
+        task: createdTask.id_task,
+        assigned_to: assignedUserId,
+      })));
 
       setFormTitle('');
       setFormDesc('');
       setFormStatus('');
       setFormPriority('');
-      setFormAssignedTo('');
+      setFormAssignedTo([]);
       setFormDueDate('');
       setShowTaskModal(false);
       toast.success('Historia creada.');
       refetchTasks();
+      refetchTaskAssignments();
     } catch {
       toast.error('No se pudo crear la historia.');
     } finally {
@@ -376,7 +466,7 @@ export function ProjectTasksWorkspace({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="h-full min-h-0 flex flex-col gap-3 overflow-hidden">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[11px] text-muted-foreground">Board</span>
@@ -478,8 +568,9 @@ export function ProjectTasksWorkspace({
       )}
 
       {!loading && selectedBoardId && viewMode === 'kanban' && (
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 flex-1 min-h-0 items-stretch" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}>
             {columns.map((column, colIndex) => (
               <DroppableColumn
                 key={column.name}
@@ -490,10 +581,13 @@ export function ProjectTasksWorkspace({
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.24, delay: colIndex * 0.04, ease: 'easeOut' }}
-                  className={`rounded-[4px] p-2.5 border ${column.isMissing ? 'border-dashed border-border/60 bg-surface-secondary/30' : 'border-border bg-surface-secondary/50'}`}
+                  className={`rounded-[4px] p-2.5 border ${column.isMissing ? 'border-dashed border-border/60 bg-surface-secondary/30' : 'border-border bg-surface-secondary/50'} h-full min-h-0 flex flex-col`}
                 >
                   <div className="flex items-center justify-between mb-2 px-1">
-                    <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">{column.name}</h2>
+                    <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] inline-flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: getTaskStatusColor(column.status?.name ?? column.name) }} />
+                      {column.name}
+                    </h2>
                     <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-card text-muted-foreground">
                       {column.tasks.length}
                     </span>
@@ -504,20 +598,21 @@ export function ProjectTasksWorkspace({
                       items={column.tasks.map((t) => t.id_task)}
                       strategy={verticalListSortingStrategy}
                     >
-                      <div className="min-h-[320px]">
+                      <div className="flex-1 min-h-0 overflow-y-auto pr-1">
                         {column.tasks.map((task) => (
                           <TaskCard
                             key={task.id_task}
                             task={task}
                             priorities={priorities}
-                            userMap={userMap}
+                            assignedNames={getAssignedNames(task)}
+                            statusName={statusNameById.get(task.status ?? -1)}
                             onOpen={setSelectedTask}
                           />
                         ))}
                       </div>
                     </SortableContext>
                   ) : (
-                    <div className="min-h-[320px] flex items-center justify-center text-[11px] text-muted-foreground text-center px-2">
+                    <div className="flex-1 min-h-0 flex items-center justify-center text-[11px] text-muted-foreground text-center px-2">
                       Estado no disponible en backend
                     </div>
                   )}
@@ -535,6 +630,7 @@ export function ProjectTasksWorkspace({
             )}
           </DragOverlay>
         </DndContext>
+        </div>
       )}
 
       {!loading && selectedBoardId && viewMode === 'table' && (
@@ -600,7 +696,7 @@ export function ProjectTasksWorkspace({
                       </select>
                     </td>
                     <td className="py-2 px-3 text-[11px] text-muted-foreground">
-                      {task.assigned_to ? (userMap.get(task.assigned_to) ?? `#${task.assigned_to}`) : 'Sin asignar'}
+                      {getAssignedNames(task).length > 0 ? getAssignedNames(task).join(', ') : 'Sin asignar'}
                     </td>
                     <td className="py-2 px-3 text-[11px] text-muted-foreground">
                       {task.created_by ? (userMap.get(task.created_by) ?? `#${task.created_by}`) : '—'}
@@ -624,13 +720,16 @@ export function ProjectTasksWorkspace({
 
       {showTaskModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setShowTaskModal(false)}>
-          <div className="bg-card border border-border rounded-[4px] p-5 max-w-xl w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card border border-border rounded-[6px] p-5 max-w-2xl w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[13px] font-semibold text-foreground">Nueva historia de usuario</h2>
+              <div>
+                <h2 className="text-[13px] font-semibold text-foreground">Nueva historia de usuario</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Completa la configuración base antes de crear la historia.</p>
+              </div>
               <button onClick={() => setShowTaskModal(false)} className="text-[11px] text-muted-foreground">Cerrar</button>
             </div>
 
-            <form className="space-y-3" onSubmit={handleCreateTask}>
+            <form className="space-y-4" onSubmit={handleCreateTask}>
               <div>
                 <label className="block text-[11px] font-medium text-foreground mb-1">Titulo *</label>
                 <input
@@ -652,15 +751,15 @@ export function ProjectTasksWorkspace({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-foreground mb-1">Estado</label>
+                  <label className="block text-[11px] font-medium text-foreground mb-1">Estado *</label>
                   <select
                     value={formStatus}
                     onChange={(e) => setFormStatus(e.target.value ? Number(e.target.value) : '')}
-                    className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                    className="w-full h-9 bg-surface-secondary border border-border rounded-[4px] px-3 text-[12px]"
                   >
-                    <option value="">Backlog por defecto</option>
+                    <option value="">-</option>
                     {statuses.map((s) => (
                       <option key={s.id_status} value={s.id_status}>{s.name}</option>
                     ))}
@@ -672,7 +771,7 @@ export function ProjectTasksWorkspace({
                   <select
                     value={formPriority}
                     onChange={(e) => setFormPriority(e.target.value ? Number(e.target.value) : '')}
-                    className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                    className="w-full h-9 bg-surface-secondary border border-border rounded-[4px] px-3 text-[12px]"
                   >
                     <option value="">Sin prioridad</option>
                     {priorities.map((p) => (
@@ -682,44 +781,44 @@ export function ProjectTasksWorkspace({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-foreground mb-1">Asignar a</label>
-                  <select
-                    value={formAssignedTo}
-                    onChange={(e) => setFormAssignedTo(e.target.value ? Number(e.target.value) : '')}
-                    className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
-                  >
-                    <option value="">Sin asignar</option>
-                    {assignableUsers.map((u) => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                  </select>
+                  <label className="block text-[11px] font-medium text-foreground mb-1">Asignar a *</label>
+                  <TaskAssigneePicker
+                    users={assignableUsers}
+                    selectedIds={formAssignedTo}
+                    onChange={setFormAssignedTo}
+                    emptyText="Selecciona una o varias personas"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">Puedes asignar varias personas. La primera seleccionada también se conserva como responsable principal para compatibilidad.</p>
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-medium text-foreground mb-1">Fecha limite</label>
-                  <input
-                    type="date"
+                  <DatePickerField
                     value={formDueDate}
-                    onChange={(e) => setFormDueDate(e.target.value)}
-                    className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                    onChange={setFormDueDate}
+                    placeholder="Selecciona una fecha"
                   />
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="rounded-[4px] border border-border bg-surface-secondary/30 px-3 py-2">
+                <p className="text-[10px] text-muted-foreground">Campos obligatorios: estado y responsables deben elegirse explícitamente. La prioridad es opcional.</p>
+              </div>
+
+              <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowTaskModal(false)}
-                  className="flex-1 h-7 border border-border rounded-[3px] text-[11px]"
+                  className="flex-1 h-9 border border-border rounded-[4px] text-[12px] font-medium"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={creatingTask}
-                  className="flex-1 h-7 bg-primary text-primary-foreground rounded-[3px] text-[11px] disabled:opacity-50"
+                  className="flex-1 h-9 bg-primary text-primary-foreground rounded-[4px] text-[12px] font-medium disabled:opacity-50"
                 >
                   {creatingTask ? 'Creando...' : 'Crear historia'}
                 </button>
@@ -787,11 +886,13 @@ export function ProjectTasksWorkspace({
         userMap={userMap}
         assignableUsers={assignableUsers}
         canEditAssignment={canCreateTasks}
+        taskAssignments={taskAssignments ?? []}
         onClose={() => setSelectedTask(null)}
         onStatusChange={handleStatusChangeFromPanel}
         onTaskUpdated={(updated) => {
           setSelectedTask(updated);
           refetchTasks();
+          refetchTaskAssignments();
         }}
       />
     </div>

@@ -74,6 +74,13 @@ export interface ApiTask {
   completed_at: string | null;
 }
 
+export interface ApiTaskAssignment {
+  id: number;
+  task: number;
+  assigned_to: number;
+  created_at?: string | null;
+}
+
 export interface ApiTaskComment {
   id_comment: number;
   task: number;

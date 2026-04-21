@@ -1,12 +1,13 @@
 ﻿import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Calendar, Users, Clock, CheckCircle2,
-  AlertTriangle, UserPlus, RefreshCw, List,
+  AlertTriangle, UserPlus, RefreshCw, List, Trash2, Settings2,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { StatusBadge } from '../components/StatusBadge';
+import { DatePickerField } from '../components/DatePickerField';
 import { KPICard } from '../components/KPICard';
 import { CommandBar } from '../components/CommandBar';
 import { ADOTabs } from '../components/ADOTabs';
@@ -23,18 +24,28 @@ import { useAuth } from '../context/AuthContext';
 import { GitHubReposView } from '../components/GitHubReposView';
 import { CodeReviewPanel } from '../components/CodeReviewPanel';
 import { ProjectTasksWorkspace } from '../components/ProjectTasksWorkspace';
+import { getProjectStatusApiValue, getProjectStatusBadge, getProjectStatusLabel, normalizeProjectStatus, PROJECT_STATUS_OPTIONS } from '../utils/projectStatus';
+import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
 
 export default function ProjectDetail() {
+  const PROJECT_MANAGER_ROLE_ID = 1;
+  const DEVELOPER_ROLE_ID = 4;
+
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const projectId = Number(id) || 0;
-  const canCreateTaskArtifacts = user?.role !== 'operative';
+  const canCreateTaskArtifacts = user?.role !== 'stakeholder';
 
   // ── Project ──────────────────────────────────────────────────────────────
   const [project, setProject] = useState<ApiProject | null>(null);
   const [loadingProject, setLoadingProject] = useState(true);
   const [projectError, setProjectError] = useState<string | null>(null);
+  const [savingProjectConfig, setSavingProjectConfig] = useState(false);
+  const [deletingProject, setDeletingProject] = useState(false);
+  const [projectStatus, setProjectStatus] = useState('planning');
+  const [projectEndDate, setProjectEndDate] = useState('');
 
   useEffect(() => {
     if (!projectId) return;
@@ -45,6 +56,11 @@ export default function ProjectDetail() {
       .catch(() => setProjectError('No se pudo cargar el proyecto.'))
       .finally(() => setLoadingProject(false));
   }, [projectId]);
+
+  useEffect(() => {
+    setProjectStatus(normalizeProjectStatus(project?.status) ?? 'planning');
+    setProjectEndDate(project?.end_date ?? '');
+  }, [project?.status, project?.end_date]);
 
   // ── Boards ───────────────────────────────────────────────────────────────
   const { data: boards, loading: loadingBoards } = useApiBoards(projectId);
@@ -64,7 +80,14 @@ export default function ProjectDetail() {
   const { data: users, loading: loadingUsers } = useApiUsers();
   const { data: roles } = useApiRoles();
 
-  const isCreator = !!project && !!user && project.created_by === Number(user.id);
+  const currentUserId = Number(user?.id ?? 0);
+  const currentUserMember = useMemo(
+    () => (members ?? []).find((member) => member.user === currentUserId) ?? null,
+    [members, currentUserId],
+  );
+  const canAccessProject = Boolean(currentUserMember);
+  const isProjectManager = currentUserMember?.role === PROJECT_MANAGER_ROLE_ID;
+  const canManageProject = isProjectManager;
 
   const candidatesToAdd = useMemo(() => {
     if (!users) return [];
@@ -74,6 +97,12 @@ export default function ProjectDetail() {
 
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const handleAddMember = async (userId: number, roleId: number | null) => {
+    if (!canManageProject) {
+      throw new Error('Solo el Project Manager puede agregar miembros.');
+    }
+    if (roleId == null || roleId === PROJECT_MANAGER_ROLE_ID) {
+      throw new Error('Debes asignar Product Owner, Scrum Master o Developer.');
+    }
     try {
       await usersService.addMember(projectId, userId, roleId ?? undefined);
       toast.success('Miembro agregado');
@@ -134,36 +163,171 @@ export default function ProjectDetail() {
   }, [tasks, statuses]);
 
   // ── Days remaining ───────────────────────────────────────────────────────
-  const daysRemaining = useMemo(() => {
-    if (!project?.end_date) return null;
-    return Math.ceil((new Date(project.end_date).getTime() - Date.now()) / 86_400_000);
-  }, [project]);
-
-  const daysLabel = daysRemaining === null
-    ? '—'
-    : daysRemaining < 0 ? 'Vencido'
-    : daysRemaining === 0 ? 'Hoy'
-    : `${daysRemaining}d`;
+  const daysLabel = getProjectDaysLabel(project?.end_date ?? null, project?.status).label;
+  const hasProjectConfigChanges = projectStatus !== (normalizeProjectStatus(project?.status) ?? 'planning') || projectEndDate !== (project?.end_date ?? '');
 
   // ── Assign modal ─────────────────────────────────────────────────────────
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assigningResponsible, setAssigningResponsible] = useState(false);
+  const currentProjectManagerMember = useMemo(
+    () => (members ?? []).find((member) => member.role === PROJECT_MANAGER_ROLE_ID) ?? null,
+    [members, PROJECT_MANAGER_ROLE_ID],
+  );
   const assignCandidates: AssignCandidate[] = useMemo(
     () => (members ?? []).map((m) => ({
       id: m.user,
       name: userMap.get(m.user) ?? `Usuario #${m.user}`,
       email: `user${m.user}@platform`,
-      role: '',
+      role: roleMap.get(m.role ?? 0) ?? 'Sin rol',
     })),
-    [members, userMap],
+    [members, userMap, roleMap],
   );
-  const handleAssign = (userId: number) => {
-    const c = assignCandidates.find((x) => x.id === userId);
-    if (c) toast.success(`Responsable asignado: ${c.name}`);
-    setShowAssignModal(false);
+  const handleAssign = async (userId: number) => {
+    if (!canManageProject) {
+      toast.error('No tienes permisos para reasignar al responsable del proyecto.');
+      return;
+    }
+
+    const nextResponsibleMember = (members ?? []).find((member) => member.user === userId);
+    if (!nextResponsibleMember) {
+      toast.error('La persona seleccionada no pertenece al proyecto.');
+      return;
+    }
+
+    if (currentProjectManagerMember?.user === userId) {
+      setShowAssignModal(false);
+      return;
+    }
+
+    setAssigningResponsible(true);
+    try {
+      await usersService.updateMember(nextResponsibleMember.id, { role: PROJECT_MANAGER_ROLE_ID });
+
+      if (currentProjectManagerMember) {
+        await usersService.updateMember(currentProjectManagerMember.id, {
+          role: DEVELOPER_ROLE_ID,
+        });
+      }
+
+      await refetchMembers();
+      const candidate = assignCandidates.find((x) => x.id === userId);
+      if (candidate) toast.success(`Responsable asignado: ${candidate.name}`);
+      setShowAssignModal(false);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'No se pudo reasignar al responsable.';
+      toast.error(msg);
+    } finally {
+      setAssigningResponsible(false);
+    }
+  };
+
+  const [removingMemberId, setRemovingMemberId] = useState<number | null>(null);
+  const handleRemoveMember = async (memberId: number) => {
+    if (!canManageProject) {
+      toast.error('Solo el Project Manager puede eliminar miembros del proyecto.');
+      return;
+    }
+
+    const member = (members ?? []).find((m) => m.id === memberId);
+    if (!member) {
+      toast.error('No se encontró el miembro seleccionado.');
+      return;
+    }
+
+    if (member.role === PROJECT_MANAGER_ROLE_ID) {
+      toast.error('Reasigna primero al responsable del proyecto.');
+      return;
+    }
+
+    if (!confirm('¿Eliminar este miembro del proyecto?')) {
+      return;
+    }
+
+    setRemovingMemberId(memberId);
+    try {
+      await usersService.removeMember(memberId);
+      await refetchMembers();
+      toast.success('Miembro eliminado del proyecto.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'No se pudo eliminar el miembro.';
+      toast.error(msg);
+    } finally {
+      setRemovingMemberId(null);
+    }
+  };
+
+  const handleProjectStatusSave = async () => {
+    if (!project) return;
+    const apiStatus = getProjectStatusApiValue(projectStatus);
+    if (!apiStatus) {
+      toast.error('Estado de proyecto inválido.');
+      return;
+    }
+    setSavingProjectConfig(true);
+    try {
+      const updated = await projectsService.update(project.id_project, {
+        status: apiStatus,
+        end_date: projectEndDate || undefined,
+      });
+      setProject(updated);
+      toast.success('Configuración del proyecto actualizada.');
+    } catch {
+      toast.error('No se pudo actualizar la configuración del proyecto.');
+    } finally {
+      setSavingProjectConfig(false);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!project) return;
+    if (!confirm(`¿Eliminar el proyecto "${project.name}"? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    setDeletingProject(true);
+    try {
+      await projectsService.delete(project.id_project);
+      toast.success('Proyecto eliminado.');
+      navigate('/projects');
+    } catch {
+      toast.error('No se pudo eliminar el proyecto.');
+      setDeletingProject(false);
+    }
   };
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'resumen' | 'tareas' | 'code-review' | 'repositorios' | 'equipo'>('resumen');
+  const initialQueryTab = searchParams.get('tab');
+  const initialQueryTaskId = Number(searchParams.get('task'));
+  const normalizedInitialTaskId = Number.isNaN(initialQueryTaskId) || initialQueryTaskId <= 0 ? null : initialQueryTaskId;
+
+  const [activeTab, setActiveTab] = useState<'resumen' | 'tareas' | 'code-review' | 'repositorios' | 'equipo' | 'configuracion'>(() => {
+    if (initialQueryTab === 'tareas') return 'tareas';
+    if (initialQueryTab === 'configuracion') return 'configuracion';
+    return 'resumen';
+  });
+  const [initialTaskId, setInitialTaskId] = useState<number | null>(initialQueryTab === 'tareas' ? normalizedInitialTaskId : null);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const taskId = Number(searchParams.get('task'));
+    const normalizedTaskId = Number.isNaN(taskId) || taskId <= 0 ? null : taskId;
+
+    if (tab === 'tareas') {
+      setActiveTab('tareas');
+      setInitialTaskId(normalizedTaskId);
+      return;
+    }
+
+    if (tab === 'configuracion') {
+      setActiveTab('configuracion');
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!canManageProject && activeTab === 'configuracion') {
+      setActiveTab('resumen');
+    }
+  }, [canManageProject, activeTab]);
 
   const loading = loadingProject || loadingBoards;
 
@@ -180,15 +344,27 @@ export default function ProjectDetail() {
     );
   }
 
+  if (!loadingProject && !loadingMembers && !canAccessProject) {
+    return (
+      <div className="px-4 pt-10 text-center">
+        <AlertTriangle className="w-8 h-8 text-destructive mx-auto mb-2" />
+        <p className="text-[13px] text-destructive">No tienes acceso a este proyecto.</p>
+        <button onClick={() => navigate('/projects')} className="mt-3 text-[12px] text-primary hover:underline">
+          Volver a Proyectos
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="px-4 pb-6 pt-3 space-y-3 max-w-[1400px]">
+    <div className="px-4 pb-6 pt-3 max-w-[1400px] min-h-full flex flex-col gap-3">
       <CommandBar
         actions={[
           { label: 'Volver', icon: <ArrowLeft className="w-3.5 h-3.5" />, onClick: () => navigate('/projects') },
           { label: 'Actualizar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: refetchTasks },
-          { label: 'Asignar', icon: <UserPlus className="w-3.5 h-3.5" />, onClick: () => setShowAssignModal(true) },
+          ...(canManageProject ? [{ label: 'Asignar responsable', icon: <UserPlus className="w-3.5 h-3.5" />, onClick: () => setShowAssignModal(true) }] : []),
         ]}
-        rightSlot={project ? <StatusBadge status={(project.status ?? 'neutral') as 'success'|'warning'|'danger'|'info'|'neutral'|'on_track'|'at_risk'|'delayed'} size="sm" /> : null}
+        rightSlot={project ? <StatusBadge status={getProjectStatusBadge(project.status)} text={getProjectStatusLabel(project.status)} size="sm" /> : null}
       />
 
       {/* Header */}
@@ -202,11 +378,11 @@ export default function ProjectDetail() {
           )}
           <div className="flex items-center gap-4 mt-1 text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1">
-              <Calendar className="w-3 h-3" />Inicio: {project.created_at.slice(0, 10)}
+              <Calendar className="w-3 h-3" />Inicio: {formatProjectDate(project.created_at)}
             </span>
             {project.end_date && (
               <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />Fin: {project.end_date}
+                <Clock className="w-3 h-3" />Fin: {formatProjectDate(project.end_date)}
               </span>
             )}
             <span className="flex items-center gap-1">
@@ -249,6 +425,7 @@ export default function ProjectDetail() {
           { id: 'code-review', label: 'Code Review' },
           { id: 'repositorios', label: 'Repositorios' },
           { id: 'equipo', label: 'Equipo', count: (members ?? []).length },
+          ...(canManageProject ? [{ id: 'configuracion', label: 'Configuración', icon: <Settings2 className="w-3.5 h-3.5" /> }] : []),
         ]}
         activeTab={activeTab}
         onTabChange={(id) => setActiveTab(id as typeof activeTab)}
@@ -259,6 +436,7 @@ export default function ProjectDetail() {
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
+        className={activeTab === 'tareas' ? 'flex-1 min-h-0 flex flex-col' : undefined}
       >
         {/* RESUMEN */}
         {activeTab === 'resumen' && (
@@ -271,9 +449,9 @@ export default function ProjectDetail() {
                 {project ? (
                   <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5">
                     {[
-                      { label: 'Estado', value: project.status ?? '—' },
-                      { label: 'Creado', value: project.created_at.slice(0, 10) },
-                      { label: 'Fecha fin', value: project.end_date ?? '—' },
+                      { label: 'Estado', value: getProjectStatusLabel(project.status) },
+                      { label: 'Creado', value: formatProjectDate(project.created_at) },
+                      { label: 'Fecha fin', value: formatProjectDate(project.end_date) },
                       { label: 'Días restantes', value: daysLabel },
                       { label: 'Miembros', value: `${kpis.memberCount} personas` },
                       { label: 'ID', value: `#${project.id_project}` },
@@ -337,16 +515,25 @@ export default function ProjectDetail() {
 
         {/* TAREAS */}
         {activeTab === 'tareas' && (
-          <ProjectTasksWorkspace
-            projectId={projectId}
-            userMap={userMap}
-            assignableUsers={(members ?? []).map((m) => ({
-              id: m.user,
-              name: userMap.get(m.user) ?? `Usuario #${m.user}`,
-            }))}
-            canCreateTasks={canCreateTaskArtifacts}
-            canCreateBoards={canCreateTaskArtifacts}
-          />
+          <div className="flex-1 min-h-0 flex flex-col">
+            <ProjectTasksWorkspace
+              projectId={projectId}
+              userMap={userMap}
+              assignableUsers={(members ?? []).map((m) => ({
+                id: m.user,
+                name: userMap.get(m.user) ?? `Usuario #${m.user}`,
+              }))}
+              canCreateTasks={canCreateTaskArtifacts}
+              canCreateBoards={canCreateTaskArtifacts}
+              initialTaskId={initialTaskId}
+              onInitialTaskHandled={(taskId) => {
+                setInitialTaskId((current) => (current === taskId ? null : current));
+                const nextParams = new URLSearchParams(searchParams);
+                nextParams.delete('task');
+                setSearchParams(nextParams, { replace: true });
+              }}
+            />
+          </div>
         )}
 
         {/* CODE REVIEW */}
@@ -380,7 +567,7 @@ export default function ProjectDetail() {
                   />
                 )}
               </div>
-              {isCreator && (
+              {canManageProject && (
                 <button
                   onClick={() => setShowAddMemberModal(true)}
                   className="flex items-center gap-1.5 text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-[3px] transition-colors"
@@ -413,17 +600,103 @@ export default function ProjectDetail() {
                         </div>
                         <div>
                           <p className="text-[13px] font-medium text-foreground">{name}</p>
-                          <p className="text-[11px] text-muted-foreground">{member.role ? roleName : 'Sin rol'}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-[11px] text-muted-foreground">{member.role ? roleName : 'Sin rol'}</p>
+                            {member.role === PROJECT_MANAGER_ROLE_ID && (
+                              <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                                PM
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <span className="text-[10px] text-muted-foreground">
-                        desde {member.joined_at.slice(0, 10)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground">
+                          desde {member.joined_at.slice(0, 10)}
+                        </span>
+                        {canManageProject && member.role !== PROJECT_MANAGER_ROLE_ID && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMember(member.id)}
+                            disabled={removingMemberId === member.id}
+                            className="h-7 px-2 text-[10px] font-medium text-destructive border border-destructive/30 rounded-[3px] hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                          >
+                            {removingMemberId === member.id ? 'Eliminando…' : 'Eliminar'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'configuracion' && (
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-3">
+            <div className="bg-card border border-border rounded-[4px] p-4">
+              <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-3">
+                Configuración del Proyecto
+              </h2>
+
+              <div className="space-y-3 max-w-md">
+                <div>
+                  <label className="block text-[11px] font-medium text-foreground mb-1">Etapa del proyecto</label>
+                  <select
+                    value={projectStatus}
+                    onChange={(e) => setProjectStatus(e.target.value)}
+                    disabled={!canManageProject || savingProjectConfig}
+                    className="w-full h-8 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:opacity-60"
+                  >
+                    {PROJECT_STATUS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-foreground mb-1">Fecha de entrega</label>
+                  <DatePickerField
+                    value={projectEndDate}
+                    onChange={setProjectEndDate}
+                    disabled={!canManageProject || savingProjectConfig}
+                    placeholder="Selecciona una fecha de entrega"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleProjectStatusSave}
+                  disabled={!canManageProject || savingProjectConfig || !hasProjectConfigChanges}
+                  className="h-8 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50"
+                >
+                  {savingProjectConfig ? 'Guardando…' : 'Guardar cambios'}
+                </button>
+
+                {!canManageProject && (
+                  <p className="text-[11px] text-muted-foreground">Solo administradores y project managers pueden modificar la configuración.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-card border border-destructive/20 rounded-[4px] p-4 h-fit">
+              <h2 className="text-[10px] font-medium text-destructive uppercase tracking-[0.06em] mb-2">
+                Zona Peligrosa
+              </h2>
+              <p className="text-[11px] text-muted-foreground mb-3">
+                Eliminar este proyecto también removerá su acceso desde la vista principal.
+              </p>
+              <button
+                type="button"
+                onClick={handleDeleteProject}
+                disabled={!canManageProject || deletingProject}
+                className="h-8 px-3 bg-destructive hover:bg-destructive/90 text-white rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {deletingProject ? 'Eliminando…' : 'Eliminar proyecto'}
+              </button>
+            </div>
           </div>
         )}
       </motion.div>
@@ -432,7 +705,7 @@ export default function ProjectDetail() {
         open={showAddMemberModal}
         onOpenChange={setShowAddMemberModal}
         candidates={candidatesToAdd}
-        roles={roles ?? []}
+        roles={(roles ?? []).filter((role) => role.id_role !== PROJECT_MANAGER_ROLE_ID)}
         onSubmit={handleAddMember}
       />
 
@@ -440,7 +713,10 @@ export default function ProjectDetail() {
         open={showAssignModal}
         onOpenChange={setShowAssignModal}
         candidates={assignCandidates}
+        currentResponsibleId={currentProjectManagerMember?.user}
         onAssign={handleAssign}
+        loading={assigningResponsible}
+        title="Asignar responsable"
       />
     </div>
   );

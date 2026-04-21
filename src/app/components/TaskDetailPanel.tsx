@@ -6,11 +6,27 @@ import {
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { tasksService } from '../../services';
-import type { ApiTask, ApiTaskStatus, ApiTaskPriority, ApiTaskComment, ApiTaskWarning } from '../../services';
+import type { ApiTask, ApiTaskStatus, ApiTaskPriority, ApiTaskComment, ApiTaskWarning, ApiTaskAssignment } from '../../services';
 import { WarningBadge } from './WarningBadge';
+import { TaskAssigneePicker } from './TaskAssigneePicker';
+import { DatePickerField } from './DatePickerField';
 import { useAuth } from '../context/AuthContext';
 
 const DONE_STATUS_NAMES = new Set(['done', 'completada', 'completado']);
+const EMPTY_ASSIGNABLE_USERS: Array<{ id: number; name: string }> = [];
+const EMPTY_TASK_ASSIGNMENTS: ApiTaskAssignment[] = [];
+
+function formatCommentTimestamp(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 interface TaskDetailPanelProps {
   task: ApiTask | null;
@@ -18,6 +34,7 @@ interface TaskDetailPanelProps {
   priorities: ApiTaskPriority[];
   userMap: Map<number, string>;
   assignableUsers?: Array<{ id: number; name: string }>;
+  taskAssignments?: ApiTaskAssignment[];
   canEditAssignment?: boolean;
   onClose: () => void;
   onStatusChange: (task: ApiTask, newStatusId: number) => void;
@@ -29,7 +46,8 @@ export function TaskDetailPanel({
   statuses,
   priorities,
   userMap,
-  assignableUsers = [],
+  assignableUsers = EMPTY_ASSIGNABLE_USERS,
+  taskAssignments = EMPTY_TASK_ASSIGNMENTS,
   canEditAssignment = true,
   onClose,
   onStatusChange,
@@ -57,10 +75,15 @@ export function TaskDetailPanel({
     description: '',
     status: '',
     priority: '',
-    assignedTo: '',
+    assignedTo: [] as string[],
     dueDate: '',
     completed: false,
   });
+
+  const currentTaskAssignments = useMemo(
+    () => (task ? taskAssignments.filter((assignment) => assignment.task === task.id_task) : []),
+    [task, taskAssignments],
+  );
 
   const doneStatusIds = useMemo(
     () => new Set(statuses.filter((s) => DONE_STATUS_NAMES.has(s.name.trim().toLowerCase())).map((s) => s.id_status)),
@@ -76,32 +99,65 @@ export function TaskDetailPanel({
       description: task.description ?? '',
       status: task.status != null ? String(task.status) : '',
       priority: task.priority != null ? String(task.priority) : '',
-      assignedTo: task.assigned_to != null ? String(task.assigned_to) : '',
+      assignedTo: currentTaskAssignments.length > 0
+        ? currentTaskAssignments.map((assignment) => String(assignment.assigned_to))
+        : task.assigned_to != null ? [String(task.assigned_to)] : [],
       dueDate: task.due_date ?? '',
       completed: Boolean(task.completed_at),
     });
+  }, [task, currentTaskAssignments]);
 
+  useEffect(() => {
+    if (!task) return;
+
+    let cancelled = false;
+    const targetTaskId = task.id_task;
+
+    setEditingCommentId(null);
+    setEditingCommentContent('');
+    setNewComment('');
+    setComments([]);
+    setWarnings([]);
     setLoadingComments(true);
     setLoadingWarnings(true);
 
-    tasksService.listComments(task.id_task)
-      .then(setComments)
-      .catch(() => setComments([]))
-      .finally(() => setLoadingComments(false));
+    tasksService.listComments(targetTaskId)
+      .then((nextComments) => {
+        if (!cancelled) setComments(nextComments);
+      })
+      .catch(() => {
+        if (!cancelled) setComments([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingComments(false);
+      });
 
-    tasksService.listWarnings({ task_id: task.id_task, status: 'active' })
-      .then(setWarnings)
-      .catch(() => setWarnings([]))
-      .finally(() => setLoadingWarnings(false));
-  }, [task]);
+    tasksService.listWarnings({ task_id: targetTaskId, status: 'active' })
+      .then((nextWarnings) => {
+        if (!cancelled) setWarnings(nextWarnings);
+      })
+      .catch(() => {
+        if (!cancelled) setWarnings([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingWarnings(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [task?.id_task]);
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!task || !newComment.trim()) return;
     setSendingComment(true);
     try {
-      const created = await tasksService.addComment(task.id_task, newComment.trim());
-      setComments((prev) => [...prev, created]);
+      const created = await tasksService.addComment(task.id_task, newComment.trim(), currentUserId ?? undefined);
+      const createdWithUser = created.user == null && currentUserId != null
+        ? { ...created, user: currentUserId }
+        : created;
+      setComments((prev) => [...prev, createdWithUser]);
       setNewComment('');
       toast.success('Comentario agregado');
     } catch {
@@ -151,10 +207,22 @@ export function TaskDetailPanel({
         description: taskForm.description.trim() || null,
         status: taskForm.status ? Number(taskForm.status) : null,
         priority: taskForm.priority ? Number(taskForm.priority) : null,
-        assigned_to: taskForm.assignedTo ? Number(taskForm.assignedTo) : null,
+        assigned_to: taskForm.assignedTo.length > 0 ? Number(taskForm.assignedTo[0]) : null,
         due_date: taskForm.dueDate || null,
         completed_at: taskForm.completed ? (task.completed_at ?? new Date().toISOString()) : null,
       });
+
+      const nextAssignedIds = new Set(taskForm.assignedTo.map((value) => Number(value)));
+      const currentAssignedIds = new Set(currentTaskAssignments.map((assignment) => assignment.assigned_to));
+
+      const assignmentsToCreate = Array.from(nextAssignedIds).filter((assignedId) => !currentAssignedIds.has(assignedId));
+      const assignmentsToDelete = currentTaskAssignments.filter((assignment) => !nextAssignedIds.has(assignment.assigned_to));
+
+      await Promise.all([
+        ...assignmentsToCreate.map((assignedId) => tasksService.createAssignment({ task: task.id_task, assigned_to: assignedId })),
+        ...assignmentsToDelete.map((assignment) => tasksService.deleteAssignment(assignment.id)),
+      ]);
+
       onTaskUpdated?.(updated);
       setIsEditingTask(false);
       toast.success('Historia actualizada');
@@ -167,7 +235,9 @@ export function TaskDetailPanel({
 
   const st = task ? statuses.find((s) => s.id_status === task.status) : null;
   const pr = task ? priorities.find((p) => p.id_priority === task.priority) : null;
-  const assignedName = task?.assigned_to ? (userMap.get(task.assigned_to) ?? `#${task.assigned_to}`) : null;
+  const assignedNames = currentTaskAssignments.length > 0
+    ? currentTaskAssignments.map((assignment) => userMap.get(assignment.assigned_to) ?? `#${assignment.assigned_to}`)
+    : task?.assigned_to ? [userMap.get(task.assigned_to) ?? `#${task.assigned_to}`] : [];
   const createdByName = task?.created_by ? (userMap.get(task.created_by) ?? `#${task.created_by}`) : 'Sistema';
   const isOverdue = task && !task.completed_at && task.due_date && new Date(task.due_date) < new Date();
   const activeWarnings = warnings.filter((w) => w.status === 'active');
@@ -275,28 +345,29 @@ export function TaskDetailPanel({
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[11px] font-medium text-foreground mb-1">Asignado</label>
-                      <select
-                        value={taskForm.assignedTo}
-                        onChange={(e) => setTaskForm((prev) => ({ ...prev, assignedTo: e.target.value }))}
+                      <TaskAssigneePicker
+                        users={assignableUsers}
+                        selectedIds={taskForm.assignedTo.map((value) => Number(value))}
+                        onChange={(selectedIds) => setTaskForm((prev) => ({
+                          ...prev,
+                          assignedTo: selectedIds.map((id) => String(id)),
+                        }))}
                         disabled={!canEditAssignment}
-                        className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
-                      >
-                        <option value="">Sin asignar</option>
-                        {assignableUsers.map((u) => (
-                          <option key={u.id} value={u.id}>{u.name}</option>
-                        ))}
-                      </select>
+                        emptyText="Sin personas asignadas"
+                      />
                       {!canEditAssignment && (
                         <p className="text-[10px] text-muted-foreground mt-1">Tu rol no puede reasignar tareas.</p>
+                      )}
+                      {canEditAssignment && (
+                        <p className="text-[10px] text-muted-foreground mt-1">La primera persona seleccionada se mantiene como responsable principal para compatibilidad.</p>
                       )}
                     </div>
                     <div>
                       <label className="block text-[11px] font-medium text-foreground mb-1">Fecha limite</label>
-                      <input
-                        type="date"
+                      <DatePickerField
                         value={taskForm.dueDate}
-                        onChange={(e) => setTaskForm((prev) => ({ ...prev, dueDate: e.target.value }))}
-                        className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                        onChange={(value) => setTaskForm((prev) => ({ ...prev, dueDate: value }))}
+                        placeholder="Selecciona una fecha"
                       />
                     </div>
                   </div>
@@ -362,12 +433,13 @@ export function TaskDetailPanel({
                     {task.completed_at ? 'Completada' : st?.name ?? '—'}
                   </span>
                 </div>
-                {assignedName && (
+                {assignedNames.length > 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-[0.06em]">Asignado</span>
-                    <span className="text-[11px] text-foreground flex items-center gap-1">
-                      <User className="w-3 h-3" />{assignedName}
-                    </span>
+                    <div className="text-[11px] text-foreground flex items-center gap-1 flex-wrap justify-end max-w-[220px]">
+                      <User className="w-3 h-3 shrink-0" />
+                      <span className="text-right">{assignedNames.join(', ')}</span>
+                    </div>
                   </div>
                 )}
                 {task.due_date && (
@@ -451,7 +523,7 @@ export function TaskDetailPanel({
                             {c.user ? (userMap.get(c.user) ?? `User #${c.user}`) : 'Sistema'}
                           </span>
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-muted-foreground">{c.created_at.slice(0, 10)}</span>
+                            <span className="text-[10px] text-muted-foreground">{formatCommentTimestamp(c.created_at)}</span>
                             {currentUserId != null && c.user === currentUserId && (
                               <>
                                 <button

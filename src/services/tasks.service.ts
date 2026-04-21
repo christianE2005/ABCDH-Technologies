@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { ApiTask, ApiTaskStatus, ApiTaskPriority, ApiTaskComment, ApiBoard, ApiTaskWarning } from './types';
+import type { ApiTask, ApiTaskStatus, ApiTaskPriority, ApiTaskComment, ApiBoard, ApiTaskWarning, ApiTaskAssignment } from './types';
 
 export interface CreateTaskPayload {
   board: number;
@@ -24,6 +24,16 @@ export interface UpdateTaskPayload {
 
 export interface UpdateTaskCommentPayload {
   content: string;
+}
+
+export interface CreateTaskAssignmentPayload {
+  task: number;
+  assigned_to: number;
+}
+
+export interface UpdateTaskAssignmentPayload {
+  task?: number;
+  assigned_to?: number;
 }
 
 export const tasksService = {
@@ -70,8 +80,12 @@ export const tasksService = {
     return api.get<ApiTaskComment[]>(`/task-comments/?task=${taskId}`);
   },
 
-  addComment(taskId: number, content: string): Promise<ApiTaskComment> {
-    return api.post<ApiTaskComment>('/task-comments/', { task: taskId, content });
+  addComment(taskId: number, content: string, userId?: number): Promise<ApiTaskComment> {
+    return api.post<ApiTaskComment>('/task-comments/', {
+      task: taskId,
+      content,
+      ...(typeof userId === 'number' && userId > 0 ? { user: userId } : {}),
+    });
   },
 
   updateComment(commentId: number, payload: UpdateTaskCommentPayload): Promise<ApiTaskComment> {
@@ -90,6 +104,24 @@ export const tasksService = {
 
   createBoard(projectId: number, name: string, description?: string): Promise<ApiBoard> {
     return api.post<ApiBoard>('/boards/', { project: projectId, name, description });
+  },
+
+  // ── Task assignments ────────────────────────────────────────────
+  listAssignments(taskId?: number): Promise<ApiTaskAssignment[]> {
+    const url = taskId ? `/task-assignments/?task=${taskId}` : '/task-assignments/';
+    return api.get<ApiTaskAssignment[]>(url);
+  },
+
+  createAssignment(payload: CreateTaskAssignmentPayload): Promise<ApiTaskAssignment> {
+    return api.post<ApiTaskAssignment>('/task-assignments/', payload);
+  },
+
+  updateAssignment(id: number, payload: UpdateTaskAssignmentPayload): Promise<ApiTaskAssignment> {
+    return api.patch<ApiTaskAssignment>(`/task-assignments/${id}/`, payload);
+  },
+
+  deleteAssignment(id: number): Promise<void> {
+    return api.delete<void>(`/task-assignments/${id}/`);
   },
 
   // ── Warnings ───────────────────────────────────────────────────

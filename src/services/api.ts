@@ -6,6 +6,21 @@ const BASE_URL = import.meta.env.VITE_API_TARGET || 'https://abcdhtechnologiesba
 // ─── Token storage keys ──────────────────────────────────────────────────────
 const STORAGE_ACCESS = 'pip_access_token';
 const STORAGE_REFRESH = 'pip_refresh_token';
+export const AUTH_SESSION_EXPIRED_EVENT = 'pip:auth-session-expired';
+
+function emitSessionExpired() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(AUTH_SESSION_EXPIRED_EVENT));
+}
+
+function isSessionExpiredError(status: number, body: ApiError): boolean {
+  if (status === 401) return true;
+
+  const detail = String(body?.detail ?? '').toLowerCase();
+  return (status === 403 || status === 400)
+    && detail.includes('token')
+    && (detail.includes('expir') || detail.includes('venc'));
+}
 
 export const tokenStore = {
   getAccess: () => localStorage.getItem(STORAGE_ACCESS),
@@ -60,19 +75,23 @@ async function request<T>(
     if (refreshed) {
       headers['Authorization'] = `Bearer ${tokenStore.getAccess()}`;
       const retry = await fetch(`${BASE_URL}${path}`, { ...options, headers });
-      return handleResponse<T>(retry);
+      return handleResponse<T>(retry, auth);
     }
     // Refresh failed — clear tokens and bubble up
-    tokenStore.clear();
+    return handleResponse<T>(res, auth);
   }
 
-  return handleResponse<T>(res);
+  return handleResponse<T>(res, auth);
 }
 
-async function handleResponse<T>(res: Response): Promise<T> {
+async function handleResponse<T>(res: Response, authRequest = true): Promise<T> {
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (authRequest && isSessionExpiredError(res.status, data as ApiError)) {
+      tokenStore.clear();
+      emitSessionExpired();
+    }
     console.error(`[API] Error ${res.status} from ${res.url}:`, data);
     throw new ApiRequestError(res.status, data as ApiError);
   }

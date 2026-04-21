@@ -1,57 +1,125 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { User, Mail, Shield, Moon, Sun, Lock, Loader2 } from 'lucide-react';
+import { User, Mail, Shield, Moon, Sun, Lock, Loader2, KeyRound, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
-import { useApiProjects } from '../hooks/useProjectData';
+import { useApiProjectMembers, useApiProjects } from '../hooks/useProjectData';
 import { StatusBadge } from '../components/StatusBadge';
 import { GitHubConnectSection } from '../components/GitHubConnectSection';
 import { usersService } from '../../services';
-
-function getDaysRemaining(endDate: string | null) {
-  if (!endDate) return null;
-  return Math.ceil((new Date(endDate).getTime() - Date.now()) / 86_400_000);
-}
-
-function getDaysLabel(days: number | null) {
-  if (days === null) return { label: '—', cls: 'text-muted-foreground' };
-  if (days < 0) return { label: 'Vencido', cls: 'text-destructive font-semibold' };
-  if (days === 0) return { label: 'Hoy', cls: 'text-destructive font-semibold' };
-  if (days <= 7) return { label: `${days}d`, cls: 'text-warning font-semibold' };
-  return { label: `${days}d`, cls: 'text-muted-foreground' };
-}
+import { getUserRoleLabel } from '../utils/roles';
+import { compareProjectsForGenericPriority, getProjectStatusBadge, getProjectStatusLabel, shouldShowInGenericProjectDisplays } from '../utils/projectStatus';
+import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, syncUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
+  const [securitySaving, setSecuritySaving] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
   });
+  const [passwordData, setPasswordData] = useState({
+    password: '',
+    confirmPassword: '',
+  });
 
   const userId = Number(user?.id ?? 0);
   const { data: projects, loading: loadingProjects } = useApiProjects();
-  const myProjects = projects ?? [];
+  const { data: memberRows, loading: loadingMemberRows } = useApiProjectMembers(undefined, userId > 0 ? userId : undefined);
+  const visibleProjects = useMemo(() => {
+    const allowedProjectIds = new Set((memberRows ?? []).map((member) => member.project));
+    return (projects ?? []).filter((project) => allowedProjectIds.has(project.id_project));
+  }, [projects, memberRows]);
+  const genericProjects = useMemo(
+    () => [...visibleProjects].filter((project) => shouldShowInGenericProjectDisplays(project.status)).sort(compareProjectsForGenericPriority),
+    [visibleProjects],
+  );
+  const profileProjects = genericProjects.slice(0, 6);
+  useEffect(() => {
+    setFormData({
+      name: user?.name || '',
+      email: user?.email || '',
+    });
+  }, [user?.name, user?.email]);
+
+  const roleLabel = useMemo(() => (user ? getUserRoleLabel(user.role) : 'Usuario'), [user]);
+
+  const resetEditingState = () => {
+    setFormData({
+      name: user?.name || '',
+      email: user?.email || '',
+    });
+    setEditing(false);
+  };
 
   const handleSave = async () => {
     if (!userId) return;
+
+    const trimmedName = formData.name.trim();
+    const trimmedEmail = formData.email.trim();
+
+    if (!trimmedName || !trimmedEmail) {
+      toast.error('Nombre y correo son obligatorios');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      toast.error('Por favor ingresa un correo electrónico válido');
+      return;
+    }
+
     setSaving(true);
     try {
-      await usersService.update(userId, {
-        username: formData.name,
-        email: formData.email,
+      const updatedUser = await usersService.update(userId, {
+        username: trimmedName,
+        email: trimmedEmail,
       });
+      syncUser(updatedUser);
       setEditing(false);
       toast.success('Perfil actualizado exitosamente');
     } catch {
       toast.error('Error al actualizar el perfil');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSecuritySave = async () => {
+    if (!userId) return;
+
+    if (!passwordData.password || !passwordData.confirmPassword) {
+      toast.error('Completa ambos campos de contraseña');
+      return;
+    }
+
+    if (passwordData.password.length < 8) {
+      toast.error('La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+
+    if (passwordData.password !== passwordData.confirmPassword) {
+      toast.error('Las contraseñas no coinciden');
+      return;
+    }
+
+    setSecuritySaving(true);
+    try {
+      await usersService.update(userId, { password: passwordData.password });
+      setPasswordData({ password: '', confirmPassword: '' });
+      setShowSecurityModal(false);
+      toast.success('Contraseña actualizada exitosamente');
+    } catch {
+      toast.error('Error al actualizar la contraseña');
+    } finally {
+      setSecuritySaving(false);
     }
   };
 
@@ -67,23 +135,24 @@ export default function Profile() {
           <div className="bg-card border border-border border-l-[3px] border-l-primary rounded-[4px] p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[12px] font-semibold text-foreground">Información Personal</h2>
-              {user?.role !== 'admin' && (
+              <div className="flex items-center gap-2">
+                {editing && (
+                  <button
+                    onClick={resetEditingState}
+                    className="px-3 py-1.5 rounded-md text-xs font-medium bg-secondary hover:bg-accent text-foreground transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                )}
                 <button
-                  onClick={() => setEditing(!editing)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    editing
-                      ? 'bg-secondary hover:bg-accent text-foreground'
-                      : 'bg-primary hover:bg-primary-hover text-primary-foreground'
-                  }`}
+                  onClick={editing ? handleSave : () => setEditing(true)}
+                  disabled={saving}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary hover:bg-primary-hover text-primary-foreground transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
                 >
-                  {editing ? 'Cancelar' : 'Editar'}
+                  {saving && <Loader2 className="w-3 h-3 animate-spin" />}
+                  {editing ? (saving ? 'Guardando…' : 'Guardar cambios') : 'Editar'}
                 </button>
-              )}
-              {user?.role === 'admin' && (
-                <div className="px-3 py-1 rounded-md text-xs font-medium text-muted-foreground bg-secondary/50">
-                  Solo lectura
-                </div>
-              )}
+              </div>
             </div>
 
             <div className="flex items-center gap-3 mb-4 pb-4 border-b border-border">
@@ -94,7 +163,7 @@ export default function Profile() {
               </div>
               <div>
                 <h3 className="text-[13px] font-semibold text-foreground">{user?.name}</h3>
-                <p className="text-[10px] text-muted-foreground capitalize">{user?.role.replace('_', ' ')}</p>
+                <p className="text-[10px] text-muted-foreground">{roleLabel}</p>
               </div>
             </div>
 
@@ -128,96 +197,76 @@ export default function Profile() {
                   <Shield className="w-3 h-3 inline mr-1" /> Rol
                 </label>
                 <div className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-muted-foreground capitalize flex items-center">
-                  {user?.role.replace('_', ' ')}
+                  {roleLabel}
                 </div>
               </div>
-
-              {editing && user?.role !== 'admin' && (
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="w-full h-7 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-                >
-                  {saving && <Loader2 className="w-3 h-3 animate-spin" />}
-                  {saving ? 'Guardando…' : 'Guardar'}
-                </button>
-              )}
             </div>
           </div>
 
-          {/* My project memberships - Only show for non-admins */}
-          {user?.role !== 'admin' && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-              className="bg-card border border-border rounded-[4px] overflow-hidden"
-            >
-              <div className="px-4 py-3 border-b border-border">
-                <h2 className="text-[12px] font-semibold text-foreground">
-                  Mis Proyectos ({myProjects.length})
-                </h2>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+            className="bg-card border border-border rounded-[4px] overflow-hidden"
+          >
+            <div className="px-4 py-3 border-b border-border">
+              <h2 className="text-[12px] font-semibold text-foreground">Mis Proyectos</h2>
+            </div>
+            {loadingProjects || loadingMemberRows ? (
+              <div className="p-4 space-y-2">
+                {[1, 2, 3].map((i) => <div key={i} className="h-8 animate-pulse bg-secondary rounded" />)}
               </div>
-              {loadingProjects ? (
-                <div className="p-4 space-y-2">
-                  {[1, 2, 3].map((i) => <div key={i} className="h-8 animate-pulse bg-secondary rounded" />)}
-                </div>
-              ) : myProjects.length === 0 ? (
-                <div className="py-12 text-center">
-                  <p className="text-[11px] text-muted-foreground">No tienes proyectos asignados.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[600px]">
-                    <thead>
-                      <tr className="border-b border-border bg-surface-secondary/50">
-                        <th className="text-left py-1.5 px-4 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Proyecto</th>
-                        <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</th>
-                        <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Fecha Fin</th>
-                        <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Días rest.</th>
-                        <th className="py-1.5 px-3 w-[60px]" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {myProjects.map((project, i) => {
-                        const days = getDaysRemaining(project.end_date);
-                        const dl = getDaysLabel(days);
-                        return (
-                          <motion.tr
-                            key={project.id_project}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.25, delay: i * 0.04, ease: 'easeOut' }}
-                            className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors group cursor-pointer"
-                            onClick={() => navigate(`/projects/${project.id_project}`)}
-                          >
-                            <td className="py-1.5 px-4">
-                              <p className="text-[12px] font-medium text-foreground truncate max-w-[220px]">{project.name}</p>
-                              {project.description && (
-                                <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{project.description}</p>
-                              )}
-                            </td>
-                            <td className="py-1.5 px-3">
-                              <StatusBadge status={(project.status ?? 'neutral') as 'success'|'warning'|'danger'|'info'|'neutral'|'on_track'|'at_risk'|'delayed'} size="sm" />
-                            </td>
-                            <td className="py-1.5 px-3 text-[11px] text-muted-foreground whitespace-nowrap">{project.end_date ?? '—'}</td>
-                            <td className="py-1.5 px-3">
-                              <span className={`text-[12px] ${dl.cls}`}>{dl.label}</span>
-                            </td>
-                            <td className="py-1.5 px-3 text-right">
-                              <span className="text-[11px] text-primary opacity-0 group-hover:opacity-100 transition-opacity font-medium whitespace-nowrap">
-                                →
-                              </span>
-                            </td>
-                          </motion.tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </motion.div>
-          )}
+            ) : profileProjects.length === 0 ? (
+              <div className="py-12 text-center">
+                <p className="text-[11px] text-muted-foreground">No hay proyectos activos para mostrar.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full table-fixed min-w-[520px]">
+                  <colgroup>
+                    <col className="w-[40%]" />
+                    <col className="w-[24%]" />
+                    <col className="w-[22%]" />
+                    <col className="w-[14%]" />
+                  </colgroup>
+                  <thead>
+                    <tr className="border-b border-border bg-surface-secondary/50">
+                      <th className="text-left py-1.5 px-4 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Proyecto</th>
+                      <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</th>
+                      <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Fecha Fin</th>
+                      <th className="text-left py-1.5 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Días rest.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {profileProjects.map((project, i) => {
+                      const dl = getProjectDaysLabel(project.end_date, project.status);
+                      return (
+                        <motion.tr
+                          key={project.id_project}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.25, delay: i * 0.04, ease: 'easeOut' }}
+                          className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors group cursor-pointer"
+                          onClick={() => navigate(`/projects/${project.id_project}`)}
+                        >
+                          <td className="py-1.5 px-4">
+                            <p className="text-[12px] font-medium text-foreground truncate">{project.name}</p>
+                          </td>
+                          <td className="py-1.5 px-3">
+                            <StatusBadge status={getProjectStatusBadge(project.status)} text={getProjectStatusLabel(project.status)} size="sm" />
+                          </td>
+                          <td className="py-1.5 px-3 text-[11px] text-muted-foreground whitespace-nowrap">{formatProjectDate(project.end_date)}</td>
+                          <td className="py-1.5 px-3">
+                            <span className={`text-[12px] ${dl.cls}`}>{dl.label}</span>
+                          </td>
+                        </motion.tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </motion.div>
         </div>
 
         {/* Sidebar */}
@@ -241,42 +290,98 @@ export default function Profile() {
             </button>
           </div>
 
-          {/* Security section - Only show for non-admins */}
-          {user?.role !== 'admin' && (
-            <div className="bg-card border border-border rounded-[4px] p-4">
-              <h2 className="text-[12px] font-semibold text-foreground mb-2">Seguridad</h2>
-              <div className="space-y-1">
-                {[
-                  { title: 'Cambiar contraseña', desc: 'Actualizar credenciales' },
-                  { title: 'Sesiones activas', desc: 'Ver dispositivos conectados' },
-                ].map((item) => (
-                  <button
-                    key={item.title}
-                    onClick={() => toast.info(item.title)}
-                    className="w-full text-left py-2 px-3 border border-border rounded-[4px] hover:border-primary/40 hover:bg-accent/30 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Lock className="w-3 h-3 text-muted-foreground" />
-                      <div>
-                        <p className="text-[12px] font-medium text-foreground">{item.title}</p>
-                        <p className="text-[10px] text-muted-foreground">{item.desc}</p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
+          <div className="bg-card border border-border rounded-[4px] p-4">
+            <h2 className="text-[12px] font-semibold text-foreground mb-2">Seguridad</h2>
+            <div className="rounded-[4px] border border-border p-3 bg-surface-secondary/30">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2">
+                  <Lock className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-[12px] font-medium text-foreground">Contraseña</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Gestiona tus credenciales desde una ventana independiente.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSecurityModal(true)}
+                  className="h-7 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors inline-flex items-center gap-1.5"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  Cambiar
+                </button>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* GitHub Connection - Only show for Users and Project Managers */}
-          {(user?.role === 'user' || user?.role === 'project_manager') && (
-            <div className="bg-card border border-border rounded-[4px] p-4">
-              <h2 className="text-[12px] font-semibold text-foreground mb-3">GitHub</h2>
-              <GitHubConnectSection />
-            </div>
-          )}
+          <div className="bg-card border border-border rounded-[4px] p-4">
+            <h2 className="text-[12px] font-semibold text-foreground mb-3">GitHub</h2>
+            <GitHubConnectSection />
+          </div>
         </div>
       </div>
+
+      {showSecurityModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setShowSecurityModal(false)}>
+          <div className="bg-card border border-border rounded-[4px] p-5 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-[13px] font-semibold text-foreground">Actualizar contraseña</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Este cambio es independiente de la edición del perfil.</p>
+              </div>
+              <button type="button" onClick={() => setShowSecurityModal(false)} className="p-0.5 rounded-[3px] hover:bg-surface-secondary transition-colors">
+                <X className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-medium text-foreground mb-1">Nueva contraseña</label>
+                <input
+                  type="password"
+                  value={passwordData.password}
+                  onChange={(e) => setPasswordData((prev) => ({ ...prev, password: e.target.value }))}
+                  placeholder="Minimo 8 caracteres"
+                  className="w-full h-8 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[12px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-foreground mb-1">Confirmar contraseña</label>
+                <input
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                  placeholder="Repite la nueva contraseña"
+                  className="w-full h-8 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[12px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPasswordData({ password: '', confirmPassword: '' });
+                    setShowSecurityModal(false);
+                  }}
+                  className="flex-1 h-8 border border-border rounded-[3px] text-[11px] font-medium text-foreground hover:bg-surface-secondary transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSecuritySave}
+                  disabled={securitySaving}
+                  className="flex-1 h-8 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+                >
+                  {securitySaving && <Loader2 className="w-3 h-3 animate-spin" />}
+                  {securitySaving ? 'Guardando…' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

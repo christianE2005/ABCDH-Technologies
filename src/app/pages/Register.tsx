@@ -27,9 +27,9 @@ export default function Register() {
         // Fallback: known roles if endpoint requires auth
         setSystemRoles([
           { id_system_role: 1, name: 'Admin', description: 'Administrador del sistema' },
-          { id_system_role: 2, name: 'Project Manager', description: 'Gestor de proyectos' },
-          { id_system_role: 3, name: 'Operative', description: 'Usuario operativo' },
-          { id_system_role: 4, name: 'Executive', description: 'Directivo' },
+          { id_system_role: 2, name: 'User', description: 'Usuario de la plataforma' },
+          { id_system_role: 3, name: 'Stakeholder', description: 'Usuario con acceso de consulta' },
+          { id_system_role: 4, name: 'Project Manager', description: 'Gestor de proyectos' },
         ]);
       });
   }, []);
