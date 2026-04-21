@@ -300,21 +300,32 @@ export default function Dashboard() {
                 Ver Backlog <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
-            {myTasks.length === 0 ? (
-              <div className="py-8 text-center text-[12px] text-muted-foreground">Sin tareas asignadas pendientes.</div>
-            ) : (
-              <div className="divide-y divide-border">
-                {myTasks.slice(0, 6).map((task) => {
-                  const isOverdue = task.due_date && new Date(task.due_date) < new Date();
-                  return (
-                    <div key={task.id_task} className="px-4 py-2 hover:bg-accent/30 transition-colors flex items-center gap-3">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                      <p className="text-[12px] font-medium text-foreground truncate flex-1">{task.title}</p>
-                      {task.due_date && (
-                        <span className={`text-[10px] whitespace-nowrap ${isOverdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
-                          {task.due_date}
-                        </span>
-                      )}
+          )}
+        </motion.div>
+
+        {/* Recent Push Activity */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.45, ease: 'easeOut' }}
+          className="bg-card border border-border rounded-[4px]"
+        >
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+            <h2 className="text-[13px] font-semibold text-foreground">Actividad Reciente (Git)</h2>
+          </div>
+          {!pushes || pushes.length === 0 ? (
+            <div className="py-8 text-center text-[12px] text-muted-foreground">Sin push events recientes.</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {pushes.slice(0, 5).map((push) => {
+                const commitCount = Array.isArray(push.commits) ? push.commits.length : 0;
+                return (
+                  <div key={push.id_push} className="px-4 py-2 hover:bg-accent/30 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-medium text-foreground">{push.pusher ?? 'unknown'}</span>
+                      <span className="text-[10px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded-[2px]">
+                        {push.ref?.replace('refs/heads/', '') ?? 'main'}
+                      </span>
                     </div>
                   );
                 })}
