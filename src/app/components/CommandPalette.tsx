@@ -19,7 +19,6 @@ import {
   ListChecks,
   CircleUser,
   SlidersHorizontal,
-  ScrollText,
   Moon,
   Sun,
   LogOut,
@@ -41,7 +40,6 @@ const navCommands: NavCommand[] = [
   { name: 'Backlog', path: '/backlog', icon: ListChecks, keywords: 'tareas tasks kanban board' },
   { name: 'Mi Perfil', path: '/profile', icon: CircleUser, keywords: 'perfil profile usuario user' },
   { name: 'Configuración', path: '/settings', icon: SlidersHorizontal, keywords: 'settings ajustes preferences' },
-  { name: 'Logs del Sistema', path: '/logs', icon: ScrollText, roles: ['admin'], keywords: 'audit registros sistema' },
 ];
 
 

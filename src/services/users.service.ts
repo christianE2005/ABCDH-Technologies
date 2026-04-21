@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { ApiUserAccount, ApiProjectMember, ApiRole, ApiActivityLog } from './types';
+import type { ApiUserAccount, ApiProjectMember, ApiRole, ApiActivityLog, ApiSystemRole } from './types';
 
 export const usersService = {
   /** GET /api/user-accounts/ */
@@ -18,13 +18,18 @@ export const usersService = {
   },
 
   /** PATCH /api/user-accounts/:id/ */
-update(id: number, payload: Partial<Pick<ApiUserAccount, 'email' | 'username'> & { password: string }>): Promise<ApiUserAccount> {
-  return api.patch<ApiUserAccount>(`/user-accounts/${id}/`, payload);
-},
+  update(id: number, payload: Partial<Pick<ApiUserAccount, 'email' | 'username' | 'system_role'> & { password: string }>): Promise<ApiUserAccount> {
+    return api.patch<ApiUserAccount>(`/user-accounts/${id}/`, payload);
+  },
 
   /** DELETE /api/user-accounts/:id/ */
   delete(id: number): Promise<void> {
     return api.delete<void>(`/user-accounts/${id}/`);
+  },
+
+  /** GET /api/system-roles/ */
+  listSystemRoles(): Promise<ApiSystemRole[]> {
+    return api.get<ApiSystemRole[]>('/system-roles/');
   },
 
   // ── Project members ────────────────────────────────────────────

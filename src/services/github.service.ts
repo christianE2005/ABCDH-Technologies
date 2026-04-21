@@ -23,6 +23,11 @@ export const githubService = {
     return api.get<GitHubConnectionStatusResponse>('/github/connection/status/');
   },
 
+  /** DELETE /api/github/connection/status/ → disconnect GitHub account */
+  async disconnectGitHub(): Promise<void> {
+    return api.delete('/github/connection/status/');
+  },
+
   // ─── Flow 1: OAuth Connection ─────────────────────────────────────────────
 
   /** GET /api/github/app/oauth/start/ → redirect to GitHub OAuth */
