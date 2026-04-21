@@ -5,7 +5,6 @@ import {
   ListChecks,
   CircleUser,
   SlidersHorizontal,
-  ScrollText,
   ChevronLeft,
   ChevronRight,
   Zap,
