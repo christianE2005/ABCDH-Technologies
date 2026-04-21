@@ -27,10 +27,13 @@ export interface UpdateTaskCommentPayload {
 }
 
 export const tasksService = {
-  /** GET /api/tasks/ — optionally filter by board */
-  list(boardId?: number): Promise<ApiTask[]> {
-    const url = boardId ? `/tasks/?board=${boardId}` : '/tasks/';
-    return api.get<ApiTask[]>(url);
+  /** GET /api/tasks/ — optionally filter by board and/or project */
+  list(boardId?: number, projectId?: number): Promise<ApiTask[]> {
+    const params = new URLSearchParams();
+    if (boardId) params.set('board', String(boardId));
+    if (projectId) params.set('project', String(projectId));
+    const qs = params.toString();
+    return api.get<ApiTask[]>(`/tasks/${qs ? `?${qs}` : ''}`);
   },
 
   /** GET /api/tasks/:id/ */

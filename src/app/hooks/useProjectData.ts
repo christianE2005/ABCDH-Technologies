@@ -54,9 +54,9 @@ export interface UseApiTasksState extends UseApiState<ApiTask[]> {
 }
 
 /**
- * Fetches tasks for a given boardId along with status/priority lookup tables.
+ * Fetches tasks filtered by board and/or project, with status/priority lookup tables.
  */
-export function useApiTasks(boardId?: number): UseApiTasksState {
+export function useApiTasks(boardId?: number, projectId?: number): UseApiTasksState {
   const [data, setData]           = useState<ApiTask[] | null>(null);
   const [statuses, setStatuses]   = useState<ApiTaskStatus[]>([]);
   const [priorities, setPriorities] = useState<ApiTaskPriority[]>([]);
@@ -69,7 +69,7 @@ export function useApiTasks(boardId?: number): UseApiTasksState {
     setLoading(true);
 
     Promise.all([
-      tasksService.list(boardId),
+      tasksService.list(boardId, projectId),
       tasksService.listStatuses(),
       tasksService.listPriorities(),
     ])
@@ -85,7 +85,7 @@ export function useApiTasks(boardId?: number): UseApiTasksState {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [boardId, tick]);
+  }, [boardId, projectId, tick]);
 
   const refetch = useCallback(() => setTick((t) => t + 1), []);
   return { data, loading, error, refetch, statuses, priorities };

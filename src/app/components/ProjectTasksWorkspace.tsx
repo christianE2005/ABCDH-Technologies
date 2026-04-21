@@ -154,7 +154,7 @@ export function ProjectTasksWorkspace({
   const { data: boards, loading: loadingBoards, refetch: refetchBoards } = useApiBoards(projectId);
   const [selectedBoardId, setSelectedBoardId] = useState<number | undefined>(undefined);
 
-  const { data: tasks, loading: loadingTasks, statuses, priorities, refetch: refetchTasks } = useApiTasks(selectedBoardId);
+  const { data: tasks, loading: loadingTasks, statuses, priorities, refetch: refetchTasks } = useApiTasks(selectedBoardId, projectId);
 
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [activeDragId, setActiveDragId] = useState<number | null>(null);

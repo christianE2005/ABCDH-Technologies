@@ -57,7 +57,7 @@ export default function ProjectDetail() {
   }, [boards, selectedBoardId]);
 
   // ── Tasks ─────────────────────────────────────────────────────────────────
-  const { data: tasks, loading: loadingTasks, statuses, refetch: refetchTasks } = useApiTasks(selectedBoardId);
+  const { data: tasks, loading: loadingTasks, statuses, refetch: refetchTasks } = useApiTasks(selectedBoardId, projectId);
 
   // ── Members + Users ───────────────────────────────────────────────────────
   const { data: members, loading: loadingMembers, refetch: refetchMembers } = useApiProjectMembers(projectId);
