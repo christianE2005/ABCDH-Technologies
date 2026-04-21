@@ -159,7 +159,12 @@ export function useApiProjectMembers(projectId?: number, userId?: number): UseAp
     setError(null);
 
     usersService.listMembers(projectId, userId)
-      .then((members) => { if (!cancelled) setData(members); })
+      .then((members) => {
+        if (cancelled) return;
+        // Some backends ignore the user filter; enforce it client-side.
+        const filteredMembers = userId ? members.filter((m) => m.user === userId) : members;
+        setData(filteredMembers);
+      })
       .catch((err) => {
         // Some backends don't support filtering members by user query param.
         // Fallback: fetch by project only and filter client-side.

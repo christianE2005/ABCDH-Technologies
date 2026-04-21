@@ -7,9 +7,9 @@ import {
 } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
 import { DatePickerField } from '../components/DatePickerField';
-import { useApiProjects } from '../hooks/useProjectData';
+import { useApiProjectMembers, useApiProjects } from '../hooks/useProjectData';
 import { useAuth } from '../context/AuthContext';
-import { projectsService } from '../../services';
+import { projectsService, usersService } from '../../services';
 import { compareProjectsForGenericPriority, getProjectStatusBadge, getProjectStatusLabel, isTerminalProjectStatus, normalizeProjectStatus, PROJECT_STATUS_OPTIONS } from '../utils/projectStatus';
 import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
 
@@ -19,8 +19,10 @@ type ProjectsSort = 'nearest_due' | 'farthest_due' | 'name_asc' | 'name_desc';
 export default function Projects() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const membershipUserId = Number(user?.id ?? -1);
   const canCreateProjects = user?.role === 'admin' || user?.role === 'user' || user?.role === 'project_manager';
   const { data: projects, loading, refetch } = useApiProjects();
+  const { data: memberRows, loading: loadingMemberRows } = useApiProjectMembers(undefined, membershipUserId);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,11 +36,17 @@ export default function Projects() {
   const [formDesc, setFormDesc] = useState('');
   const [formEnd, setFormEnd] = useState('');
 
-  const filteredProjects = useMemo(() => {
+  const visibleProjects = useMemo(() => {
     if (!projects) return [];
+    const allowedProjectIds = new Set((memberRows ?? []).map((member) => member.project));
+    return projects.filter((project) => allowedProjectIds.has(project.id_project));
+  }, [projects, memberRows]);
+
+  const filteredProjects = useMemo(() => {
+    if (!visibleProjects) return [];
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
-    const matches = projects.filter((p) => {
+    const matches = visibleProjects.filter((p) => {
       const statusLabel = getProjectStatusLabel(p.status).toLowerCase();
       const description = (p.description ?? '').toLowerCase();
       const matchSearch = !normalizedSearch
@@ -70,7 +78,7 @@ export default function Projects() {
           return compareProjectsForGenericPriority(left, right);
       }
     });
-  }, [projects, searchTerm, sortBy, statusFilter]);
+  }, [visibleProjects, searchTerm, sortBy, statusFilter]);
 
   const paginatedProjects = useMemo(() => {
     const start = currentPage * PROJECTS_BATCH_SIZE;
@@ -82,21 +90,23 @@ export default function Projects() {
 
   // Unique status values for filter buttons
   const statusValues = useMemo(() => {
-    if (!projects) return [] as typeof PROJECT_STATUS_OPTIONS;
-    const unique = new Set(projects.map((p) => normalizeProjectStatus(p.status)).filter((status): status is NonNullable<typeof status> => Boolean(status)));
+    if (!visibleProjects) return [] as typeof PROJECT_STATUS_OPTIONS;
+    const unique = new Set(visibleProjects.map((p) => normalizeProjectStatus(p.status)).filter((status): status is NonNullable<typeof status> => Boolean(status)));
     return PROJECT_STATUS_OPTIONS.filter((option) => unique.has(option.value));
-  }, [projects]);
+  }, [visibleProjects]);
 
   const statusCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    (projects ?? []).forEach((project) => {
+    visibleProjects.forEach((project) => {
       const normalizedStatus = normalizeProjectStatus(project.status);
       if (normalizedStatus) {
         counts.set(normalizedStatus, (counts.get(normalizedStatus) ?? 0) + 1);
       }
     });
     return counts;
-  }, [projects]);
+  }, [visibleProjects]);
+
+  const isLoadingPage = loading || loadingMemberRows;
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,11 +116,18 @@ export default function Projects() {
     }
     setCreating(true);
     try {
-      await projectsService.create({
+      const createdProject = await projectsService.create({
         name: formName,
         description: formDesc || undefined,
         end_date: formEnd,
       });
+      if (user?.id) {
+        try {
+          await usersService.addMember(createdProject.id_project, Number(user.id), 1);
+        } catch {
+          toast.error('Proyecto creado, pero no se pudo asignar automáticamente como Project Manager.');
+        }
+      }
       toast.success('Proyecto creado exitosamente');
       setShowCreateModal(false);
       setFormName(''); setFormDesc(''); setFormEnd('');
@@ -205,7 +222,7 @@ export default function Projects() {
           >
             Todos
             <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${statusFilter === 'all' ? 'bg-white/20 text-white' : 'bg-background text-muted-foreground'}`}>
-              {projects?.length ?? 0}
+              {visibleProjects.length}
             </span>
           </button>
 
@@ -225,7 +242,7 @@ export default function Projects() {
         </div>
       </div>
 
-      {loading ? (
+      {isLoadingPage ? (
         <div className="flex items-center justify-center py-24 flex-1">
           <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
@@ -334,7 +351,7 @@ export default function Projects() {
         </div>
       )}
 
-      {!loading && filteredProjects.length > 0 && totalPages > 1 && (
+      {!isLoadingPage && filteredProjects.length > 0 && totalPages > 1 && (
         <div className="flex items-center justify-between gap-3 bg-card border border-border rounded-[4px] px-4 py-3">
           <p className="text-[11px] text-muted-foreground">
             Mostrando {currentPage * PROJECTS_BATCH_SIZE + 1}-{Math.min((currentPage + 1) * PROJECTS_BATCH_SIZE, filteredProjects.length)} de {filteredProjects.length} proyectos
@@ -364,7 +381,7 @@ export default function Projects() {
       )}
 
       {/* Empty State (grid view only) */}
-      {!loading && viewMode === 'grid' && filteredProjects.length === 0 && (
+      {!isLoadingPage && viewMode === 'grid' && filteredProjects.length === 0 && (
         <div className="bg-card border border-border rounded-[4px] p-12 text-center">
           <div className="w-10 h-10 bg-surface-secondary rounded-full flex items-center justify-center mx-auto mb-3">
             <Search className="w-4 h-4 text-muted-foreground" />

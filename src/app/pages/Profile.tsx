@@ -5,7 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { User, Mail, Shield, Moon, Sun, Lock, Loader2, KeyRound, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
-import { useApiProjects } from '../hooks/useProjectData';
+import { useApiProjectMembers, useApiProjects } from '../hooks/useProjectData';
 import { StatusBadge } from '../components/StatusBadge';
 import { GitHubConnectSection } from '../components/GitHubConnectSection';
 import { usersService } from '../../services';
@@ -32,9 +32,14 @@ export default function Profile() {
 
   const userId = Number(user?.id ?? 0);
   const { data: projects, loading: loadingProjects } = useApiProjects();
+  const { data: memberRows, loading: loadingMemberRows } = useApiProjectMembers(undefined, userId > 0 ? userId : undefined);
+  const visibleProjects = useMemo(() => {
+    const allowedProjectIds = new Set((memberRows ?? []).map((member) => member.project));
+    return (projects ?? []).filter((project) => allowedProjectIds.has(project.id_project));
+  }, [projects, memberRows]);
   const genericProjects = useMemo(
-    () => [...(projects ?? [])].filter((project) => shouldShowInGenericProjectDisplays(project.status)).sort(compareProjectsForGenericPriority),
-    [projects],
+    () => [...visibleProjects].filter((project) => shouldShowInGenericProjectDisplays(project.status)).sort(compareProjectsForGenericPriority),
+    [visibleProjects],
   );
   const profileProjects = genericProjects.slice(0, 6);
   useEffect(() => {
@@ -207,7 +212,7 @@ export default function Profile() {
             <div className="px-4 py-3 border-b border-border">
               <h2 className="text-[12px] font-semibold text-foreground">Mis Proyectos</h2>
             </div>
-            {loadingProjects ? (
+            {loadingProjects || loadingMemberRows ? (
               <div className="p-4 space-y-2">
                 {[1, 2, 3].map((i) => <div key={i} className="h-8 animate-pulse bg-secondary rounded" />)}
               </div>

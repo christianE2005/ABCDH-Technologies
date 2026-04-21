@@ -52,9 +52,20 @@ export default function Dashboard() {
 
   const loading = loadingProjects || loadingTasks || loadingBoards || loadingMemberships;
 
+  const visibleProjectIds = useMemo(() => {
+    const ids = new Set<number>();
+    (myProjectMemberships ?? []).forEach((member) => ids.add(member.project));
+    return ids;
+  }, [myProjectMemberships]);
+
+  const visibleProjects = useMemo(
+    () => (projects ?? []).filter((project) => visibleProjectIds.has(project.id_project)),
+    [projects, visibleProjectIds],
+  );
+
   const projectById = useMemo(() => {
     const map = new Map<number, { id_project: number; name: string; created_by: number | null }>();
-    (projects ?? []).forEach((project) => {
+    visibleProjects.forEach((project) => {
       map.set(project.id_project, {
         id_project: project.id_project,
         name: project.name,
@@ -62,7 +73,7 @@ export default function Dashboard() {
       });
     });
     return map;
-  }, [projects]);
+  }, [visibleProjects]);
 
   const boardProjectMap = useMemo(() => {
     const map = new Map<number, number>();
@@ -73,15 +84,8 @@ export default function Dashboard() {
   }, [boards]);
 
   const involvedProjectIds = useMemo(() => {
-    const ids = new Set<number>();
-    (myProjectMemberships ?? []).forEach((member) => ids.add(member.project));
-    (projects ?? []).forEach((project) => {
-      if (project.created_by === currentUserId) {
-        ids.add(project.id_project);
-      }
-    });
-    return ids;
-  }, [myProjectMemberships, projects, currentUserId]);
+    return new Set<number>(visibleProjectIds);
+  }, [visibleProjectIds]);
 
   const scopedTasks = useMemo(() => {
     const list = tasks ?? [];
@@ -111,7 +115,7 @@ export default function Dashboard() {
 
   // ── Derived KPIs ──
   const kpis = useMemo(() => {
-    const pList = (projects ?? []).filter((project) => shouldShowInGenericProjectDisplays(project.status));
+    const pList = visibleProjects.filter((project) => shouldShowInGenericProjectDisplays(project.status));
     const tList = scopedTasks;
     const now = new Date();
 
@@ -126,7 +130,7 @@ export default function Dashboard() {
     const openTasks = totalTasks - completedTasks;
 
     return { totalProjects, totalTasks, completedTasks, openTasks, overdueTasks };
-  }, [projects, scopedTasks]);
+  }, [visibleProjects, scopedTasks]);
 
   const activeWarningsCount = scopedWarnings.length;
   const myTasks = useMemo(() => {
@@ -181,21 +185,21 @@ export default function Dashboard() {
   }, [scopedTasks, statuses]);
 
   const upcomingProjects = useMemo(() => {
-    if (!projects) return [];
+    if (!visibleProjects) return [];
 
-    return [...projects]
+    return [...visibleProjects]
       .filter((project) => shouldShowInGenericProjectDisplays(project.status))
       .sort(compareProjectsForGenericPriority);
-  }, [projects]);
+  }, [visibleProjects]);
 
   // ── Pie data: project status distribution ──
   const projectStatusData = useMemo(() => {
-    if (!projects) return [];
+    if (!visibleProjects) return [];
     const trackedStatuses = ['planning', 'in_progress', 'review', 'completed'] as const;
     const isTrackedStatus = (status: string): status is (typeof trackedStatuses)[number] => trackedStatuses.includes(status as (typeof trackedStatuses)[number]);
     const counts = new Map<string, number>();
 
-    for (const project of projects) {
+    for (const project of visibleProjects) {
       const normalized = normalizeProjectStatus(project.status);
       if (!normalized || !isTrackedStatus(normalized)) continue;
       counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
@@ -209,7 +213,7 @@ export default function Dashboard() {
         value: counts.get(status) ?? 0,
         color: getProjectStatusChartColor(status),
       }));
-  }, [projects]);
+  }, [visibleProjects]);
 
   const isAuthExpiredError = useMemo(() => {
     if (!errorProjects) return false;
@@ -308,7 +312,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
             </div>
-          ) : !projects || projects.length === 0 ? (
+          ) : visibleProjects.length === 0 ? (
             <div className="py-12 text-center text-[12px] text-muted-foreground">No hay proyectos registrados.</div>
           ) : (
             <div className="flex-1 min-h-0 flex flex-col">

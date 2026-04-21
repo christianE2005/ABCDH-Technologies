@@ -43,10 +43,15 @@ export const usersService = {
   },
 
   addMember(projectId: number, userId: number, roleId?: number): Promise<ApiProjectMember> {
-    return api.post<ApiProjectMember>(`/projects/${projectId}/members/`, {
-      user_id: userId,
-      role_id: roleId ?? null,
+    return api.post<ApiProjectMember>('/project-members/', {
+      project: projectId,
+      user: userId,
+      role: roleId ?? null,
     });
+  },
+
+  updateMember(memberId: number, payload: Partial<Pick<ApiProjectMember, 'user' | 'project' | 'role'>>): Promise<ApiProjectMember> {
+    return api.patch<ApiProjectMember>(`/project-members/${memberId}/`, payload);
   },
 
   removeMember(memberId: number): Promise<void> {
