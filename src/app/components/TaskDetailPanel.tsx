@@ -18,6 +18,7 @@ interface TaskDetailPanelProps {
   priorities: ApiTaskPriority[];
   userMap: Map<number, string>;
   assignableUsers?: Array<{ id: number; name: string }>;
+  canEditAssignment?: boolean;
   onClose: () => void;
   onStatusChange: (task: ApiTask, newStatusId: number) => void;
   onTaskUpdated?: (updatedTask: ApiTask) => void;
@@ -29,6 +30,7 @@ export function TaskDetailPanel({
   priorities,
   userMap,
   assignableUsers = [],
+  canEditAssignment = true,
   onClose,
   onStatusChange,
   onTaskUpdated,
@@ -166,6 +168,7 @@ export function TaskDetailPanel({
   const st = task ? statuses.find((s) => s.id_status === task.status) : null;
   const pr = task ? priorities.find((p) => p.id_priority === task.priority) : null;
   const assignedName = task?.assigned_to ? (userMap.get(task.assigned_to) ?? `#${task.assigned_to}`) : null;
+  const createdByName = task?.created_by ? (userMap.get(task.created_by) ?? `#${task.created_by}`) : 'Sistema';
   const isOverdue = task && !task.completed_at && task.due_date && new Date(task.due_date) < new Date();
   const activeWarnings = warnings.filter((w) => w.status === 'active');
 
@@ -275,6 +278,7 @@ export function TaskDetailPanel({
                       <select
                         value={taskForm.assignedTo}
                         onChange={(e) => setTaskForm((prev) => ({ ...prev, assignedTo: e.target.value }))}
+                        disabled={!canEditAssignment}
                         className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
                       >
                         <option value="">Sin asignar</option>
@@ -282,6 +286,9 @@ export function TaskDetailPanel({
                           <option key={u.id} value={u.id}>{u.name}</option>
                         ))}
                       </select>
+                      {!canEditAssignment && (
+                        <p className="text-[10px] text-muted-foreground mt-1">Tu rol no puede reasignar tareas.</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-[11px] font-medium text-foreground mb-1">Fecha limite</label>
@@ -292,6 +299,16 @@ export function TaskDetailPanel({
                         className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-foreground mb-1">Creada por</label>
+                    <input
+                      type="text"
+                      value={createdByName}
+                      readOnly
+                      className="w-full h-7 bg-surface-secondary/60 border border-border rounded-[3px] px-2.5 text-[11px] text-muted-foreground"
+                    />
                   </div>
 
                   <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -364,6 +381,10 @@ export function TaskDetailPanel({
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-muted-foreground uppercase tracking-[0.06em]">Creada</span>
                   <span className="text-[11px] text-muted-foreground">{task.created_at.slice(0, 10)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-[0.06em]">Creada por</span>
+                  <span className="text-[11px] text-muted-foreground">{createdByName}</span>
                 </div>
               </div>
 

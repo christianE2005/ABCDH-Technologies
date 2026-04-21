@@ -13,7 +13,6 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  AlertCircle,
   Calendar,
   GripVertical,
   LayoutGrid,
@@ -30,6 +29,7 @@ import { useApiBoards, useApiTasks } from '../hooks/useProjectData';
 import { tasksService } from '../../services';
 import type { ApiTask, ApiTaskPriority, ApiTaskStatus } from '../../services';
 import { TaskDetailPanel } from './TaskDetailPanel';
+import { useAuth } from '../context/AuthContext';
 
 interface ProjectTasksWorkspaceProps {
   projectId: number;
@@ -68,10 +68,12 @@ function priorityBorderColor(level: number) {
 function TaskCard({
   task,
   priorities,
+  userMap,
   onOpen,
 }: {
   task: ApiTask;
   priorities: ApiTaskPriority[];
+  userMap: Map<number, string>;
   onOpen: (task: ApiTask) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -86,6 +88,7 @@ function TaskCard({
 
   const prio = priorities.find((p) => p.id_priority === task.priority);
   const prioLevel = prio?.level ?? 0;
+  const assignedName = task.assigned_to ? (userMap.get(task.assigned_to) ?? `#${task.assigned_to}`) : 'Sin asignar';
 
   return (
     <div
@@ -111,6 +114,7 @@ function TaskCard({
             <h3 className="text-[12px] font-medium text-foreground truncate">{task.title}</h3>
           </div>
           {task.description && <p className="text-[11px] text-muted-foreground line-clamp-2">{task.description}</p>}
+          <p className="text-[10px] text-muted-foreground mt-1 truncate">Asignado: {assignedName}</p>
         </div>
       </div>
 
@@ -141,6 +145,12 @@ export function ProjectTasksWorkspace({
   canCreateTasks,
   canCreateBoards,
 }: ProjectTasksWorkspaceProps) {
+  const { user } = useAuth();
+  const currentUserId = useMemo(() => {
+    const parsed = Number(user?.id ?? 0);
+    return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
+  }, [user]);
+
   const { data: boards, loading: loadingBoards, refetch: refetchBoards } = useApiBoards(projectId);
   const [selectedBoardId, setSelectedBoardId] = useState<number | undefined>(undefined);
 
@@ -256,7 +266,10 @@ export function ProjectTasksWorkspace({
 
   const activeTask = activeDragId ? (tasks ?? []).find((t) => t.id_task === activeDragId) ?? null : null;
 
-  const handleQuickUpdate = async (task: ApiTask, patch: { status?: number | null; priority?: number | null }) => {
+  const handleQuickUpdate = async (
+    task: ApiTask,
+    patch: { status?: number | null; priority?: number | null; completed_at?: string | null },
+  ) => {
     setUpdatingTaskId(task.id_task);
     try {
       const nextPatch = { ...patch };
@@ -296,6 +309,7 @@ export function ProjectTasksWorkspace({
         description: formDesc.trim() || undefined,
         status: formStatus !== '' ? formStatus : statusByName.get(normalizeName('Backlog'))?.id_status,
         priority: formPriority !== '' ? formPriority : undefined,
+        created_by: currentUserId ?? undefined,
         assigned_to: formAssignedTo !== '' ? formAssignedTo : undefined,
         due_date: formDueDate || undefined,
       });
@@ -490,29 +504,24 @@ export function ProjectTasksWorkspace({
                       items={column.tasks.map((t) => t.id_task)}
                       strategy={verticalListSortingStrategy}
                     >
-                      <div className="min-h-[220px]">
+                      <div className="min-h-[320px]">
                         {column.tasks.map((task) => (
                           <TaskCard
                             key={task.id_task}
                             task={task}
                             priorities={priorities}
+                            userMap={userMap}
                             onOpen={setSelectedTask}
                           />
                         ))}
                       </div>
                     </SortableContext>
                   ) : (
-                    <div className="min-h-[220px] flex items-center justify-center text-[11px] text-muted-foreground text-center px-2">
+                    <div className="min-h-[320px] flex items-center justify-center text-[11px] text-muted-foreground text-center px-2">
                       Estado no disponible en backend
                     </div>
                   )}
 
-                  {!column.isMissing && column.tasks.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <AlertCircle className="w-4 h-4 text-muted-foreground mb-1.5" />
-                      <p className="text-[11px] text-muted-foreground">Sin historias</p>
-                    </div>
-                  )}
                 </motion.div>
               </DroppableColumn>
             ))}
@@ -530,7 +539,16 @@ export function ProjectTasksWorkspace({
 
       {!loading && selectedBoardId && viewMode === 'table' && (
         <div className="bg-card border border-border rounded-[4px] overflow-auto">
-          <table className="w-full min-w-[940px]">
+          <table className="w-full min-w-[940px] table-fixed">
+            <colgroup>
+              <col className="w-[28%]" />
+              <col className="w-[14%]" />
+              <col className="w-[14%]" />
+              <col className="w-[12%]" />
+              <col className="w-[12%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-border bg-surface-secondary/50">
                 <th className="text-left py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Titulo</th>
@@ -543,11 +561,7 @@ export function ProjectTasksWorkspace({
               </tr>
             </thead>
             <tbody>
-              {filteredTasks.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-[12px] text-muted-foreground">No hay historias para este filtro.</td>
-                </tr>
-              ) : (
+              {
                 filteredTasks.map((task) => (
                   <tr key={task.id_task} className="border-b border-border/60 hover:bg-accent/30 transition-colors">
                     <td className="py-2 px-3">
@@ -586,7 +600,7 @@ export function ProjectTasksWorkspace({
                       </select>
                     </td>
                     <td className="py-2 px-3 text-[11px] text-muted-foreground">
-                      {task.assigned_to ? (userMap.get(task.assigned_to) ?? `#${task.assigned_to}`) : '—'}
+                      {task.assigned_to ? (userMap.get(task.assigned_to) ?? `#${task.assigned_to}`) : 'Sin asignar'}
                     </td>
                     <td className="py-2 px-3 text-[11px] text-muted-foreground">
                       {task.created_by ? (userMap.get(task.created_by) ?? `#${task.created_by}`) : '—'}
@@ -602,7 +616,7 @@ export function ProjectTasksWorkspace({
                     </td>
                   </tr>
                 ))
-              )}
+              }
             </tbody>
           </table>
         </div>
@@ -772,6 +786,7 @@ export function ProjectTasksWorkspace({
         priorities={priorities}
         userMap={userMap}
         assignableUsers={assignableUsers}
+        canEditAssignment={canCreateTasks}
         onClose={() => setSelectedTask(null)}
         onStatusChange={handleStatusChangeFromPanel}
         onTaskUpdated={(updated) => {

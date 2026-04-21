@@ -7,6 +7,7 @@ export interface CreateTaskPayload {
   description?: string;
   status?: number;
   priority?: number;
+  created_by?: number;
   assigned_to?: number;
   due_date?: string;   // YYYY-MM-DD
 }
