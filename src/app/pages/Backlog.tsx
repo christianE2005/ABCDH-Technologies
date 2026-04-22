@@ -38,7 +38,6 @@ function TaskCard({ task, priorities, statusName, onOpen }: { task: ApiTask; sta
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
   const prio = priorities.find((p) => p.id_priority === task.priority);
-  const prioLevel = prio?.level ?? 0;
   const statusColor = getTaskStatusColor(statusName);
 
   return (
