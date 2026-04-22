@@ -96,11 +96,10 @@ export function GitHubConnectSection() {
     setBusy(true);
     try {
       await githubService.disconnectGitHub();
-      setConnected(false);
-      setGithubLogin(null);
       toast.success('Desconectado exitosamente', {
         description: 'Tu cuenta de GitHub ha sido desconectada',
       });
+      setTimeout(() => window.location.reload(), 500);
     } catch (err) {
       const detail = err instanceof Error ? err.message : 'Error desconocido';
       toast.error('No se pudo desconectar', { description: detail });
