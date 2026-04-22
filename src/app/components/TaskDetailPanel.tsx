@@ -36,8 +36,11 @@ interface TaskDetailPanelProps {
   assignableUsers?: Array<{ id: number; name: string }>;
   taskAssignments?: ApiTaskAssignment[];
   canEditAssignment?: boolean;
+  canEditTask?: boolean;
+  canDeleteTask?: boolean;
   onClose: () => void;
   onStatusChange: (task: ApiTask, newStatusId: number) => void;
+  onDeleteTask?: (task: ApiTask) => Promise<void>;
   onTaskUpdated?: (updatedTask: ApiTask) => void;
 }
 
@@ -49,8 +52,11 @@ export function TaskDetailPanel({
   assignableUsers = EMPTY_ASSIGNABLE_USERS,
   taskAssignments = EMPTY_TASK_ASSIGNMENTS,
   canEditAssignment = true,
+  canEditTask = true,
+  canDeleteTask = false,
   onClose,
   onStatusChange,
+  onDeleteTask,
   onTaskUpdated,
 }: TaskDetailPanelProps) {
   const { user } = useAuth();
@@ -70,6 +76,7 @@ export function TaskDetailPanel({
 
   const [isEditingTask, setIsEditingTask] = useState(false);
   const [savingTask, setSavingTask] = useState(false);
+  const [deletingTask, setDeletingTask] = useState(false);
   const [taskForm, setTaskForm] = useState({
     title: '',
     description: '',
@@ -198,6 +205,10 @@ export function TaskDetailPanel({
 
   const handleSaveTask = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEditTask) {
+      toast.error('Tu rol no puede editar historias.');
+      return;
+    }
     if (!task || !taskForm.title.trim()) return;
 
     setSavingTask(true);
@@ -230,6 +241,25 @@ export function TaskDetailPanel({
       toast.error('Error al actualizar la historia');
     } finally {
       setSavingTask(false);
+    }
+  };
+
+  const handleDeleteTask = async () => {
+    if (!task || !onDeleteTask) return;
+    if (!canDeleteTask) {
+      toast.error('Solo Product Owner o Project Manager pueden eliminar historias.');
+      return;
+    }
+
+    if (!window.confirm('¿Eliminar esta historia? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    setDeletingTask(true);
+    try {
+      await onDeleteTask(task);
+    } finally {
+      setDeletingTask(false);
     }
   };
 
@@ -414,10 +444,20 @@ export function TaskDetailPanel({
                     <h2 className="text-[14px] font-semibold text-foreground leading-snug">{task.title}</h2>
                     <button
                       onClick={() => setIsEditingTask(true)}
+                      disabled={!canEditTask}
                       className="inline-flex items-center gap-1 h-6 px-2 border border-border rounded-[3px] text-[10px] text-muted-foreground hover:text-foreground"
                     >
                       <Pencil className="w-3 h-3" /> Editar
                     </button>
+                    {canDeleteTask && (
+                      <button
+                        onClick={handleDeleteTask}
+                        disabled={deletingTask}
+                        className="inline-flex items-center gap-1 h-6 px-2 border border-destructive/30 rounded-[3px] text-[10px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                      >
+                        <Trash2 className="w-3 h-3" /> {deletingTask ? 'Eliminando…' : 'Eliminar'}
+                      </button>
+                    )}
                   </div>
                   {task.description && (
                     <p className="text-[12px] text-muted-foreground mt-1.5 leading-relaxed">{task.description}</p>
@@ -470,11 +510,12 @@ export function TaskDetailPanel({
                     <button
                       key={s.id_status}
                       onClick={() => onStatusChange(task, s.id_status)}
+                      disabled={!canEditTask}
                       className={`px-2.5 py-1 text-[10px] font-medium rounded-[3px] border transition-colors ${
                         task.status === s.id_status
                           ? 'border-primary bg-primary/10 text-primary'
                           : 'border-border bg-card text-muted-foreground hover:text-foreground hover:bg-surface-secondary'
-                      }`}
+                      } disabled:opacity-50`}
                     >
                       {s.name}
                     </button>

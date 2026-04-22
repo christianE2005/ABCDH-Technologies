@@ -42,12 +42,27 @@ export const usersService = {
     return api.get<ApiProjectMember[]>(url);
   },
 
-  addMember(projectId: number, userId: number, roleId?: number): Promise<ApiProjectMember> {
-    return api.post<ApiProjectMember>('/project-members/', {
-      project: projectId,
-      user: userId,
-      role: roleId ?? null,
-    });
+  async addMember(projectId: number, userId: number, roleId?: number): Promise<ApiProjectMember> {
+    try {
+      return await api.post<ApiProjectMember>('/project-members/', {
+        project: projectId,
+        user: userId,
+        role: roleId ?? null,
+      });
+    } catch {
+      try {
+        return await api.post<ApiProjectMember>('/project-members/', {
+          project_id: projectId,
+          user_id: userId,
+          role_id: roleId ?? null,
+        });
+      } catch {
+        return api.post<ApiProjectMember>(`/projects/${projectId}/members/`, {
+          user_id: userId,
+          role_id: roleId ?? null,
+        });
+      }
+    }
   },
 
   updateMember(memberId: number, payload: Partial<Pick<ApiProjectMember, 'user' | 'project' | 'role'>>): Promise<ApiProjectMember> {

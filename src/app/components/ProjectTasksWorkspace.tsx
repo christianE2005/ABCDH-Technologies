@@ -40,6 +40,8 @@ interface ProjectTasksWorkspaceProps {
   assignableUsers: Array<{ id: number; name: string }>;
   canCreateTasks: boolean;
   canCreateBoards: boolean;
+  canEditTasks: boolean;
+  canDeleteTasks: boolean;
   initialTaskId?: number | null;
   onInitialTaskHandled?: (taskId: number) => void;
 }
@@ -69,27 +71,24 @@ function getTaskStatusColor(statusName?: string | null) {
   return '#14b8a6';
 }
 
-function priorityColor(level: number) {
-  if (level >= 3) return 'bg-destructive';
-  if (level === 2) return 'bg-warning';
-  return 'bg-info';
-}
-
 function TaskCard({
   task,
   priorities,
   assignedNames,
   statusName,
   onOpen,
+  draggable,
 }: {
   task: ApiTask;
   priorities: ApiTaskPriority[];
   assignedNames: string[];
   statusName?: string;
   onOpen: (task: ApiTask) => void;
+  draggable: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id_task,
+    disabled: !draggable,
   });
 
   const style = {
@@ -99,7 +98,6 @@ function TaskCard({
   };
 
   const prio = priorities.find((p) => p.id_priority === task.priority);
-  const prioLevel = prio?.level ?? 0;
   const assignedLabel = assignedNames.length > 0 ? assignedNames.join(', ') : 'Sin asignar';
   const statusColor = getTaskStatusColor(statusName);
 
@@ -119,8 +117,9 @@ function TaskCard({
           className="mt-0.5"
           {...attributes}
           {...listeners}
+          disabled={!draggable}
         >
-          <GripVertical className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          {draggable && <GripVertical className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />}
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-1">
@@ -158,6 +157,8 @@ export function ProjectTasksWorkspace({
   assignableUsers,
   canCreateTasks,
   canCreateBoards,
+  canEditTasks,
+  canDeleteTasks,
   initialTaskId = null,
   onInitialTaskHandled,
 }: ProjectTasksWorkspaceProps) {
@@ -305,6 +306,7 @@ export function ProjectTasksWorkspace({
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    if (!canEditTasks) return;
     const { active, over } = event;
     setActiveDragId(null);
     if (!over) return;
@@ -346,6 +348,10 @@ export function ProjectTasksWorkspace({
     task: ApiTask,
     patch: { status?: number | null; priority?: number | null; completed_at?: string | null },
   ) => {
+    if (!canEditTasks) {
+      toast.error('Tu rol no puede editar historias.');
+      return;
+    }
     setUpdatingTaskId(task.id_task);
     try {
       const nextPatch = { ...patch };
@@ -449,6 +455,10 @@ export function ProjectTasksWorkspace({
   };
 
   const handleStatusChangeFromPanel = async (task: ApiTask, newStatusId: number) => {
+    if (!canEditTasks) {
+      toast.error('Tu rol no puede editar historias.');
+      return;
+    }
     try {
       const enteringDone = doneStatusIds.has(newStatusId);
       await tasksService.update(task.id_task, {
@@ -462,6 +472,23 @@ export function ProjectTasksWorkspace({
       toast.success(`Estado actualizado a ${name}`);
     } catch {
       toast.error('No se pudo cambiar el estado.');
+    }
+  };
+
+  const handleDeleteTaskFromPanel = async (taskToDelete: ApiTask) => {
+    if (!canDeleteTasks) {
+      toast.error('Solo Product Owner o Project Manager pueden eliminar historias.');
+      return;
+    }
+
+    try {
+      await tasksService.delete(taskToDelete.id_task);
+      setSelectedTask(null);
+      refetchTasks();
+      refetchTaskAssignments();
+      toast.success('Historia eliminada.');
+    } catch {
+      toast.error('No se pudo eliminar la historia.');
     }
   };
 
@@ -607,6 +634,7 @@ export function ProjectTasksWorkspace({
                             assignedNames={getAssignedNames(task)}
                             statusName={statusNameById.get(task.status ?? -1)}
                             onOpen={setSelectedTask}
+                            draggable={canEditTasks}
                           />
                         ))}
                       </div>
@@ -672,7 +700,7 @@ export function ProjectTasksWorkspace({
                     <td className="py-2 px-3">
                       <select
                         value={task.status ?? ''}
-                        disabled={updatingTaskId === task.id_task}
+                        disabled={updatingTaskId === task.id_task || !canEditTasks}
                         onChange={(e) => handleQuickUpdate(task, { status: e.target.value ? Number(e.target.value) : null })}
                         className="h-7 bg-surface-secondary border border-border rounded-[3px] px-2 text-[11px]"
                       >
@@ -685,7 +713,7 @@ export function ProjectTasksWorkspace({
                     <td className="py-2 px-3">
                       <select
                         value={task.priority ?? ''}
-                        disabled={updatingTaskId === task.id_task}
+                        disabled={updatingTaskId === task.id_task || !canEditTasks}
                         onChange={(e) => handleQuickUpdate(task, { priority: e.target.value ? Number(e.target.value) : null })}
                         className="h-7 bg-surface-secondary border border-border rounded-[3px] px-2 text-[11px]"
                       >
@@ -707,7 +735,7 @@ export function ProjectTasksWorkspace({
                         onClick={() => setSelectedTask(task)}
                         className="inline-flex items-center gap-1 h-7 px-2.5 border border-border rounded-[3px] text-[11px] text-muted-foreground hover:text-foreground"
                       >
-                        <Pencil className="w-3 h-3" /> Editar
+                        <Pencil className="w-3 h-3" /> {canEditTasks ? 'Editar' : 'Ver'}
                       </button>
                     </td>
                   </tr>
@@ -885,10 +913,13 @@ export function ProjectTasksWorkspace({
         priorities={priorities}
         userMap={userMap}
         assignableUsers={assignableUsers}
-        canEditAssignment={canCreateTasks}
+        canEditAssignment={canEditTasks}
+        canEditTask={canEditTasks}
+        canDeleteTask={canDeleteTasks}
         taskAssignments={taskAssignments ?? []}
         onClose={() => setSelectedTask(null)}
         onStatusChange={handleStatusChangeFromPanel}
+        onDeleteTask={handleDeleteTaskFromPanel}
         onTaskUpdated={(updated) => {
           setSelectedTask(updated);
           refetchTasks();
