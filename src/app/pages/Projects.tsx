@@ -86,7 +86,6 @@ export default function Projects() {
   }, [filteredProjects, currentPage]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProjects.length / PROJECTS_BATCH_SIZE));
-  const emptyProjectSlots = Math.max(0, PROJECTS_BATCH_SIZE - paginatedProjects.length);
 
   // Unique status values for filter buttons
   const statusValues = useMemo(() => {
@@ -262,7 +261,7 @@ export default function Projects() {
         </div>
       ) : viewMode === 'list' ? (
         /* Table view */
-        <div className="bg-card border border-border rounded-[4px] overflow-hidden flex-1 min-h-0 flex flex-col">
+        <div className="bg-card border border-border rounded-[4px] overflow-hidden">
           <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(112px,0.95fr)_minmax(120px,0.9fr)_minmax(84px,0.65fr)] gap-3 border-b border-border bg-surface-secondary/50 px-4 py-1.5">
             <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Proyecto</span>
             <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</span>
@@ -270,7 +269,7 @@ export default function Projects() {
             <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Días rest.</span>
           </div>
 
-          <div className="grid grid-rows-8 flex-1 min-h-0">
+          <div className="overflow-y-auto scrollbar-app max-h-[600px] divide-y divide-border">
             {paginatedProjects.map((project, i) => {
               const dl = getProjectDaysLabel(project.end_date, project.status);
               return (
@@ -280,7 +279,7 @@ export default function Projects() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.25, delay: i * 0.04, ease: 'easeOut' }}
-                  className="grid grid-cols-[minmax(0,2.1fr)_minmax(112px,0.95fr)_minmax(120px,0.9fr)_minmax(84px,0.65fr)] items-center gap-3 px-4 py-1.5 border-b border-border last:border-b-0 hover:bg-accent/30 transition-colors text-left min-h-0"
+                  className="grid w-full grid-cols-[minmax(0,2.1fr)_minmax(112px,0.95fr)_minmax(120px,0.9fr)_minmax(84px,0.65fr)] items-center gap-3 px-4 py-1.5 hover:bg-accent/30 transition-colors text-left"
                   onClick={() => navigate(`/projects/${project.id_project}`)}
                 >
                   <div className="min-w-0">
@@ -297,18 +296,14 @@ export default function Projects() {
                 </motion.button>
               );
             })}
-
-            {Array.from({ length: emptyProjectSlots }).map((_, index) => (
-              <div
-                key={`project-slot-${index}`}
-                className="border-b border-border last:border-b-0 bg-background/20"
-              />
-            ))}
           </div>
 
           {filteredProjects.length === 0 && (
-            <div className="py-12 text-center">
-              <p className="text-sm text-muted-foreground">Sin proyectos que coincidan</p>
+            <div className="px-4 py-8">
+              <div className="bg-surface-secondary/40 border border-dashed border-border rounded-[4px] p-6 text-center">
+                <p className="text-[12px] font-medium text-foreground">Sin proyectos para mostrar</p>
+                <p className="text-[11px] text-muted-foreground mt-1">No hay proyectos con los filtros actuales.</p>
+              </div>
             </div>
           )}
         </div>
@@ -356,12 +351,14 @@ export default function Projects() {
             );
           })}
 
-          {Array.from({ length: emptyProjectSlots }).map((_, index) => (
-            <div
-              key={`project-grid-slot-${index}`}
-              className="bg-card/30 border border-dashed border-border rounded-[4px] min-h-[152px]"
-            />
-          ))}
+          {filteredProjects.length === 0 && (
+            <div className="bg-card/30 border border-dashed border-border rounded-[4px] min-h-[152px] p-4 flex items-center justify-center text-center md:col-span-2">
+              <div>
+                <p className="text-[12px] font-medium text-foreground">Sin proyectos para mostrar</p>
+                <p className="text-[11px] text-muted-foreground mt-1">No hay proyectos con los filtros actuales.</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -391,23 +388,6 @@ export default function Projects() {
               Siguiente
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Empty State (grid view only) */}
-      {!isLoadingPage && viewMode === 'grid' && filteredProjects.length === 0 && (
-        <div className="bg-card border border-border rounded-[4px] p-12 text-center">
-          <div className="w-10 h-10 bg-surface-secondary rounded-full flex items-center justify-center mx-auto mb-3">
-            <Search className="w-4 h-4 text-muted-foreground" />
-          </div>
-          <h3 className="text-[13px] font-semibold text-foreground mb-1">Sin resultados</h3>
-          <p className="text-[11px] text-muted-foreground mb-4">Ajusta tus filtros de búsqueda</p>
-          <button
-            onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}
-            className="h-7 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors"
-          >
-            Limpiar filtros
-          </button>
         </div>
       )}
 

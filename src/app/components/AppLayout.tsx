@@ -27,7 +27,7 @@ export function AppLayout() {
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <Topbar />
         <div className="flex-1 flex overflow-hidden">
-          <main className="flex-1 overflow-y-auto min-w-0">
+          <main className="flex-1 overflow-y-auto min-w-0 scrollbar-app">
             <ErrorBoundary>
               <PageTransition>
                 <Outlet />
