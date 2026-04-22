@@ -18,7 +18,6 @@ import { compareProjectsForGenericPriority, getProjectStatusBadge, getProjectSta
 import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
 
 const DASHBOARD_PANEL_BATCH_SIZE = 10;
-const DASHBOARD_PROJECT_SLOTS = 8;
 
 function getTaskStatusChartColor(statusName: string) {
   const normalized = statusName.trim().toLowerCase();
@@ -288,160 +287,148 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Main grid: projects table (left) + charts (right) */}
-      <div className="grid xl:grid-cols-[minmax(0,1fr)_320px] gap-3 items-stretch min-h-[430px]">
+      {/* Charts row: Estado de Proyectos + Tareas por Estado side by side */}
+      <div className="grid lg:grid-cols-2 gap-3 items-stretch">
 
-        {/* Projects table */}
+        {/* Estado de Proyectos */}
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.3, ease: 'easeOut' }}
-          className="bg-card border border-border rounded-[4px] h-full min-h-0 flex flex-col"
+          transition={{ duration: 0.3, delay: 0.35, ease: 'easeOut' }}
+          className="bg-card border border-border rounded-[4px] p-4 min-h-[220px] h-full flex flex-col"
         >
-          <div className="flex items-center justify-between px-4 py-2 border-b border-border">
-            <h2 className="text-[13px] font-semibold text-foreground">Proyectos</h2>
-            <Link
-              to="/projects"
-              className="text-[11px] text-primary hover:underline font-medium inline-flex items-center gap-1"
-            >
-              Ver todos <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : visibleProjects.length === 0 ? (
-            <div className="py-12 text-center text-[12px] text-muted-foreground">No hay proyectos registrados.</div>
-          ) : (
-            <div className="flex-1 min-h-0 flex flex-col">
-              <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(112px,0.95fr)_minmax(120px,0.9fr)_minmax(84px,0.65fr)] gap-3 border-b border-border bg-surface-secondary/50 px-4 py-1.5">
-                <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Proyecto</span>
-                <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</span>
-                <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Fecha Fin</span>
-                <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Días rest.</span>
-              </div>
-
-              <div className="grid grid-rows-8 flex-1 min-h-0">
-                {upcomingProjects.slice(0, DASHBOARD_PROJECT_SLOTS).map((project) => {
-                  const dl = getProjectDaysLabel(project.end_date, project.status);
-                  return (
-                    <button
-                      key={project.id_project}
-                      type="button"
-                      className="grid grid-cols-[minmax(0,2.1fr)_minmax(112px,0.95fr)_minmax(120px,0.9fr)_minmax(84px,0.65fr)] items-center gap-3 px-4 py-1.5 border-b border-border last:border-b-0 hover:bg-accent/30 transition-colors text-left min-h-0"
-                      onClick={() => navigate(`/projects/${project.id_project}`)}
-                    >
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-medium text-foreground truncate">{project.name}</p>
-                      </div>
-                      <div className="min-w-0">
-                        <StatusBadge status={getProjectStatusBadge(project.status)} text={getProjectStatusLabel(project.status)} size="sm" />
-                      </div>
-                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">{formatProjectDate(project.end_date)}</span>
-                      <span className={`text-[11px] ${dl.cls}`}>{dl.label}</span>
-                    </button>
-                  );
-                })}
-
-                {Array.from({ length: Math.max(0, DASHBOARD_PROJECT_SLOTS - upcomingProjects.slice(0, DASHBOARD_PROJECT_SLOTS).length) }).map((_, index) => (
-                  <div
-                    key={`dashboard-project-slot-${index}`}
-                    className="border-b border-border last:border-b-0 bg-background/20"
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </motion.div>
-
-        {/* Right column: charts */}
-        <div className="grid grid-rows-2 gap-3 h-full min-h-0">
-
-          {/* Task distribution by status */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, delay: 0.32, ease: 'easeOut' }}
-            className="bg-card border border-border rounded-[4px] p-4 h-full min-h-0 flex flex-col order-2"
-          >
-            <h2 className="text-[13px] font-semibold text-foreground mb-2">Tareas por Estado</h2>
-            <div className="flex-1 min-h-0">
-              {statusChartData.length > 0 ? (
+          <h2 className="text-[13px] font-semibold text-foreground mb-2">Estado de Proyectos</h2>
+          {projectStatusData.length > 0 ? (
+            <>
+              <div className="h-[180px] min-h-[180px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={statusChartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                    <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
+                  <PieChart>
+                    <Pie data={projectStatusData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} dataKey="value" paddingAngle={2}>
+                      {projectStatusData.map((item) => (
+                        <Cell key={item.key} fill={item.color} />
+                      ))}
+                    </Pie>
                     <Tooltip
                       contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '11px' }}
                       labelStyle={{ color: 'var(--foreground)' }}
                       itemStyle={{ color: 'var(--foreground)' }}
                     />
-                    <Bar dataKey="count" name="Tareas" radius={[2, 2, 0, 0]}>
-                      {statusChartData.map((entry) => (
-                        <Cell key={`status-bar-${entry.name}`} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
+                  </PieChart>
                 </ResponsiveContainer>
-              ) : (
-                <p className="text-[11px] text-muted-foreground py-8 text-center">Sin datos de tareas.</p>
-              )}
-            </div>
-          </motion.div>
+              </div>
+              <div className="flex flex-wrap justify-center gap-3 mt-1">
+                {projectStatusData.map((d) => (
+                  <span key={d.name} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                    {d.name} ({d.value})
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-[11px] text-muted-foreground py-8 text-center">Sin proyectos.</p>
+          )}
+        </motion.div>
 
-          {/* Project status pie */}
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.35, ease: 'easeOut' }}
-            className="bg-card border border-border rounded-[4px] p-4 h-full min-h-0 flex flex-col order-1"
-          >
-            <h2 className="text-[13px] font-semibold text-foreground mb-2">Estado de Proyectos</h2>
-            {projectStatusData.length > 0 ? (
-              <>
-                <div className="flex-1 min-h-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={projectStatusData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} dataKey="value" paddingAngle={2}>
-                        {projectStatusData.map((item) => (
-                          <Cell key={item.key} fill={item.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '11px' }}
-                        labelStyle={{ color: 'var(--foreground)' }}
-                        itemStyle={{ color: 'var(--foreground)' }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex flex-wrap justify-center gap-3 mt-1">
-                  {projectStatusData.map((d) => (
-                    <span key={d.name} className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                      {d.name} ({d.value})
-                    </span>
-                  ))}
-                </div>
-              </>
+        {/* Tareas por Estado */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, delay: 0.32, ease: 'easeOut' }}
+          className="bg-card border border-border rounded-[4px] p-4 min-h-[220px] h-full flex flex-col"
+        >
+          <h2 className="text-[13px] font-semibold text-foreground mb-2">Tareas por Estado</h2>
+          <div className="flex-1 min-h-[180px]">
+            {statusChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={statusChartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--foreground)', fontSize: '11px' }}
+                    labelStyle={{ color: 'var(--foreground)' }}
+                    itemStyle={{ color: 'var(--foreground)' }}
+                  />
+                  <Bar dataKey="count" name="Tareas" radius={[2, 2, 0, 0]}>
+                    {statusChartData.map((entry) => (
+                      <Cell key={`status-bar-${entry.name}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             ) : (
-              <p className="text-[11px] text-muted-foreground py-8 text-center">Sin proyectos.</p>
+              <p className="text-[11px] text-muted-foreground py-8 text-center">Sin datos de tareas.</p>
             )}
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
       </div>
 
+      {/* Full-width projects table */}
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.3, ease: 'easeOut' }}
+        className="bg-card border border-border rounded-[4px] flex flex-col"
+      >
+        <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+          <h2 className="text-[13px] font-semibold text-foreground">Proyectos</h2>
+          <Link
+            to="/projects"
+            className="text-[11px] text-primary hover:underline font-medium inline-flex items-center gap-1"
+          >
+            Ver todos <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : visibleProjects.length === 0 ? (
+          <div className="py-12 text-center text-[12px] text-muted-foreground">No hay proyectos registrados.</div>
+        ) : (
+          <div className="flex flex-col">
+            <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(112px,0.95fr)_minmax(120px,0.9fr)_minmax(84px,0.65fr)] gap-3 border-b border-border bg-surface-secondary/50 px-4 py-1.5">
+              <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Proyecto</span>
+              <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</span>
+              <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Fecha Fin</span>
+              <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Días rest.</span>
+            </div>
+            <div className="max-h-[360px] overflow-y-auto scrollbar-app divide-y divide-border">
+              {upcomingProjects.map((project) => {
+                const dl = getProjectDaysLabel(project.end_date, project.status);
+                return (
+                  <button
+                    key={project.id_project}
+                    type="button"
+                    className="grid w-full grid-cols-[minmax(0,2.1fr)_minmax(112px,0.95fr)_minmax(120px,0.9fr)_minmax(84px,0.65fr)] items-center gap-3 px-4 py-1.5 hover:bg-accent/30 transition-colors text-left"
+                    onClick={() => navigate(`/projects/${project.id_project}`)}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-medium text-foreground truncate">{project.name}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <StatusBadge status={getProjectStatusBadge(project.status)} text={getProjectStatusLabel(project.status)} size="sm" />
+                    </div>
+                    <span className="text-[11px] text-muted-foreground whitespace-nowrap">{formatProjectDate(project.end_date)}</span>
+                    <span className={`text-[11px] ${dl.cls}`}>{dl.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </motion.div>
+
       {/* Bottom row: My Tasks + Recent Activity */}
-      <div className="grid xl:grid-cols-2 gap-3 flex-1 min-h-0">
+      <div className="grid xl:grid-cols-2 gap-3 items-start">
           {/* My Tasks */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.4, ease: 'easeOut' }}
-            className="bg-card border border-border rounded-[4px] h-full min-h-0 flex flex-col"
+            className="bg-card border border-border rounded-[4px] flex flex-col"
           >
             <div className="flex items-center justify-between px-4 py-2 border-b border-border">
               <h2 className="text-[13px] font-semibold text-foreground">Mis Tareas Pendientes</h2>
@@ -457,7 +444,7 @@ export default function Dashboard() {
               <div className="py-8 text-center text-[12px] text-muted-foreground">Sin tareas pendientes.</div>
             ) : (
               <>
-                <div className="flex-1 min-h-0 overflow-auto divide-y divide-border">
+                <div className="max-h-[360px] overflow-y-auto scrollbar-app divide-y divide-border">
                   {paginatedMyTasks.map((task) => {
                     const isOverdue = task.due_date && new Date(task.due_date) < new Date();
                     const taskProjectId = boardProjectMap.get(task.board);
@@ -526,7 +513,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.45, ease: 'easeOut' }}
-          className="bg-card border border-border rounded-[4px] h-full min-h-0 flex flex-col"
+          className="bg-card border border-border rounded-[4px] flex flex-col"
         >
           <div className="flex items-center justify-between px-4 py-2 border-b border-border">
             <h2 className="text-[13px] font-semibold text-foreground">Actividad Reciente (Git)</h2>
@@ -535,7 +522,7 @@ export default function Dashboard() {
             <div className="py-8 text-center text-[12px] text-muted-foreground">Sin push events recientes.</div>
           ) : (
             <>
-              <div className="flex-1 min-h-0 overflow-auto divide-y divide-border">
+              <div className="max-h-[360px] overflow-y-auto scrollbar-app divide-y divide-border">
                 {paginatedPushes.map((push) => {
                   const commitCount = Array.isArray(push.commits) ? push.commits.length : 0;
                   return (
