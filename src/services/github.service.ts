@@ -102,9 +102,12 @@ export const githubService = {
     return api.get<unknown[]>(`/github/contents/?${params.toString()}`);
   },
 
-  /** GET /api/github/repos/ → list repos from backend */
-  async listRepos(): Promise<GitHubRepo[]> {
-    return api.get<GitHubRepo[]>('/github/repos/');
+  /** GET /api/github/repos/ → list repos from backend, optionally filtered by project */
+  async listRepos(filters?: { project_id?: number }): Promise<GitHubRepo[]> {
+    const params = new URLSearchParams();
+    if (filters?.project_id) params.set('project_id', String(filters.project_id));
+    const qs = params.toString();
+    return api.get<GitHubRepo[]>(`/github/repos/${qs ? `?${qs}` : ''}`);
   },
 
   // ─── Admin check (decode JWT without verification) ─────────────────────────
