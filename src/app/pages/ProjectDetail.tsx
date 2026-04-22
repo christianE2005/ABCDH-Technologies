@@ -550,7 +550,7 @@ export default function ProjectDetail() {
 
         {/* REPOSITORIOS */}
         {activeTab === 'repositorios' && (
-          <GitHubReposView />
+          <GitHubReposView projectId={projectId} />
         )}
 
         {/* EQUIPO */}

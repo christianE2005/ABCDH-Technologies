@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Github, Plus, ExternalLink, Lock, Unlock, X, Trash2 } from 'lucide-react';
+import { Github, Plus, ExternalLink, Lock, Unlock, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { githubService } from '../../services/github.service';
 import { ApiRequestError } from '../../services/api';
@@ -15,11 +15,15 @@ interface CreateRepoForm {
   auto_init: boolean;
 }
 
+interface GitHubReposViewProps {
+  projectId: number;
+}
+
 /**
  * Reusable view that displays the user's GitHub repos list and a "create repo" modal.
  * Requires the user to be already connected to GitHub.
  */
-export function GitHubReposView() {
+export function GitHubReposView({ projectId }: GitHubReposViewProps) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
 
@@ -27,14 +31,25 @@ export function GitHubReposView() {
   const [loading, setLoading] = useState(true);
   const [githubLogin, setGithubLogin] = useState<string | null>(null);
 
-  const [repos, setRepos] = useState<GitHubRepo[]>(
-    () => (userId ? githubService.getRepos(Number(userId)) : []),
-  );
+  const [repos, setRepos] = useState<GitHubRepo[]>([]);
+  const [loadingRepos, setLoadingRepos] = useState(false);
 
-  const persistRepos = (list: GitHubRepo[]) => {
-    if (!userId) return;
-    githubService.persistRepos(Number(userId), list);
-    setRepos(list);
+  const fetchRepos = async () => {
+    if (!projectId || !connected) {
+      setRepos([]);
+      return;
+    }
+
+    setLoadingRepos(true);
+    try {
+      const data = await githubService.listRepos({ project_id: projectId });
+      setRepos(data);
+    } catch {
+      // Requested behavior: show empty state when endpoint fails.
+      setRepos([]);
+    } finally {
+      setLoadingRepos(false);
+    }
   };
 
   useEffect(() => {
@@ -50,9 +65,12 @@ export function GitHubReposView() {
       .finally(() => setLoading(false));
   }, [userId]);
 
+  useEffect(() => {
+    void fetchRepos();
+  }, [connected, projectId]);
+
   const handleDisconnect = () => {
     if (!userId) return;
-    githubService.clearRepos(Number(userId));
     setRepos([]);
     setGithubLogin(null);
     setConnected(false);
@@ -86,6 +104,7 @@ export function GitHubReposView() {
     try {
       const result = await githubService.createRepo({
         user_id: Number(userId),
+        project_id: projectId,
         owner_type: 'org',
         owner: ORG_OWNER,
         name: form.name.trim(),
@@ -95,7 +114,7 @@ export function GitHubReposView() {
       });
 
       const newRepo = result.repository;
-      persistRepos([newRepo, ...repos]);
+      setRepos((prev) => [newRepo, ...prev.filter((repo) => repo.id_repo !== newRepo.id_repo)]);
 
       toast.success('Repositorio creado', {
         description: (
@@ -134,10 +153,6 @@ export function GitHubReposView() {
     } finally {
       setCreating(false);
     }
-  };
-
-  const handleRemoveFromList = (repoId: number) => {
-    persistRepos(repos.filter((r) => r.id_repo !== repoId));
   };
 
   if (loading) {
@@ -204,10 +219,15 @@ export function GitHubReposView() {
           Repositorios creados
         </h2>
 
-        {repos.length === 0 ? (
+        {loadingRepos ? (
+          <div className="flex items-center justify-center py-8 gap-2">
+            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-[11px] text-muted-foreground">Cargando repositorios del proyecto...</span>
+          </div>
+        ) : repos.length === 0 ? (
           <div className="flex flex-col items-center py-8 gap-2 text-center">
             <Github className="w-6 h-6 text-muted-foreground/40" />
-            <p className="text-[12px] text-muted-foreground">No has creado repositorios aun.</p>
+            <p className="text-[12px] text-muted-foreground">No hay repositorios asociados a este proyecto.</p>
             <button
               onClick={() => setShowModal(true)}
               className="text-[11px] text-primary hover:underline mt-1"
@@ -245,13 +265,6 @@ export function GitHubReposView() {
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
-                  <button
-                    onClick={() => handleRemoveFromList(repo.id_repo)}
-                    className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                    title="Quitar de la lista"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
                 </div>
               </div>
             ))}
