@@ -48,6 +48,7 @@ export default function Dashboard() {
   const { data: taskAssignments } = useApiTaskAssignments(taskIds);
   const { data: warnings } = useApiTaskWarnings({ status: 'active' });
   const { data: pushes } = useApiGithubPushes();
+  const isStakeholderUser = user?.role === 'stakeholder';
 
   const loading = loadingProjects || loadingTasks || loadingBoards || loadingMemberships;
 
@@ -245,7 +246,7 @@ export default function Dashboard() {
     <div className="px-4 pb-6 pt-3 max-w-[1600px] min-h-full flex flex-col gap-3">
       <CommandBar
         actions={[
-          { label: 'Actualizar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: refetchAll },
+          { label: 'Actualizar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: () => refetchAll() },
         ]}
         rightSlot={
           <span className="text-xs text-muted-foreground">
@@ -422,6 +423,7 @@ export default function Dashboard() {
       </motion.div>
 
       {/* Bottom row: My Tasks + Recent Activity */}
+      {!isStakeholderUser && (
       <div className="grid xl:grid-cols-2 gap-3 items-start">
           {/* My Tasks */}
           <motion.div
@@ -568,6 +570,7 @@ export default function Dashboard() {
           )}
         </motion.div>
       </div>
+      )}
     </div>
   );
 }

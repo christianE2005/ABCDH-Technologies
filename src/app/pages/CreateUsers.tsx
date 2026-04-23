@@ -594,7 +594,7 @@ export default function CreateUsers() {
 
       {/* Create User Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowCreateModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -605,9 +605,9 @@ export default function CreateUsers() {
               <h2 className="text-[15px] font-semibold text-foreground">Crear Nuevo Usuario</h2>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="p-1 rounded-[3px] hover:bg-surface-secondary transition-colors"
+                className="inline-flex h-8 items-center justify-center rounded-[4px] border border-border bg-card px-3 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-surface-secondary"
               >
-                <X className="w-4 h-4 text-muted-foreground" />
+                <X className="mr-1 w-4 h-4" /> Cerrar
               </button>
             </div>
 

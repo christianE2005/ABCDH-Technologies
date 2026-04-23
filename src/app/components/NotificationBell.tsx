@@ -47,7 +47,7 @@ export function NotificationBell() {
       >
         <Bell className="w-4 h-4 text-muted-foreground" />
         {activeWarnings.length > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[14px] h-[14px] rounded-full bg-destructive text-[9px] font-bold text-white px-0.5">
+          <span className="absolute -top-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] leading-none font-bold text-white text-center">
             {activeWarnings.length > 99 ? '99+' : activeWarnings.length}
           </span>
         )}
@@ -71,7 +71,7 @@ export function NotificationBell() {
           </div>
 
           {/* List */}
-          <div className="max-h-[320px] overflow-y-auto">
+          <div className="max-h-[320px] overflow-y-auto scrollbar-app">
             {recent.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <Bell className="w-6 h-6 mb-1.5 opacity-40" />

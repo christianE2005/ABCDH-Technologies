@@ -17,13 +17,25 @@ interface CreateRepoForm {
 
 interface GitHubReposViewProps {
   projectId: number;
+  canCreateRepos?: boolean;
 }
 
 /**
  * Reusable view that displays the user's GitHub repos list and a "create repo" modal.
  * Requires the user to be already connected to GitHub.
  */
-export function GitHubReposView({ projectId }: GitHubReposViewProps) {
+const REPO_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
+
+function validateRepoName(rawName: string) {
+  const name = rawName.trim();
+  if (!name) return 'El nombre del repositorio es obligatorio';
+  if (!REPO_NAME_PATTERN.test(name)) return 'Solo puedes usar letras, numeros, punto, guion y guion bajo.';
+  if (name.startsWith('.') || name.endsWith('.')) return 'El nombre no puede iniciar o terminar con punto.';
+  if (name.endsWith('.git')) return 'El nombre no puede terminar en .git.';
+  return null;
+}
+
+export function GitHubReposView({ projectId, canCreateRepos = true }: GitHubReposViewProps) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
 
@@ -91,12 +103,21 @@ export function GitHubReposView({ projectId }: GitHubReposViewProps) {
     setForm({ name: '', description: '', private: true, auto_init: true });
 
   const handleCreateRepo = async () => {
-    if (!form.name.trim()) {
-      toast.error('El nombre del repositorio es obligatorio');
+    const repoNameError = validateRepoName(form.name);
+    if (repoNameError) {
+      toast.error(repoNameError);
       return;
     }
     if (!userId) {
       toast.error('No hay sesion activa');
+      return;
+    }
+    if (!canCreateRepos) {
+      toast.error('Tu rol dentro del proyecto solo puede consultar los repositorios.');
+      return;
+    }
+    if (!connected) {
+      toast.error('Debes conectar tu cuenta de GitHub antes de crear un repositorio.');
       return;
     }
 
@@ -205,8 +226,19 @@ export function GitHubReposView({ projectId }: GitHubReposViewProps) {
           </div>
         </div>
         <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-1.5 px-2.5 py-1 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors"
+          onClick={() => {
+            if (!canCreateRepos) {
+              toast.error('Tu rol dentro del proyecto solo puede consultar los repositorios.');
+              return;
+            }
+            if (!connected) {
+              toast.error('Debes conectar tu cuenta de GitHub antes de crear un repositorio.');
+              return;
+            }
+            setShowModal(true);
+          }}
+          disabled={!canCreateRepos}
+          className="flex items-center gap-1.5 px-2.5 py-1 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus className="w-3 h-3" />
           Nuevo repo
@@ -229,7 +261,17 @@ export function GitHubReposView({ projectId }: GitHubReposViewProps) {
             <Github className="w-6 h-6 text-muted-foreground/40" />
             <p className="text-[12px] text-muted-foreground">No hay repositorios asociados a este proyecto.</p>
             <button
-              onClick={() => setShowModal(true)}
+              onClick={() => {
+                if (!canCreateRepos) {
+                  toast.error('Tu rol dentro del proyecto solo puede consultar los repositorios.');
+                  return;
+                }
+                if (!connected) {
+                  toast.error('Debes conectar tu cuenta de GitHub antes de crear un repositorio.');
+                  return;
+                }
+                setShowModal(true);
+              }}
               className="text-[11px] text-primary hover:underline mt-1"
             >
               Crear el primero
@@ -274,15 +316,7 @@ export function GitHubReposView({ projectId }: GitHubReposViewProps) {
 
       {/* Create Repo Modal */}
       {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowModal(false);
-              resetForm();
-            }
-          }}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-card border border-border rounded-[6px] p-5 w-full max-w-sm shadow-xl mx-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -291,9 +325,9 @@ export function GitHubReposView({ projectId }: GitHubReposViewProps) {
               </div>
               <button
                 onClick={() => { setShowModal(false); resetForm(); }}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="inline-flex h-8 items-center justify-center rounded-[4px] border border-border bg-card px-3 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-surface-secondary"
               >
-                <X className="w-4 h-4" />
+                <X className="mr-1 w-4 h-4" /> Cerrar
               </button>
             </div>
 
@@ -322,6 +356,12 @@ export function GitHubReposView({ projectId }: GitHubReposViewProps) {
                   autoFocus
                   className="mt-1 w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/30"
                 />
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Usa solo letras, numeros, punto, guion y guion bajo.
+                </p>
+                {validateRepoName(form.name) && form.name.trim() && (
+                  <p className="mt-1 text-[10px] text-destructive">{validateRepoName(form.name)}</p>
+                )}
               </div>
 
               {/* Description */}
@@ -372,7 +412,7 @@ export function GitHubReposView({ projectId }: GitHubReposViewProps) {
               </button>
               <button
                 onClick={handleCreateRepo}
-                disabled={creating || !form.name.trim()}
+                disabled={creating || Boolean(validateRepoName(form.name))}
                 className="px-3 py-1.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-60"
               >
                 {creating ? 'Creando...' : 'Crear repositorio'}
