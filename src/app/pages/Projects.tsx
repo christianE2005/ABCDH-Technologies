@@ -393,12 +393,12 @@ export default function Projects() {
 
       {/* Create Project Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setShowCreateModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
           <div className="bg-card border border-border rounded-[4px] p-5 max-w-lg w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-[13px] font-semibold text-foreground">Nuevo Proyecto</h2>
-              <button onClick={() => setShowCreateModal(false)} className="p-0.5 rounded-[3px] hover:bg-surface-secondary transition-colors">
-                <X className="w-3.5 h-3.5 text-muted-foreground" />
+              <button onClick={() => setShowCreateModal(false)} className="inline-flex h-8 items-center justify-center rounded-[4px] border border-border bg-card px-3 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-surface-secondary">
+                <X className="mr-1 w-3.5 h-3.5" /> Cerrar
               </button>
             </div>
 

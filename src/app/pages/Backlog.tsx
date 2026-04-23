@@ -3,21 +3,23 @@ import { useSearchParams } from 'react-router';
 import { DndContext, DragEndEvent, DragOverlay, closestCenter, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, GripVertical, Calendar, AlertCircle, X, LayoutGrid, List, Search, Loader2 } from 'lucide-react';
+import { GripVertical, Calendar, AlertCircle, LayoutGrid, List, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
-import { useApiProjects, useApiBoards, useApiTasks, useApiUsers } from '../hooks/useProjectData';
+import { useApiBoards, useApiTaskAssignments, useApiProjects, useApiTasks, useApiUsers, useApiProjectMembers, useApiRoles } from '../hooks/useProjectData';
 import { tasksService } from '../../services';
-import type { ApiTask, ApiTaskStatus, ApiTaskPriority } from '../../services';
+import type { ApiTask, ApiTaskStatus, ApiTaskPriority, ApiTaskAssignment } from '../../services';
 import { TaskDetailPanel } from '../components/TaskDetailPanel';
 import { useAuth } from '../context/AuthContext';
+import { getProjectCapabilities, getProjectRoleIds } from '../utils/projectPermissions';
 
 // ── Helpers ──
 
 function priorityColor(level: number) {
-  if (level >= 3) return 'bg-destructive';
+  if (level <= 1) return 'bg-destructive';
   if (level === 2) return 'bg-warning';
-  return 'bg-info';
+  if (level === 3) return 'bg-info';
+  return 'bg-success';
 }
 
 function getTaskStatusColor(statusName?: string | null) {
@@ -33,12 +35,36 @@ function getTaskStatusColor(statusName?: string | null) {
 
 // ── Task Card (draggable) ──
 
-function TaskCard({ task, priorities, statusName, onOpen }: { task: ApiTask; statuses?: ApiTaskStatus[]; priorities: ApiTaskPriority[]; statusName?: string; onOpen: (task: ApiTask) => void }) {
+function summarizeAssignedNames(assignedNames: string[]) {
+  if (assignedNames.length === 0) return 'Sin asignar';
+  if (assignedNames.length <= 2) return assignedNames.join(', ');
+  return `${assignedNames.slice(0, 2).join(', ')} +${assignedNames.length - 2}`;
+}
+
+function TaskCard({
+  task,
+  priorities,
+  statusName,
+  assignedNames,
+  assignedToCurrentUser,
+  projectName,
+  onOpen,
+}: {
+  task: ApiTask;
+  statuses?: ApiTaskStatus[];
+  priorities: ApiTaskPriority[];
+  statusName?: string;
+  assignedNames: string[];
+  assignedToCurrentUser: boolean;
+  projectName?: string;
+  onOpen: (task: ApiTask) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id_task });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
   const prio = priorities.find((p) => p.id_priority === task.priority);
   const statusColor = getTaskStatusColor(statusName);
+  const assignedSummary = summarizeAssignedNames(assignedNames);
 
   return (
     <div
@@ -62,19 +88,29 @@ function TaskCard({ task, priorities, statusName, onOpen }: { task: ApiTask; sta
           <div className="flex items-center gap-1.5 mb-1">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: statusColor }} />
             <h3 className="text-[12px] font-medium text-foreground truncate">{task.title}</h3>
+            {assignedToCurrentUser && (
+              <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.05em] text-primary">
+                              Asignada a ti
+              </span>
+            )}
           </div>
           {task.description && <p className="text-[11px] text-muted-foreground line-clamp-2 ml-3.5">{task.description}</p>}
         </div>
       </div>
       <div className="flex items-center justify-between mt-2 ml-3.5">
-        <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-          {task.assigned_to && (
-            <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-medium shrink-0">
-              #{task.assigned_to}
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
+          {assignedNames.length > 0 && (
+            <span className="max-w-[180px] truncate" title={assignedNames.join(', ')}>
+              {assignedSummary}
             </span>
           )}
           {task.due_date && (
             <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{task.due_date}</span>
+          )}
+          {projectName && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary/80 font-medium">
+              {projectName}
+            </span>
           )}
         </div>
         {prio && <span className="text-[10px] px-1.5 py-0.5 bg-secondary text-muted-foreground rounded font-medium">{prio.name}</span>}
@@ -95,21 +131,32 @@ const WIP_LIMIT = 10; // Per-column WIP limit
 export default function Backlog() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const currentUserId = useMemo(() => {
+    const parsed = Number(user?.id ?? 0);
+    return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
+  }, [user]);
 
-  // Project + Board pickers
+  // Project picker
   const { data: projects, loading: loadingProjects } = useApiProjects();
   const [selectedProject, setSelectedProject] = useState<number | null>(() => {
     const p = searchParams.get('project');
     return p ? Number(p) : null;
   });
   const { data: boards, loading: loadingBoards } = useApiBoards(selectedProject ?? undefined);
-  const [selectedBoard, setSelectedBoard] = useState<number | undefined>(undefined);
+  const [selectedBoard, setSelectedBoard] = useState<number | null>(() => {
+    const b = searchParams.get('board');
+    return b ? Number(b) : null;
+  });
 
-  // Tasks for the selected board
-  const { data: tasks, loading: loadingTasks, statuses, priorities, refetch: refetchTasks } = useApiTasks(selectedBoard);
+  // Tasks for selected project/board
+  const { data: tasks, loading: loadingTasks, statuses, priorities, refetch: refetchTasks } = useApiTasks(selectedBoard ?? undefined, selectedProject ?? undefined);
+  const taskIds = useMemo(() => (tasks ?? []).map((task) => task.id_task), [tasks]);
+  const { data: taskAssignments } = useApiTaskAssignments(taskIds);
 
   // Users for the detail panel
   const { data: users } = useApiUsers();
+  const { data: myMemberships } = useApiProjectMembers(undefined, currentUserId ?? undefined);
+  const { data: roles } = useApiRoles();
   const userMap = useMemo(() => {
     const m = new Map<number, string>();
     (users ?? []).forEach((u) => m.set(u.id_user, u.username));
@@ -119,39 +166,84 @@ export default function Backlog() {
   const loading = loadingProjects || loadingBoards || loadingTasks;
 
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
-  const [showAddTask, setShowAddTask] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<number | 'all'>('all');
   const [selectedTask, setSelectedTask] = useState<ApiTask | null>(null);
-  const [creating, setCreating] = useState(false);
-
-  // Form state
-  const [formTitle, setFormTitle] = useState('');
-  const [formDesc, setFormDesc] = useState('');
-  const [formPriority, setFormPriority] = useState<number | ''>('');
-  const [formDue, setFormDue] = useState('');
 
   // Sync URL param
   useEffect(() => {
     const p = searchParams.get('project');
-    if (p !== null) setSelectedProject(Number(p));
+    setSelectedProject(p ? Number(p) : null);
+    const b = searchParams.get('board');
+    setSelectedBoard(b ? Number(b) : null);
   }, [searchParams]);
 
-  // Auto-select first board when boards load
   useEffect(() => {
-    if (boards && boards.length > 0 && !selectedBoard) {
-      setSelectedBoard(boards[0].id_board);
+    if (!selectedProject) {
+      setSelectedBoard(null);
+      return;
     }
-  }, [boards, selectedBoard]);
 
-  // Reset board when project changes
-  useEffect(() => { setSelectedBoard(undefined); }, [selectedProject]);
+    if (selectedBoard == null) return;
+    const boardExists = (boards ?? []).some((board) => board.id_board === selectedBoard);
+    if (!boardExists) {
+      setSelectedBoard(null);
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+        next.delete('board');
+        return next;
+      });
+    }
+  }, [boards, selectedBoard, selectedProject, setSearchParams]);
 
   const handleProjectFilter = (projectId: number | null) => {
     setSelectedProject(projectId);
-    if (projectId) setSearchParams({ project: String(projectId) });
-    else setSearchParams({});
+    setSelectedBoard(null);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (projectId == null) next.delete('project');
+      else next.set('project', String(projectId));
+      next.delete('board');
+      return next;
+    });
+  };
+
+  const handleBoardFilter = (boardId: number | null) => {
+    setSelectedBoard(boardId);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (boardId == null) next.delete('board');
+      else next.set('board', String(boardId));
+      return next;
+    });
+  };
+
+  const taskAssignmentsByTask = useMemo(() => {
+    const nextMap = new Map<number, ApiTaskAssignment[]>();
+    (taskAssignments ?? []).forEach((assignment) => {
+      const existing = nextMap.get(assignment.task) ?? [];
+      existing.push(assignment);
+      nextMap.set(assignment.task, existing);
+    });
+    return nextMap;
+  }, [taskAssignments]);
+
+  const getAssignedNames = (task: ApiTask) => {
+    const assignments = taskAssignmentsByTask.get(task.id_task) ?? [];
+    if (assignments.length > 0) {
+      return assignments.map((assignment) => userMap.get(assignment.assigned_to) ?? `#${assignment.assigned_to}`);
+    }
+    return task.assigned_to ? [userMap.get(task.assigned_to) ?? `#${task.assigned_to}`] : [];
+  };
+
+  const isAssignedToCurrentUser = (task: ApiTask) => {
+    if (!currentUserId) return false;
+    const assignments = taskAssignmentsByTask.get(task.id_task) ?? [];
+    if (assignments.length > 0) {
+      return assignments.some((assignment) => assignment.assigned_to === currentUserId);
+    }
+    return task.assigned_to === currentUserId;
   };
 
   // Filter tasks by search & priority
@@ -176,6 +268,25 @@ export default function Backlog() {
     }));
   }, [statuses, filteredTasks]);
 
+  // Per-project edit permissions for the current user
+  const projectEditPermissions = useMemo(() => {
+    const map = new Map<number, boolean>();
+    if (!myMemberships || !roles) return map;
+    const roleIds = getProjectRoleIds(roles);
+    const currentUserAccount = (users ?? []).find((u) => u.id_user === currentUserId) ?? null;
+    for (const membership of myMemberships) {
+      const caps = getProjectCapabilities(membership, currentUserAccount, roleIds);
+      map.set(membership.project, caps.canManageTasks);
+    }
+    return map;
+  }, [myMemberships, roles, users, currentUserId]);
+
+  const canEditTaskInProject = (task: ApiTask): boolean => {
+    const board = (boards ?? []).find((b) => b.id_board === task.board);
+    if (!board) return false;
+    return projectEditPermissions.get(board.project) ?? false;
+  };
+
   // ── Drag handlers ──
   const handleDragStart = (event: { active: { id: string | number } }) => setActiveId(Number(event.active.id));
 
@@ -196,12 +307,17 @@ export default function Backlog() {
     }
     if (targetStatusId === null) return;
 
-    const activeTask = (tasks ?? []).find((t) => t.id_task === Number(active.id));
-    if (!activeTask || activeTask.status === targetStatusId) return;
+    const activeTaskNode = (tasks ?? []).find((t) => t.id_task === Number(active.id));
+    if (!activeTaskNode || activeTaskNode.status === targetStatusId) return;
+
+    if (!canEditTaskInProject(activeTaskNode)) {
+      toast.error('No tienes permisos para modificar esta tarea.');
+      return;
+    }
 
     const statusName = statuses.find((s) => s.id_status === targetStatusId)?.name ?? '';
     try {
-      await tasksService.update(activeTask.id_task, { status: targetStatusId });
+      await tasksService.update(activeTaskNode.id_task, { status: targetStatusId });
       toast.success(`Tarea movida a ${statusName}`);
       refetchTasks();
     } catch {
@@ -213,32 +329,24 @@ export default function Backlog() {
   const selectedProjectData = selectedProject && projects ? projects.find((p) => p.id_project === selectedProject) ?? null : null;
   const canViewBacklog = user?.role === 'admin' || user?.role === 'user' || user?.role === 'project_manager';
 
-  // ── Create task ──
-  const handleCreateTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedBoard) { toast.error('Selecciona un board primero'); return; }
-    setCreating(true);
-    try {
-      await tasksService.create({
-        board: selectedBoard,
-        title: formTitle,
-        description: formDesc || undefined,
-        priority: formPriority !== '' ? formPriority : undefined,
-        due_date: formDue || undefined,
-      });
-      toast.success('Tarea creada exitosamente');
-      setShowAddTask(false);
-      setFormTitle(''); setFormDesc(''); setFormPriority(''); setFormDue('');
-      refetchTasks();
-    } catch {
-      toast.error('Error al crear la tarea');
-    } finally {
-      setCreating(false);
-    }
+  const projectNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    (projects ?? []).forEach((p) => map.set(p.id_project, p.name));
+    return map;
+  }, [projects]);
+
+  const getProjectNameForTask = (task: ApiTask): string | undefined => {
+    if (selectedProject) return selectedProjectData?.name;
+    const boardProject = (boards ?? []).find((b) => b.id_board === task.board)?.project;
+    return boardProject ? projectNameById.get(boardProject) : undefined;
   };
 
   // ── Update task status from slideout ──
   const handleStatusChange = async (task: ApiTask, newStatusId: number) => {
+    if (!canEditTaskInProject(task)) {
+      toast.error('No tienes permisos para modificar esta tarea.');
+      return;
+    }
     try {
       await tasksService.update(task.id_task, { status: newStatusId });
       setSelectedTask((prev) => prev ? { ...prev, status: newStatusId } : null);
@@ -263,6 +371,9 @@ export default function Backlog() {
 
   return (
     <div className="px-4 pb-6 pt-3 max-w-[1600px] min-h-full flex flex-col gap-3">
+      {/* Toolbar */}
+      {/* (removed toolbar - focus on core data) */}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -273,39 +384,40 @@ export default function Backlog() {
               : 'Gestiona tareas de todos los proyectos'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-surface-secondary border border-border rounded-[3px] p-0.5">
-            <button onClick={() => setViewMode('kanban')} className={`px-2 py-1 rounded-[2px] text-[11px] font-medium transition-colors flex items-center gap-1 ${viewMode === 'kanban' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-              <LayoutGrid className="w-3 h-3" /> Kanban
-            </button>
-            <button onClick={() => setViewMode('table')} className={`px-2 py-1 rounded-[2px] text-[11px] font-medium transition-colors flex items-center gap-1 ${viewMode === 'table' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-              <List className="w-3 h-3" /> Tabla
-            </button>
-          </div>
-          <button onClick={() => setShowAddTask(true)} disabled={!selectedBoard} className="h-7 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50">
-            <Plus className="w-3.5 h-3.5" /> Nueva tarea
+        <div className="flex items-center bg-surface-secondary border border-border rounded-[3px] p-0.5">
+          <button onClick={() => setViewMode('kanban')} className={`px-2 py-1 rounded-[2px] text-[11px] font-medium transition-colors flex items-center gap-1 ${viewMode === 'kanban' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+            <LayoutGrid className="w-3 h-3" /> Kanban
+          </button>
+          <button onClick={() => setViewMode('table')} className={`px-2 py-1 rounded-[2px] text-[11px] font-medium transition-colors flex items-center gap-1 ${viewMode === 'table' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+            <List className="w-3 h-3" /> Tabla
           </button>
         </div>
       </div>
 
-      {/* Project pills + board picker */}
+      {/* Project picker + priority filter + search */}
       <div className="space-y-2">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          <button onClick={() => handleProjectFilter(null)} className={`px-2.5 py-1 rounded-[3px] text-[11px] font-medium whitespace-nowrap transition-colors ${selectedProject === null ? 'bg-primary text-primary-foreground' : 'bg-surface-secondary border border-border text-muted-foreground hover:text-foreground'}`}>
-            Todos
-          </button>
-          {(projects ?? []).map((project) => (
-            <button key={project.id_project} onClick={() => handleProjectFilter(project.id_project)} className={`px-2.5 py-1 rounded-[3px] text-[11px] font-medium whitespace-nowrap transition-colors ${selectedProject === project.id_project ? 'bg-primary text-primary-foreground' : 'bg-surface-secondary border border-border text-muted-foreground hover:text-foreground'}`}>
-              {project.name}
-            </button>
-          ))}
-        </div>
-
-        {/* Board dropdown + priority filter + search */}
         <div className="flex items-center gap-3 flex-wrap">
-          {selectedProject && boards && boards.length > 0 && (
-            <select value={selectedBoard ?? ''} onChange={(e) => setSelectedBoard(Number(e.target.value))} className="h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20">
-              {boards.map((b) => (<option key={b.id_board} value={b.id_board}>{b.name}</option>))}
+          <select
+            value={selectedProject ?? 'all'}
+            onChange={(e) => handleProjectFilter(e.target.value === 'all' ? null : Number(e.target.value))}
+            className="h-7 min-w-[220px] bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20"
+          >
+            <option value="all">Todos los proyectos</option>
+            {(projects ?? []).map((project) => (
+              <option key={project.id_project} value={project.id_project}>{project.name}</option>
+            ))}
+          </select>
+
+          {selectedProject != null && (boards ?? []).length > 0 && (
+            <select
+              value={selectedBoard ?? 'all'}
+              onChange={(e) => handleBoardFilter(e.target.value === 'all' ? null : Number(e.target.value))}
+              className="h-7 min-w-[200px] bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20"
+            >
+              <option value="all">Todos los boards</option>
+              {(boards ?? []).map((board) => (
+                <option key={board.id_board} value={board.id_board}>{board.name}</option>
+              ))}
             </select>
           )}
 
@@ -335,13 +447,8 @@ export default function Backlog() {
         <div className="flex items-center justify-center py-24"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
       )}
 
-      {/* No board selected */}
-      {!loading && !selectedBoard && selectedProject && (
-        <div className="py-16 text-center text-[12px] text-muted-foreground">Este proyecto no tiene boards. Crea uno primero.</div>
-      )}
-
       {/* Kanban view */}
-      {!loading && selectedBoard && viewMode === 'kanban' && (
+      {!loading && viewMode === 'kanban' && (
         <div className="flex-1 min-h-[520px] flex flex-col">
         <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 min-h-0" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}>
@@ -361,7 +468,16 @@ export default function Backlog() {
                     <div className="flex-1 min-h-[200px] overflow-y-auto">
                       {col.tasks.map((task, taskIndex) => (
                         <motion.div key={task.id_task} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: colIndex * 0.1 + taskIndex * 0.05, ease: 'easeOut' }}>
-                          <TaskCard task={task} statuses={statuses} priorities={priorities} statusName={col.status.name} onOpen={setSelectedTask} />
+                          <TaskCard
+                            task={task}
+                            statuses={statuses}
+                            priorities={priorities}
+                            statusName={col.status.name}
+                            assignedNames={getAssignedNames(task)}
+                            assignedToCurrentUser={isAssignedToCurrentUser(task)}
+                            projectName={getProjectNameForTask(task)}
+                            onOpen={setSelectedTask}
+                          />
                         </motion.div>
                       ))}
                     </div>
@@ -388,7 +504,7 @@ export default function Backlog() {
       )}
 
       {/* Table view */}
-      {!loading && selectedBoard && viewMode === 'table' && (
+      {!loading && viewMode === 'table' && (
         <div className="bg-card border border-border rounded-[4px] overflow-hidden flex-1 min-h-[520px] flex flex-col">
           <div className="grid grid-cols-[40px_1fr_120px_100px_100px] gap-0 border-b border-border bg-surface-secondary/50 px-4 py-1.5">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">#</span>
@@ -402,6 +518,9 @@ export default function Backlog() {
             {filteredTasks.map((task, index) => {
               const st = statuses.find((s) => s.id_status === task.status);
               const pr = priorities.find((p) => p.id_priority === task.priority);
+              const assignedNames = getAssignedNames(task);
+              const assignedSummary = summarizeAssignedNames(assignedNames);
+              const assignedToCurrentUser = isAssignedToCurrentUser(task);
               return (
                 <motion.div key={task.id_task} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.04, ease: 'easeOut' }} className="grid grid-cols-[40px_1fr_120px_100px_100px] gap-0 px-4 py-2 border-b border-border/50 hover:bg-accent/30 transition-colors items-center cursor-pointer" onClick={() => setSelectedTask(task)}>
                   <span className="text-[11px] text-muted-foreground">{index + 1}</span>
@@ -409,8 +528,19 @@ export default function Backlog() {
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${priorityColor(pr?.level ?? 0)}`} />
                       <span className="text-[12px] font-medium text-foreground truncate">{task.title}</span>
+                      {assignedToCurrentUser && (
+                        <span className="text-[9px] font-semibold text-primary shrink-0">
+                          Asignada a ti
+                        </span>
+                      )}
                     </div>
+                    {getProjectNameForTask(task) && (
+                      <p className="text-[10px] text-muted-foreground ml-3.5 mt-0.5">
+                        Proyecto: <span className="font-medium text-primary/70">{getProjectNameForTask(task)}</span>
+                      </p>
+                    )}
                     {task.description && <span className="text-[11px] text-muted-foreground truncate ml-4 block">{task.description}</span>}
+                    <span className="text-[10px] text-muted-foreground truncate ml-4 block" title={assignedNames.join(', ')}>{assignedSummary}</span>
                   </div>
                   <div><span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{st?.name ?? '—'}</span></div>
                   <span className="text-[11px] font-medium text-muted-foreground">{pr?.name ?? '—'}</span>
@@ -433,51 +563,15 @@ export default function Backlog() {
         </div>
       )}
 
-      {/* Add Task Modal */}
-      {showAddTask && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setShowAddTask(false)}>
-          <div className="bg-card border border-border rounded-[4px] p-5 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[13px] font-semibold text-foreground">Nueva Tarea</h2>
-              <button onClick={() => setShowAddTask(false)} className="p-0.5 rounded-[3px] hover:bg-surface-secondary transition-colors"><X className="w-3.5 h-3.5 text-muted-foreground" /></button>
-            </div>
-            <form className="space-y-3" onSubmit={handleCreateTask}>
-              <div>
-                <label className="block text-[11px] font-medium text-foreground mb-1">Título *</label>
-                <input type="text" required value={formTitle} onChange={(e) => setFormTitle(e.target.value)} placeholder="Ej: Implementar módulo de reportes" className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20" />
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium text-foreground mb-1">Descripción</label>
-                <textarea rows={2} value={formDesc} onChange={(e) => setFormDesc(e.target.value)} placeholder="Describe la actividad..." className="w-full bg-surface-secondary border border-border rounded-[3px] px-2.5 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-none" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-medium text-foreground mb-1">Prioridad</label>
-                  <select value={formPriority} onChange={(e) => setFormPriority(e.target.value ? Number(e.target.value) : '')} className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20">
-                    <option value="">Sin prioridad</option>
-                    {priorities.map((p) => (<option key={p.id_priority} value={p.id_priority}>{p.name}</option>))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-medium text-foreground mb-1">Fecha Límite</label>
-                  <input type="date" value={formDue} onChange={(e) => setFormDue(e.target.value)} className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20" />
-                </div>
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setShowAddTask(false)} className="flex-1 h-7 border border-border rounded-[3px] text-[11px] font-medium text-foreground hover:bg-surface-secondary transition-colors">Cancelar</button>
-                <button type="submit" disabled={creating} className="flex-1 h-7 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50">{creating ? 'Creando…' : 'Crear'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Task Detail Panel */}
       <TaskDetailPanel
         task={selectedTask}
         statuses={statuses}
         priorities={priorities}
         userMap={userMap}
+        canEditTask={selectedTask ? canEditTaskInProject(selectedTask) : false}
+        canDeleteTask={false}
+        canEditAssignment={false}
         onClose={() => setSelectedTask(null)}
         onStatusChange={handleStatusChange}
       />

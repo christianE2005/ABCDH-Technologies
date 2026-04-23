@@ -18,9 +18,7 @@ import {
   LayoutGrid,
   List,
   Loader2,
-  Pencil,
   Plus,
-  RefreshCw,
   Search,
 } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -60,6 +58,12 @@ function normalizeName(name: string) {
   return name.trim().toLowerCase();
 }
 
+function summarizeAssignedNames(assignedNames: string[]) {
+  if (assignedNames.length === 0) return 'Sin asignar';
+  if (assignedNames.length <= 2) return assignedNames.join(', ');
+  return `${assignedNames.slice(0, 2).join(', ')} +${assignedNames.length - 2}`;
+}
+
 function getTaskStatusColor(statusName?: string | null) {
   const normalized = (statusName ?? '').trim().toLowerCase();
   if (normalized.includes('backlog')) return '#64748b';
@@ -71,10 +75,41 @@ function getTaskStatusColor(statusName?: string | null) {
   return '#14b8a6';
 }
 
+function getPriorityTone(priority?: ApiTaskPriority | null) {
+  if (!priority) {
+    return 'bg-secondary text-muted-foreground border border-border';
+  }
+
+  const normalized = priority.name.trim().toLowerCase();
+  if (normalized.includes('crit')) return 'bg-destructive/10 text-destructive border border-destructive/20';
+  if (normalized.includes('alta')) return 'bg-warning/15 text-warning border border-warning/20';
+  if (normalized.includes('media')) return 'bg-info/15 text-info border border-info/20';
+  if (normalized.includes('baja')) return 'bg-success/15 text-success border border-success/20';
+
+  switch (priority.level) {
+    case 1:
+      return 'bg-destructive/10 text-destructive border border-destructive/20';
+    case 2:
+      return 'bg-warning/15 text-warning border border-warning/20';
+    case 3:
+      return 'bg-info/15 text-info border border-info/20';
+    default:
+      return 'bg-success/15 text-success border border-success/20';
+  }
+}
+
+function priorityDotColor(level: number) {
+  if (level <= 1) return 'bg-destructive';
+  if (level === 2) return 'bg-warning';
+  if (level === 3) return 'bg-info';
+  return 'bg-success';
+}
+
 function TaskCard({
   task,
   priorities,
   assignedNames,
+  assignedToCurrentUser,
   statusName,
   onOpen,
   draggable,
@@ -82,6 +117,7 @@ function TaskCard({
   task: ApiTask;
   priorities: ApiTaskPriority[];
   assignedNames: string[];
+  assignedToCurrentUser: boolean;
   statusName?: string;
   onOpen: (task: ApiTask) => void;
   draggable: boolean;
@@ -98,7 +134,8 @@ function TaskCard({
   };
 
   const prio = priorities.find((p) => p.id_priority === task.priority);
-  const assignedLabel = assignedNames.length > 0 ? assignedNames.join(', ') : 'Sin asignar';
+  const priorityTone = getPriorityTone(prio);
+  const assignedLabel = summarizeAssignedNames(assignedNames);
   const statusColor = getTaskStatusColor(statusName);
 
   return (
@@ -125,9 +162,14 @@ function TaskCard({
           <div className="flex items-center gap-1.5 mb-1">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: statusColor }} />
             <h3 className="text-[12px] font-medium text-foreground truncate">{task.title}</h3>
+            {assignedToCurrentUser && (
+              <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.05em] text-primary">
+                Asignada a ti
+              </span>
+            )}
           </div>
           {task.description && <p className="text-[11px] text-muted-foreground line-clamp-2">{task.description}</p>}
-          <p className="text-[10px] text-muted-foreground mt-1 truncate">Asignado: {assignedLabel}</p>
+          <p className="text-[10px] text-muted-foreground mt-1 truncate" title={assignedNames.join(', ')}>Asignado: {assignedLabel}</p>
         </div>
       </div>
 
@@ -140,7 +182,7 @@ function TaskCard({
             </span>
           )}
         </div>
-        {prio && <span className="text-[10px] px-1.5 py-0.5 bg-secondary text-muted-foreground rounded font-medium">{prio.name}</span>}
+        {prio && <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${priorityTone}`}>{prio.name}</span>}
       </div>
     </div>
   );
@@ -291,6 +333,15 @@ export function ProjectTasksWorkspace({
     return task.assigned_to ? [userMap.get(task.assigned_to) ?? `#${task.assigned_to}`] : [];
   };
 
+  const isAssignedToCurrentUser = (task: ApiTask) => {
+    if (!currentUserId) return false;
+    const assignments = taskAssignmentsByTask.get(task.id_task) ?? [];
+    if (assignments.length > 0) {
+      return assignments.some((assignment) => assignment.assigned_to === currentUserId);
+    }
+    return task.assigned_to === currentUserId;
+  };
+
   useEffect(() => {
     if (!pendingInitialTaskId) return;
     const targetTask = (tasks ?? []).find((task) => task.id_task === pendingInitialTaskId);
@@ -386,6 +437,10 @@ export function ProjectTasksWorkspace({
       toast.error('Selecciona un estado.');
       return;
     }
+    if (formPriority === '') {
+      toast.error('Selecciona una prioridad.');
+      return;
+    }
     if (formAssignedTo.length === 0) {
       toast.error('Selecciona al menos una persona responsable.');
       return;
@@ -398,7 +453,7 @@ export function ProjectTasksWorkspace({
         title: formTitle.trim(),
         description: formDesc.trim() || undefined,
         status: formStatus,
-        priority: formPriority === '' ? undefined : formPriority,
+        priority: formPriority,
         created_by: currentUserId ?? undefined,
         assigned_to: formAssignedTo[0],
         due_date: formDueDate || undefined,
@@ -496,36 +551,32 @@ export function ProjectTasksWorkspace({
     <div className="h-full min-h-0 flex flex-col gap-3 overflow-hidden">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] text-muted-foreground">Board</span>
-          <select
-            value={selectedBoardId ?? ''}
-            onChange={(e) => setSelectedBoardId(Number(e.target.value))}
-            className="h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
-            disabled={!boards || boards.length === 0}
-          >
-            {!boards || boards.length === 0 ? (
-              <option value="">Sin boards</option>
-            ) : (
-              boards.map((b) => (
-                <option key={b.id_board} value={b.id_board}>{b.name}</option>
-              ))
+          <div className="flex items-center gap-2 rounded-[6px] border border-border bg-surface-secondary/40 px-2 py-1.5">
+            <span className="text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">Board</span>
+            <select
+              value={selectedBoardId ?? ''}
+              onChange={(e) => setSelectedBoardId(Number(e.target.value))}
+              className="h-8 min-w-[220px] bg-card border border-border rounded-[4px] px-2.5 text-[11px] text-foreground"
+              disabled={!boards || boards.length === 0}
+            >
+              {!boards || boards.length === 0 ? (
+                <option value="">Sin boards</option>
+              ) : (
+                boards.map((b) => (
+                  <option key={b.id_board} value={b.id_board}>{b.name}</option>
+                ))
+              )}
+            </select>
+
+            {canCreateBoards && (
+              <button
+                onClick={() => setShowBoardModal(true)}
+                className="h-8 px-3 bg-card border border-border rounded-[4px] text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent/40"
+              >
+                <span className="inline-flex items-center gap-1"><Plus className="w-3 h-3" /> Nuevo board</span>
+              </button>
             )}
-          </select>
-
-          <button
-            onClick={() => setShowBoardModal(true)}
-            disabled={!canCreateBoards}
-            className="h-7 px-2.5 bg-card border border-border rounded-[3px] text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50"
-          >
-            <span className="inline-flex items-center gap-1"><Plus className="w-3 h-3" /> Nuevo board</span>
-          </button>
-
-          <button
-            onClick={() => refetchTasks()}
-            className="h-7 px-2.5 bg-card border border-border rounded-[3px] text-[11px] text-muted-foreground hover:text-foreground"
-          >
-            <span className="inline-flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Actualizar</span>
-          </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -548,28 +599,40 @@ export function ProjectTasksWorkspace({
             </button>
           </div>
 
-          <button
-            onClick={() => setShowTaskModal(true)}
-            disabled={!selectedBoardId || !canCreateTasks}
-            className="h-7 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium flex items-center gap-1.5 disabled:opacity-50"
-          >
-            <Plus className="w-3.5 h-3.5" /> Nueva historia
-          </button>
+          {canCreateTasks && (
+            <button
+              onClick={() => setShowTaskModal(true)}
+              disabled={!selectedBoardId}
+              className="h-7 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <Plus className="w-3.5 h-3.5" /> Nueva historia
+            </button>
+          )}
         </div>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
         {priorities.length > 0 && (
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            className="h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
-          >
-            <option value="all">Todas las prioridades</option>
+          <div className="flex items-center gap-0 border border-border rounded-[3px] overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setPriorityFilter('all')}
+              className={`px-2.5 py-1 text-[11px] font-medium border-r border-border transition-colors ${priorityFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:text-foreground hover:bg-accent'}`}
+            >
+              Prioridad
+            </button>
             {priorities.map((p) => (
-              <option key={p.id_priority} value={p.id_priority}>{p.name}</option>
+              <button
+                key={p.id_priority}
+                type="button"
+                onClick={() => setPriorityFilter(p.id_priority)}
+                className={`px-2.5 py-1 text-[11px] font-medium border-r border-border last:border-r-0 transition-colors ${priorityFilter === p.id_priority ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:text-foreground hover:bg-accent'}`}
+              >
+                <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${priorityDotColor(p.level)}`} />
+                {p.name}
+              </button>
             ))}
-          </select>
+          </div>
         )}
 
         <div className="relative">
@@ -625,13 +688,14 @@ export function ProjectTasksWorkspace({
                       items={column.tasks.map((t) => t.id_task)}
                       strategy={verticalListSortingStrategy}
                     >
-                      <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-app pr-1">
                         {column.tasks.map((task) => (
                           <TaskCard
                             key={task.id_task}
                             task={task}
                             priorities={priorities}
                             assignedNames={getAssignedNames(task)}
+                            assignedToCurrentUser={isAssignedToCurrentUser(task)}
                             statusName={statusNameById.get(task.status ?? -1)}
                             onOpen={setSelectedTask}
                             draggable={canEditTasks}
@@ -665,13 +729,12 @@ export function ProjectTasksWorkspace({
         <div className="bg-card border border-border rounded-[4px] overflow-auto">
           <table className="w-full min-w-[940px] table-fixed">
             <colgroup>
-              <col className="w-[28%]" />
+              <col className="w-[30%]" />
+              <col className="w-[15%]" />
+              <col className="w-[15%]" />
               <col className="w-[14%]" />
               <col className="w-[14%]" />
               <col className="w-[12%]" />
-              <col className="w-[12%]" />
-              <col className="w-[10%]" />
-              <col className="w-[10%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-border bg-surface-secondary/50">
@@ -681,23 +744,28 @@ export function ProjectTasksWorkspace({
                 <th className="text-left py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Asignado</th>
                 <th className="text-left py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Creador</th>
                 <th className="text-left py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Vence</th>
-                <th className="text-right py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {
-                filteredTasks.map((task) => (
-                  <tr key={task.id_task} className="border-b border-border/60 hover:bg-accent/30 transition-colors">
+              {filteredTasks.map((task) => {
+                const assignedNames = getAssignedNames(task);
+                const assignedSummary = summarizeAssignedNames(assignedNames);
+                const assignedToCurrentUser = isAssignedToCurrentUser(task);
+
+                return (
+                  <tr key={task.id_task} className="border-b border-border/60 hover:bg-accent/30 transition-colors cursor-pointer" onClick={() => setSelectedTask(task)}>
                     <td className="py-2 px-3">
-                      <button
-                        onClick={() => setSelectedTask(task)}
-                        className="text-left"
-                      >
-                        <p className="text-[12px] font-medium text-foreground truncate max-w-[280px]">{task.title}</p>
-                        {task.description && <p className="text-[11px] text-muted-foreground truncate max-w-[280px]">{task.description}</p>}
-                      </button>
+                      <div className="flex items-center gap-1.5 max-w-[280px]">
+                        <p className="text-[12px] font-medium text-foreground truncate">{task.title}</p>
+                        {assignedToCurrentUser && (
+                          <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.05em] text-primary">
+                            Asignada a ti
+                          </span>
+                        )}
+                      </div>
+                      {task.description && <p className="text-[11px] text-muted-foreground truncate max-w-[280px]">{task.description}</p>}
                     </td>
-                    <td className="py-2 px-3">
+                    <td className="py-2 px-3" onClick={(e) => e.stopPropagation()}>
                       <select
                         value={task.status ?? ''}
                         disabled={updatingTaskId === task.id_task || !canEditTasks}
@@ -710,7 +778,7 @@ export function ProjectTasksWorkspace({
                         ))}
                       </select>
                     </td>
-                    <td className="py-2 px-3">
+                    <td className="py-2 px-3" onClick={(e) => e.stopPropagation()}>
                       <select
                         value={task.priority ?? ''}
                         disabled={updatingTaskId === task.id_task || !canEditTasks}
@@ -724,39 +792,32 @@ export function ProjectTasksWorkspace({
                       </select>
                     </td>
                     <td className="py-2 px-3 text-[11px] text-muted-foreground">
-                      {getAssignedNames(task).length > 0 ? getAssignedNames(task).join(', ') : 'Sin asignar'}
+                      <span className="block truncate" title={assignedNames.join(', ')}>{assignedSummary}</span>
                     </td>
                     <td className="py-2 px-3 text-[11px] text-muted-foreground">
                       {task.created_by ? (userMap.get(task.created_by) ?? `#${task.created_by}`) : '—'}
                     </td>
                     <td className="py-2 px-3 text-[11px] text-muted-foreground">{task.due_date ?? '—'}</td>
-                    <td className="py-2 px-3 text-right">
-                      <button
-                        onClick={() => setSelectedTask(task)}
-                        className="inline-flex items-center gap-1 h-7 px-2.5 border border-border rounded-[3px] text-[11px] text-muted-foreground hover:text-foreground"
-                      >
-                        <Pencil className="w-3 h-3" /> {canEditTasks ? 'Editar' : 'Ver'}
-                      </button>
-                    </td>
                   </tr>
-                ))
-              }
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
       {showTaskModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setShowTaskModal(false)}>
-          <div className="bg-card border border-border rounded-[6px] p-5 max-w-2xl w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
+          <div className="bg-card border border-border rounded-[6px] p-5 max-w-2xl w-full max-h-[90vh] overflow-y-auto scrollbar-app shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-[13px] font-semibold text-foreground">Nueva historia de usuario</h2>
                 <p className="text-[11px] text-muted-foreground mt-0.5">Completa la configuración base antes de crear la historia.</p>
               </div>
-              <button onClick={() => setShowTaskModal(false)} className="text-[11px] text-muted-foreground">Cerrar</button>
+              <button onClick={() => setShowTaskModal(false)} className="inline-flex h-8 items-center gap-1 rounded-[4px] border border-border bg-card px-3 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-surface-secondary">
+                Cerrar
+              </button>
             </div>
-
             <form className="space-y-4" onSubmit={handleCreateTask}>
               <div>
                 <label className="block text-[11px] font-medium text-foreground mb-1">Titulo *</label>
@@ -795,13 +856,14 @@ export function ProjectTasksWorkspace({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-foreground mb-1">Prioridad</label>
+                  <label className="block text-[11px] font-medium text-foreground mb-1">Prioridad *</label>
                   <select
+                    required
                     value={formPriority}
                     onChange={(e) => setFormPriority(e.target.value ? Number(e.target.value) : '')}
                     className="w-full h-9 bg-surface-secondary border border-border rounded-[4px] px-3 text-[12px]"
                   >
-                    <option value="">Sin prioridad</option>
+                    <option value="" disabled>Selecciona prioridad</option>
                     {priorities.map((p) => (
                       <option key={p.id_priority} value={p.id_priority}>{p.name}</option>
                     ))}
@@ -809,7 +871,16 @@ export function ProjectTasksWorkspace({
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-3">
+              <div>
+                <label className="block text-[11px] font-medium text-foreground mb-1">Fecha limite</label>
+                <DatePickerField
+                  value={formDueDate}
+                  onChange={setFormDueDate}
+                  placeholder="Selecciona una fecha"
+                />
+              </div>
+
+              <div>
                 <div>
                   <label className="block text-[11px] font-medium text-foreground mb-1">Asignar a *</label>
                   <TaskAssigneePicker
@@ -820,19 +891,10 @@ export function ProjectTasksWorkspace({
                   />
                   <p className="text-[10px] text-muted-foreground mt-1">Puedes asignar varias personas. La primera seleccionada también se conserva como responsable principal para compatibilidad.</p>
                 </div>
-
-                <div>
-                  <label className="block text-[11px] font-medium text-foreground mb-1">Fecha limite</label>
-                  <DatePickerField
-                    value={formDueDate}
-                    onChange={setFormDueDate}
-                    placeholder="Selecciona una fecha"
-                  />
-                </div>
               </div>
 
               <div className="rounded-[4px] border border-border bg-surface-secondary/30 px-3 py-2">
-                <p className="text-[10px] text-muted-foreground">Campos obligatorios: estado y responsables deben elegirse explícitamente. La prioridad es opcional.</p>
+                <p className="text-[10px] text-muted-foreground">Campos obligatorios: estado, prioridad y responsables deben elegirse explícitamente.</p>
               </div>
 
               <div className="flex gap-2 pt-1">
@@ -857,14 +919,17 @@ export function ProjectTasksWorkspace({
       )}
 
       {showBoardModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setShowBoardModal(false)}>
-          <div className="bg-card border border-border rounded-[4px] p-5 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[13px] font-semibold text-foreground">Nuevo board</h2>
-              <button onClick={() => setShowBoardModal(false)} className="text-[11px] text-muted-foreground">Cerrar</button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
+          <div className="bg-card border border-border rounded-[8px] p-6 max-w-lg w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <h2 className="text-[14px] font-semibold text-foreground">Crear nuevo board</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Organiza historias con un nuevo tablero para este proyecto.</p>
+              </div>
+              <button onClick={() => setShowBoardModal(false)} className="inline-flex h-8 items-center gap-1 rounded-[4px] border border-border bg-card px-3 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-surface-secondary">Cerrar</button>
             </div>
 
-            <form className="space-y-3" onSubmit={handleCreateBoard}>
+            <form className="space-y-4" onSubmit={handleCreateBoard}>
               <div>
                 <label className="block text-[11px] font-medium text-foreground mb-1">Nombre *</label>
                 <input
@@ -872,32 +937,34 @@ export function ProjectTasksWorkspace({
                   required
                   value={boardName}
                   onChange={(e) => setBoardName(e.target.value)}
-                  className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                  placeholder="Ej: Sprint Backlog"
+                  className="w-full h-9 bg-surface-secondary border border-border rounded-[4px] px-3 text-[12px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
                 />
               </div>
 
               <div>
                 <label className="block text-[11px] font-medium text-foreground mb-1">Descripcion</label>
                 <textarea
-                  rows={2}
+                  rows={3}
                   value={boardDescription}
                   onChange={(e) => setBoardDescription(e.target.value)}
-                  className="w-full bg-surface-secondary border border-border rounded-[3px] px-2.5 py-1.5 text-[11px] resize-none"
+                  placeholder="Contexto o enfoque del board"
+                  className="w-full bg-surface-secondary border border-border rounded-[4px] px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-none"
                 />
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowBoardModal(false)}
-                  className="flex-1 h-7 border border-border rounded-[3px] text-[11px]"
+                  className="flex-1 h-9 border border-border rounded-[4px] text-[12px] font-medium text-foreground hover:bg-surface-secondary transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={creatingBoard}
-                  className="flex-1 h-7 bg-primary text-primary-foreground rounded-[3px] text-[11px] disabled:opacity-50"
+                  className="flex-1 h-9 bg-primary text-primary-foreground rounded-[4px] text-[12px] font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
                 >
                   {creatingBoard ? 'Creando...' : 'Crear board'}
                 </button>

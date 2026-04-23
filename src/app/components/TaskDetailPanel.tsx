@@ -231,7 +231,7 @@ export function TaskDetailPanel({
 
       await Promise.all([
         ...assignmentsToCreate.map((assignedId) => tasksService.createAssignment({ task: task.id_task, assigned_to: assignedId })),
-        ...assignmentsToDelete.map((assignment) => tasksService.deleteAssignment(assignment.id)),
+        ...assignmentsToDelete.map((assignment) => tasksService.deleteAssignment(assignment.id_assignment)),
       ]);
 
       onTaskUpdated?.(updated);
@@ -304,9 +304,19 @@ export function TaskDetailPanel({
                 )}
                 {activeWarnings.length > 0 && <WarningBadge count={activeWarnings.length} />}
               </div>
-              <button onClick={onClose} className="p-1 rounded-[3px] hover:bg-surface-secondary transition-colors">
-                <X className="w-3.5 h-3.5 text-muted-foreground" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                {!isEditingTask && canEditTask && (
+                  <button
+                    onClick={() => setIsEditingTask(true)}
+                    className="inline-flex items-center gap-1 h-6 px-2 border border-border rounded-[3px] text-[10px] text-muted-foreground hover:text-foreground"
+                  >
+                    <Pencil className="w-3 h-3" /> Editar
+                  </button>
+                )}
+                <button onClick={onClose} className="p-1 rounded-[3px] hover:bg-surface-secondary transition-colors">
+                  <X className="w-3.5 h-3.5 text-muted-foreground" />
+                </button>
+              </div>
             </div>
 
             {/* Content */}
@@ -421,8 +431,16 @@ export function TaskDetailPanel({
                     Marcar como completada
                   </label>
 
-                  <div className="flex items-center gap-2 pt-1">
-                    <button
+                  <div className="flex items-center gap-2 pt-1">                    {canDeleteTask && (
+                      <button
+                        type="button"
+                        onClick={handleDeleteTask}
+                        disabled={deletingTask}
+                        className="h-7 px-3 border border-destructive/30 rounded-[3px] text-[11px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                      >
+                        {deletingTask ? 'Eliminando…' : 'Eliminar'}
+                      </button>
+                    )}                    <button
                       type="button"
                       onClick={() => setIsEditingTask(false)}
                       className="h-7 px-3 border border-border rounded-[3px] text-[11px]"
@@ -440,24 +458,8 @@ export function TaskDetailPanel({
                 </form>
               ) : (
                 <div>
-                  <div className="flex items-start justify-between gap-2">
+                  <div>
                     <h2 className="text-[14px] font-semibold text-foreground leading-snug">{task.title}</h2>
-                    <button
-                      onClick={() => setIsEditingTask(true)}
-                      disabled={!canEditTask}
-                      className="inline-flex items-center gap-1 h-6 px-2 border border-border rounded-[3px] text-[10px] text-muted-foreground hover:text-foreground"
-                    >
-                      <Pencil className="w-3 h-3" /> Editar
-                    </button>
-                    {canDeleteTask && (
-                      <button
-                        onClick={handleDeleteTask}
-                        disabled={deletingTask}
-                        className="inline-flex items-center gap-1 h-6 px-2 border border-destructive/30 rounded-[3px] text-[10px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                      >
-                        <Trash2 className="w-3 h-3" /> {deletingTask ? 'Eliminando…' : 'Eliminar'}
-                      </button>
-                    )}
                   </div>
                   {task.description && (
                     <p className="text-[12px] text-muted-foreground mt-1.5 leading-relaxed">{task.description}</p>

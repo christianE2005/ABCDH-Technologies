@@ -7,6 +7,10 @@ export interface ApiUserAccount {
   created_at: string;
   system_role: number;
   system_role_name: string;
+  github_connected?: boolean;
+  is_github_connected?: boolean;
+  github_login?: string | null;
+  github_username?: string | null;
 }
 
 export interface ApiSystemRole {
@@ -75,7 +79,7 @@ export interface ApiTask {
 }
 
 export interface ApiTaskAssignment {
-  id: number;
+  id_assignment: number;
   task: number;
   assigned_to: number;
   created_at?: string | null;

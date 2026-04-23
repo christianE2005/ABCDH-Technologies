@@ -109,11 +109,17 @@ export const tasksService = {
   // ── Task assignments ────────────────────────────────────────────
   listAssignments(taskId?: number): Promise<ApiTaskAssignment[]> {
     const url = taskId ? `/task-assignments/?task=${taskId}` : '/task-assignments/';
-    return api.get<ApiTaskAssignment[]>(url);
+    return api.get<ApiTaskAssignment[] | { results: ApiTaskAssignment[] }>(url).then(
+      (res) => Array.isArray(res) ? res : ((res as { results?: ApiTaskAssignment[] }).results ?? []),
+    );
   },
 
   createAssignment(payload: CreateTaskAssignmentPayload): Promise<ApiTaskAssignment> {
     return api.post<ApiTaskAssignment>('/task-assignments/', payload);
+  },
+
+  getAssignment(id: number): Promise<ApiTaskAssignment> {
+    return api.get<ApiTaskAssignment>(`/task-assignments/${id}/`);
   },
 
   updateAssignment(id: number, payload: UpdateTaskAssignmentPayload): Promise<ApiTaskAssignment> {

@@ -14,6 +14,7 @@ const ORG_OWNER = 'ABCDH-Technologies';
 export function GitHubConnectSection() {
   const { user } = useAuth();
   const userId = user?.id ?? null;
+  const isStakeholder = user?.role === 'stakeholder';
 
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -112,6 +113,17 @@ export function GitHubConnectSection() {
       <div className="flex items-center gap-2 py-3">
         <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         <span className="text-[11px] text-muted-foreground">Verificando GitHub...</span>
+      </div>
+    );
+  }
+
+  if (isStakeholder) {
+    return (
+      <div className="rounded-[4px] border border-border bg-surface-secondary/30 px-3 py-3">
+        <p className="text-[12px] font-medium text-foreground">GitHub no disponible para Stakeholders</p>
+        <p className="text-[10px] text-muted-foreground mt-1">
+          Este rol solo tiene acceso de consulta dentro de la plataforma y no puede conectar una cuenta de GitHub.
+        </p>
       </div>
     );
   }

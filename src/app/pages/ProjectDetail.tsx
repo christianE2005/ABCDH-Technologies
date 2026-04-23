@@ -18,20 +18,24 @@ import { AddMemberModal } from '../components/AddMemberModal';
 import {
   useApiBoards, useApiProjectMembers, useApiUsers, useApiTasks, useApiRoles,
 } from '../hooks/useProjectData';
-import { projectsService, usersService } from '../../services';
-import type { ApiProject } from '../../services';
+import { projectsService, tasksService, usersService } from '../../services';
+import type { ApiProject, ApiTask, ApiTaskAssignment, ApiUserAccount } from '../../services';
 import { useAuth } from '../context/AuthContext';
 import { GitHubReposView } from '../components/GitHubReposView';
 import { CodeReviewPanel } from '../components/CodeReviewPanel';
 import { ProjectTasksWorkspace } from '../components/ProjectTasksWorkspace';
 import { getProjectStatusApiValue, getProjectStatusBadge, getProjectStatusLabel, normalizeProjectStatus, PROJECT_STATUS_OPTIONS } from '../utils/projectStatus';
 import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
+import {
+  canEditMemberProjectRole,
+  getAllowedProjectRoleIdsForUser,
+  getProjectCapabilities,
+  getProjectRoleIds,
+  getUserGithubConnectionState,
+  isStakeholderSystemUser,
+} from '../utils/projectPermissions';
 
 export default function ProjectDetail() {
-  const PROJECT_MANAGER_ROLE_ID = 1;
-  const PRODUCT_OWNER_ROLE_ID = 2;
-  const DEVELOPER_ROLE_ID = 4;
-
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -63,7 +67,7 @@ export default function ProjectDetail() {
   }, [project?.status, project?.end_date]);
 
   // ── Boards ───────────────────────────────────────────────────────────────
-  const { data: boards, loading: loadingBoards } = useApiBoards(projectId);
+  const { data: boards, loading: loadingBoards, refetch: refetchBoards } = useApiBoards(projectId);
   const [selectedBoardId, setSelectedBoardId] = useState<number | undefined>(undefined);
 
   useEffect(() => {
@@ -81,15 +85,25 @@ export default function ProjectDetail() {
   const { data: roles } = useApiRoles();
 
   const currentUserId = Number(user?.id ?? 0);
+  const currentUserAccount = useMemo(
+    () => (users ?? []).find((candidate) => candidate.id_user === currentUserId) ?? null,
+    [users, currentUserId],
+  );
   const currentUserMember = useMemo(
     () => (members ?? []).find((member) => member.user === currentUserId) ?? null,
     [members, currentUserId],
   );
-  const canAccessProject = Boolean(currentUserMember);
-  const isProjectManager = currentUserMember?.role === PROJECT_MANAGER_ROLE_ID;
-  const canManageProject = isProjectManager;
-  const canCreateTaskArtifacts = currentUserMember?.role === PROJECT_MANAGER_ROLE_ID || currentUserMember?.role === PRODUCT_OWNER_ROLE_ID;
-  const canDeleteTasks = canCreateTaskArtifacts;
+  const projectRoleIds = useMemo(() => getProjectRoleIds(roles), [roles]);
+  const capabilities = useMemo(
+    () => getProjectCapabilities(currentUserMember, currentUserAccount, projectRoleIds),
+    [currentUserAccount, currentUserMember, projectRoleIds],
+  );
+  const canAccessProject = capabilities.canAccessProject;
+  const canManageProject = capabilities.canManageProject;
+  const canManageMembers = capabilities.canManageMembers;
+  const canEditMemberRoles = capabilities.canEditMemberRoles;
+  const canManageTasks = capabilities.canManageTasks;
+  const canCreateRepos = capabilities.canCreateRepos;
 
   const candidatesToAdd = useMemo(() => {
     if (!users) return [];
@@ -98,12 +112,25 @@ export default function ProjectDetail() {
   }, [users, members]);
 
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [bypassGithubCheck, setBypassGithubCheck] = useState(false);
   const handleAddMember = async (userId: number, roleId: number | null) => {
-    if (!canManageProject) {
+    if (!canManageMembers) {
       throw new Error('Solo el Project Manager puede agregar miembros.');
     }
-    if (roleId == null || roleId === PROJECT_MANAGER_ROLE_ID) {
-      throw new Error('Debes asignar Product Owner, Scrum Master o Developer.');
+    const selectedUser = (users ?? []).find((candidate) => candidate.id_user === userId) ?? null;
+    const allowedRoleIds = getAllowedProjectRoleIdsForUser(selectedUser, projectRoleIds);
+    const githubState = getUserGithubConnectionState(selectedUser);
+
+    if (roleId == null) {
+      throw new Error('Debes seleccionar un rol antes de agregar a la persona.');
+    }
+    if (!allowedRoleIds.includes(roleId)) {
+      throw new Error(isStakeholderSystemUser(selectedUser)
+        ? 'Los Stakeholders solo pueden entrar con rol Stakeholder.'
+        : 'Debes asignar Product Owner, Scrum Master o Developer.');
+    }
+    if (!bypassGithubCheck && !isStakeholderSystemUser(selectedUser) && githubState.connected !== true) {
+      throw new Error('No puedes agregar a esta persona porque GitHub no esta conectado o no se pudo verificar.');
     }
     try {
       await usersService.addMember(projectId, userId, roleId ?? undefined);
@@ -127,6 +154,17 @@ export default function ProjectDetail() {
     (roles ?? []).forEach((r) => m.set(r.id_role, r.name));
     return m;
   }, [roles]);
+
+  const projectRoleOptions = useMemo(
+    () => (roles ?? []).filter((role) => getAllowedProjectRoleIdsForUser(null, projectRoleIds).includes(role.id_role) || role.id_role === projectRoleIds.stakeholderId),
+    [projectRoleIds, roles],
+  );
+
+  const memberUserMap = useMemo(() => {
+    const nextMap = new Map<number, ApiUserAccount>();
+    (users ?? []).forEach((candidate) => nextMap.set(candidate.id_user, candidate));
+    return nextMap;
+  }, [users]);
 
   const doneStatusIds = useMemo(() => {
     const normalizedDoneNames = new Set(['done', 'completada', 'completado']);
@@ -172,8 +210,8 @@ export default function ProjectDetail() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assigningResponsible, setAssigningResponsible] = useState(false);
   const currentProjectManagerMember = useMemo(
-    () => (members ?? []).find((member) => member.role === PROJECT_MANAGER_ROLE_ID) ?? null,
-    [members, PROJECT_MANAGER_ROLE_ID],
+    () => (members ?? []).find((member) => member.role === projectRoleIds.projectManagerId) ?? null,
+    [members, projectRoleIds.projectManagerId],
   );
   const assignCandidates: AssignCandidate[] = useMemo(
     () => (members ?? []).map((m) => ({
@@ -203,11 +241,11 @@ export default function ProjectDetail() {
 
     setAssigningResponsible(true);
     try {
-      await usersService.updateMember(nextResponsibleMember.id, { role: PROJECT_MANAGER_ROLE_ID });
+      await usersService.updateMember(nextResponsibleMember.id, { role: projectRoleIds.projectManagerId ?? undefined });
 
       if (currentProjectManagerMember) {
         await usersService.updateMember(currentProjectManagerMember.id, {
-          role: DEVELOPER_ROLE_ID,
+          role: projectRoleIds.developerId ?? undefined,
         });
       }
 
@@ -224,8 +262,51 @@ export default function ProjectDetail() {
   };
 
   const [removingMemberId, setRemovingMemberId] = useState<number | null>(null);
+  const [updatingMemberRoleId, setUpdatingMemberRoleId] = useState<number | null>(null);
+  const [editingMemberId, setEditingMemberId] = useState<number | null>(null);
+  const [editingRoleId, setEditingRoleId] = useState<number | null>(null);
+
+  const handleMemberRoleChange = async (memberId: number, nextRoleId: number) => {
+    if (!canEditMemberRoles) {
+      toast.error('Solo el Project Manager puede cambiar roles del proyecto.');
+      return;
+    }
+
+    const member = (members ?? []).find((entry) => entry.id === memberId) ?? null;
+    const memberUser = member ? memberUserMap.get(member.user) ?? null : null;
+    const allowedRoleIds = getAllowedProjectRoleIdsForUser(memberUser, projectRoleIds);
+
+    if (!member) {
+      toast.error('No se encontró el miembro seleccionado.');
+      return;
+    }
+    if (!canEditMemberProjectRole(memberUser, member, projectRoleIds)) {
+      toast.error('Ese rol no se puede cambiar desde el proyecto.');
+      return;
+    }
+    if (!allowedRoleIds.includes(nextRoleId)) {
+      toast.error('Ese cambio de rol no está permitido.');
+      return;
+    }
+    if (member.role === nextRoleId) {
+      return;
+    }
+
+    setUpdatingMemberRoleId(memberId);
+    try {
+      await usersService.updateMember(memberId, { role: nextRoleId });
+      await refetchMembers();
+      toast.success('Rol del miembro actualizado.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'No se pudo actualizar el rol del miembro.';
+      toast.error(msg);
+    } finally {
+      setUpdatingMemberRoleId(null);
+    }
+  };
+
   const handleRemoveMember = async (memberId: number) => {
-    if (!canManageProject) {
+    if (!canManageMembers) {
       toast.error('Solo el Project Manager puede eliminar miembros del proyecto.');
       return;
     }
@@ -236,7 +317,7 @@ export default function ProjectDetail() {
       return;
     }
 
-    if (member.role === PROJECT_MANAGER_ROLE_ID) {
+    if (member.role === projectRoleIds.projectManagerId) {
       toast.error('Reasigna primero al responsable del proyecto.');
       return;
     }
@@ -247,6 +328,37 @@ export default function ProjectDetail() {
 
     setRemovingMemberId(memberId);
     try {
+      const projectTasks = await tasksService.list(undefined, projectId);
+      const allAssignments = (await Promise.all(
+        projectTasks.map((task: ApiTask) => tasksService.listAssignments(task.id_task)),
+      )).flat();
+      const projectTaskIds = new Set(projectTasks.map((task: ApiTask) => task.id_task));
+      const memberAssignments = allAssignments.filter(
+        (assignment: ApiTaskAssignment) => projectTaskIds.has(assignment.task) && assignment.assigned_to === member.user,
+      );
+
+      if (memberAssignments.length > 0) {
+        await Promise.all(memberAssignments.map((assignment: ApiTaskAssignment) => tasksService.deleteAssignment(assignment.id_assignment)));
+      }
+
+      const remainingAssignmentsByTask = allAssignments
+        .filter((assignment: ApiTaskAssignment) => projectTaskIds.has(assignment.task) && assignment.assigned_to !== member.user)
+        .reduce<Map<number, number[]>>((map: Map<number, number[]>, assignment: ApiTaskAssignment) => {
+          const current = map.get(assignment.task) ?? [];
+          current.push(assignment.assigned_to);
+          map.set(assignment.task, current);
+          return map;
+        }, new Map());
+
+      const legacyTasksToUpdate = projectTasks.filter((task: ApiTask) => task.assigned_to === member.user);
+      if (legacyTasksToUpdate.length > 0) {
+        await Promise.all(
+          legacyTasksToUpdate.map((task: ApiTask) => tasksService.update(task.id_task, {
+            assigned_to: remainingAssignmentsByTask.get(task.id_task)?.[0] ?? null,
+          })),
+        );
+      }
+
       await usersService.removeMember(memberId);
       await refetchMembers();
       toast.success('Miembro eliminado del proyecto.');
@@ -363,7 +475,7 @@ export default function ProjectDetail() {
       <CommandBar
         actions={[
           { label: 'Volver', icon: <ArrowLeft className="w-3.5 h-3.5" />, onClick: () => navigate('/projects') },
-          { label: 'Actualizar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: refetchTasks },
+          { label: 'Actualizar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: () => { refetchTasks(); refetchMembers(); refetchBoards(); } },
           ...(canManageProject ? [{ label: 'Asignar responsable', icon: <UserPlus className="w-3.5 h-3.5" />, onClick: () => setShowAssignModal(true) }] : []),
         ]}
         rightSlot={project ? <StatusBadge status={getProjectStatusBadge(project.status)} text={getProjectStatusLabel(project.status)} size="sm" /> : null}
@@ -394,31 +506,6 @@ export default function ProjectDetail() {
         </div>
       ) : null}
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-        {[
-          { title: 'Tareas', value: kpis.total, subtitle: 'en este tablero', icon: <List className="w-4 h-4" />, accentColor: 'info' as const },
-          { title: 'Completadas', value: kpis.completed, subtitle: 'finalizadas', icon: <CheckCircle2 className="w-4 h-4" />, accentColor: 'success' as const },
-          { title: 'Vencidas', value: kpis.overdue, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" />, accentColor: 'destructive' as const },
-          {
-            title: 'Días Restantes',
-            value: daysLabel,
-            subtitle: project?.end_date ?? '—',
-            icon: <Clock className="w-4 h-4" />,
-            accentColor: 'warning' as const,
-          },
-        ].map((card, i) => (
-          <motion.div
-            key={card.title}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.22, delay: i * 0.05, ease: 'easeOut' }}
-          >
-            <KPICard title={card.title} value={card.value} subtitle={card.subtitle} icon={card.icon} accentColor={card.accentColor} />
-          </motion.div>
-        ))}
-      </div>
-
       {/* Tabs */}
       <ADOTabs
         tabs={[
@@ -442,8 +529,33 @@ export default function ProjectDetail() {
       >
         {/* RESUMEN */}
         {activeTab === 'resumen' && (
-          <div className="grid lg:grid-cols-3 gap-3">
-            <div className="lg:col-span-2 space-y-3">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {[
+                { title: 'Tareas', value: kpis.total, subtitle: 'en este tablero', icon: <List className="w-4 h-4" />, accentColor: 'info' as const },
+                { title: 'Completadas', value: kpis.completed, subtitle: 'finalizadas', icon: <CheckCircle2 className="w-4 h-4" />, accentColor: 'success' as const },
+                { title: 'Vencidas', value: kpis.overdue, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" />, accentColor: 'destructive' as const },
+                {
+                  title: 'Días Restantes',
+                  value: daysLabel,
+                  subtitle: project?.end_date ?? '—',
+                  icon: <Clock className="w-4 h-4" />,
+                  accentColor: 'warning' as const,
+                },
+              ].map((card, i) => (
+                <motion.div
+                  key={card.title}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.22, delay: i * 0.05, ease: 'easeOut' }}
+                >
+                  <KPICard title={card.title} value={card.value} subtitle={card.subtitle} icon={card.icon} accentColor={card.accentColor} />
+                </motion.div>
+              ))}
+            </div>
+
+            <div className="grid lg:grid-cols-3 gap-3">
+              <div className="lg:col-span-2 space-y-3">
               <div className="bg-card border border-border rounded-[4px] p-4">
                 <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-2.5">
                   Información General
@@ -486,31 +598,32 @@ export default function ProjectDetail() {
                   </p>
                 </div>
               )}
-            </div>
+              </div>
 
-            {/* Task status breakdown */}
-            <div className="bg-card border border-border rounded-[4px] p-4 h-fit">
-              <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-2.5">
-                Tareas por Estado
-              </h2>
-              {loadingTasks ? (
-                <div className="space-y-2">
-                  {[1, 2, 3].map((i) => <div key={i} className="h-5 animate-pulse bg-secondary rounded" />)}
-                </div>
-              ) : statusCounts.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground">Sin tareas en este tablero.</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {statusCounts.map((s) => (
-                    <div key={s.name} className="flex items-center justify-between">
-                      <span className="text-[12px] text-foreground">{s.name}</span>
-                      <span className="text-[11px] font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-                        {s.count}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* Task status breakdown */}
+              <div className="bg-card border border-border rounded-[4px] p-4 h-fit">
+                <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-2.5">
+                  Tareas por Estado
+                </h2>
+                {loadingTasks ? (
+                  <div className="space-y-2">
+                    {[1, 2, 3].map((i) => <div key={i} className="h-5 animate-pulse bg-secondary rounded" />)}
+                  </div>
+                ) : statusCounts.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">Sin tareas en este tablero.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {statusCounts.map((s) => (
+                      <div key={s.name} className="flex items-center justify-between">
+                        <span className="text-[12px] text-foreground">{s.name}</span>
+                        <span className="text-[11px] font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                          {s.count}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -525,10 +638,10 @@ export default function ProjectDetail() {
                 id: m.user,
                 name: userMap.get(m.user) ?? `Usuario #${m.user}`,
               }))}
-              canCreateTasks={canCreateTaskArtifacts}
-              canCreateBoards={canCreateTaskArtifacts}
-              canEditTasks={canCreateTaskArtifacts}
-              canDeleteTasks={canDeleteTasks}
+              canCreateTasks={canManageTasks}
+              canCreateBoards={canManageTasks}
+              canEditTasks={canManageTasks}
+              canDeleteTasks={canManageTasks}
               initialTaskId={initialTaskId}
               onInitialTaskHandled={(taskId) => {
                 setInitialTaskId((current) => (current === taskId ? null : current));
@@ -550,7 +663,7 @@ export default function ProjectDetail() {
 
         {/* REPOSITORIOS */}
         {activeTab === 'repositorios' && (
-          <GitHubReposView projectId={projectId} />
+          <GitHubReposView projectId={projectId} canCreateRepos={canCreateRepos} />
         )}
 
         {/* EQUIPO */}
@@ -571,7 +684,7 @@ export default function ProjectDetail() {
                   />
                 )}
               </div>
-              {canManageProject && (
+              {canManageMembers && (
                 <button
                   onClick={() => setShowAddMemberModal(true)}
                   className="flex items-center gap-1.5 text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-[3px] transition-colors"
@@ -593,10 +706,13 @@ export default function ProjectDetail() {
                 {members.map((member) => {
                   const name = userMap.get(member.user) ?? `Usuario #${member.user}`;
                   const roleName = roleMap.get(member.role ?? 0) ?? `Rol #${member.role ?? '—'}`;
+                  const memberUser = memberUserMap.get(member.user) ?? null;
+                  const canChangeRole = canEditMemberRoles && canEditMemberProjectRole(memberUser, member, projectRoleIds);
+                  const roleIsLocked = isStakeholderSystemUser(memberUser);
                   return (
                     <div
                       key={member.id}
-                      className="flex items-center justify-between py-2 px-3 rounded-[3px] hover:bg-accent/40 transition-colors"
+                      className="flex items-center justify-between py-2.5 px-3 rounded-[6px] border border-border/60 bg-surface-secondary/20 hover:bg-accent/30 transition-colors"
                     >
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[11px] font-medium">
@@ -605,10 +721,27 @@ export default function ProjectDetail() {
                         <div>
                           <p className="text-[13px] font-medium text-foreground">{name}</p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <p className="text-[11px] text-muted-foreground">{member.role ? roleName : 'Sin rol'}</p>
-                            {member.role === PROJECT_MANAGER_ROLE_ID && (
+                            <p className="text-[11px] font-medium text-foreground">{member.role ? roleName : 'Sin rol'}</p>
+                            {canChangeRole && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingMemberId(member.id);
+                                  setEditingRoleId(member.role ?? null);
+                                }}
+                                className="h-6 px-2.5 text-[10px] font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-[3px] transition-colors"
+                              >
+                                Editar
+                              </button>
+                            )}
+                            {member.role === projectRoleIds.projectManagerId && (
                               <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                                 PM
+                              </span>
+                            )}
+                            {roleIsLocked && (
+                              <span className="inline-flex items-center rounded-full border border-border bg-surface-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                Fijo por sistema
                               </span>
                             )}
                           </div>
@@ -618,7 +751,7 @@ export default function ProjectDetail() {
                         <span className="text-[10px] text-muted-foreground">
                           desde {member.joined_at.slice(0, 10)}
                         </span>
-                        {canManageProject && member.role !== PROJECT_MANAGER_ROLE_ID && (
+                        {canManageMembers && member.role !== projectRoleIds.projectManagerId && (
                           <button
                             type="button"
                             onClick={() => handleRemoveMember(member.id)}
@@ -679,12 +812,31 @@ export default function ProjectDetail() {
                 </button>
 
                 {!canManageProject && (
-                  <p className="text-[11px] text-muted-foreground">Solo administradores y project managers pueden modificar la configuración.</p>
+                  <p className="text-[11px] text-muted-foreground">Solo el Project Manager del proyecto puede modificar la configuración.</p>
                 )}
               </div>
             </div>
 
-            <div className="bg-card border border-destructive/20 rounded-[4px] p-4 h-fit">
+            <div className="space-y-3">
+              <div className="bg-card border border-border rounded-[4px] p-4">
+                <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-1">Restricciones de equipo</h2>
+                <p className="text-[11px] text-muted-foreground mb-3">Por defecto solo se pueden agregar miembros con cuenta de GitHub conectada. Puedes desactivar esto temporalmente.</p>
+                <button
+                  type="button"
+                  disabled={!canManageProject}
+                  onClick={() => setBypassGithubCheck((prev) => !prev)}
+                  className={`inline-flex items-center gap-2 h-8 px-3 rounded-[3px] text-[11px] font-medium border transition-colors disabled:opacity-50 ${
+                    bypassGithubCheck
+                      ? 'bg-warning/10 border-warning/40 text-warning hover:bg-warning/20'
+                      : 'bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${bypassGithubCheck ? 'bg-warning' : 'bg-muted-foreground/50'}`} />
+                  {bypassGithubCheck ? 'Verificación de GitHub desactivada' : 'Requerir GitHub al agregar miembros'}
+                </button>
+              </div>
+
+              <div className="bg-card border border-destructive/20 rounded-[4px] p-4 h-fit">
               <h2 className="text-[10px] font-medium text-destructive uppercase tracking-[0.06em] mb-2">
                 Zona Peligrosa
               </h2>
@@ -700,6 +852,7 @@ export default function ProjectDetail() {
                 <Trash2 className="w-3.5 h-3.5" />
                 {deletingProject ? 'Eliminando…' : 'Eliminar proyecto'}
               </button>
+              </div>
             </div>
           </div>
         )}
@@ -709,7 +862,9 @@ export default function ProjectDetail() {
         open={showAddMemberModal}
         onOpenChange={setShowAddMemberModal}
         candidates={candidatesToAdd}
-        roles={(roles ?? []).filter((role) => role.id_role !== PROJECT_MANAGER_ROLE_ID)}
+        roles={projectRoleOptions}
+        roleIds={projectRoleIds}
+        bypassGithubCheck={bypassGithubCheck}
         onSubmit={handleAddMember}
       />
 
@@ -722,6 +877,58 @@ export default function ProjectDetail() {
         loading={assigningResponsible}
         title="Asignar responsable"
       />
+
+      {editingMemberId != null && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
+          <div className="bg-card border border-border rounded-[6px] p-5 max-w-sm w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-[13px] font-semibold text-foreground mb-4">Cambiar rol del miembro</h2>
+            {(() => {
+              const member = (members ?? []).find((m) => m.id === editingMemberId);
+              if (!member) return null;
+              const memberUser = memberUserMap.get(member.user);
+              const allowedRoleIds = getAllowedProjectRoleIdsForUser(memberUser, projectRoleIds);
+              return (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-medium text-foreground mb-2">Nuevo rol</label>
+                    <select
+                      value={editingRoleId ?? ''}
+                      onChange={(e) => setEditingRoleId(e.target.value ? Number(e.target.value) : null)}
+                      className="w-full h-9 bg-surface-secondary border border-border rounded-[4px] px-3 text-[12px] text-foreground"
+                    >
+                      {allowedRoleIds.map((roleId) => (
+                        <option key={roleId} value={roleId}>{roleMap.get(roleId) ?? `Rol #${roleId}`}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingMemberId(null)}
+                      className="flex-1 h-8 border border-border rounded-[3px] text-[11px] font-medium text-foreground hover:bg-accent/30 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (editingRoleId != null) {
+                          await handleMemberRoleChange(editingMemberId, editingRoleId);
+                          setEditingMemberId(null);
+                        }
+                      }}
+                      disabled={updatingMemberRoleId === editingMemberId}
+                      className="flex-1 h-8 bg-primary text-primary-foreground rounded-[3px] text-[11px] font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+                    >
+                      {updatingMemberRoleId === editingMemberId ? 'Actualizando…' : 'Guardar'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
