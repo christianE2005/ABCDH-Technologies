@@ -45,7 +45,7 @@ export default function Login() {
             </div>
             <div>
               <p className="text-[13px] font-bold text-white leading-tight">Project Intelligence</p>
-              <p className="text-[10px] text-[#8B949E] leading-tight">Tech Mahindra</p>
+              <p className="text-[10px] text-[#8B949E] leading-tight">ABCDH Technologies</p>
             </div>
           </Link>
 
@@ -77,7 +77,7 @@ export default function Login() {
           </div>
         </div>
 
-          <p className="text-[11px] text-[#8B949E]">&copy; 2026 Tech Mahindra</p>
+          <p className="text-[11px] text-[#8B949E]">&copy; 2026 ABCDH Technologies</p>
       </div>
 
       {/* Right Panel — Form */}
@@ -110,7 +110,7 @@ export default function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="usuario@techmahindra.com"
+                  placeholder="usuario@abcdhtechnologies.com"
                   className="w-full bg-input-background border border-input rounded-[3px] pl-8 pr-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
                 />
               </div>

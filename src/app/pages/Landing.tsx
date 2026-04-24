@@ -93,7 +93,7 @@ export default function Landing() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-[3px] bg-primary/10 text-primary text-[11px] font-medium mb-6">
             <Zap className="w-3 h-3" />
-            Plataforma empresarial · Tech Mahindra
+            Plataforma empresarial · ABCDH Technologies
           </div>
 
           <h1 className="text-4xl md:text-5xl lg:text-[3.5rem] font-semibold text-foreground mb-5 leading-[1.15] tracking-tight">
@@ -102,7 +102,7 @@ export default function Landing() {
           </h1>
           
           <p className="text-base md:text-lg text-muted-foreground mb-8 max-w-xl mx-auto leading-relaxed">
-            Centraliza el portafolio de proyectos de Tech Mahindra, monitorea KPIs en tiempo real y toma decisiones basadas en análisis predictivo.
+            Centraliza el portafolio de proyectos de ABCDH Technologies, monitorea KPIs en tiempo real y toma decisiones basadas en análisis predictivo.
           </p>
 
           <div className="flex items-center gap-3 justify-center mb-6">
@@ -129,7 +129,7 @@ export default function Landing() {
                 <div className="w-2.5 h-2.5 rounded-full bg-success/40" />
                 <div className="flex-1 ml-3">
                   <div className="max-w-xs mx-auto bg-background/70 rounded px-3 py-1 text-[10px] text-muted-foreground text-center">
-                    pi.techmahindra.com/dashboard
+                    pi.abcdhtechnologies.com/dashboard
                   </div>
                 </div>
               </div>
@@ -190,7 +190,7 @@ export default function Landing() {
             Todo para gestionar proyectos complejos
           </h2>
           <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-            Herramientas de nivel empresarial diseñadas para equipos de Tech Mahindra
+            Herramientas de nivel empresarial diseñadas para equipos de ABCDH Technologies
           </p>
         </div>
 
@@ -255,7 +255,7 @@ export default function Landing() {
             </div>
             <div className="text-left">
               <p className="text-sm font-medium text-foreground">María González</p>
-              <p className="text-xs text-muted-foreground">VP de Operaciones, Tech Mahindra</p>
+              <p className="text-xs text-muted-foreground">VP de Operaciones, ABCDH Technologies</p>
             </div>
           </div>
         </div>
@@ -270,7 +270,7 @@ export default function Landing() {
               ¿Listo para transformar tu gestión de proyectos?
             </h2>
             <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
-              Descubre cómo Project Intelligence potencia la gestión de proyectos en Tech Mahindra.
+              Descubre cómo Project Intelligence potencia la gestión de proyectos en ABCDH Technologies.
             </p>
             <div className="flex items-center gap-3 justify-center">
               <Link 
@@ -308,7 +308,7 @@ export default function Landing() {
               <a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Contacto</a>
             </div>
             <p className="text-xs text-muted-foreground">
-              &copy; 2026 Tech Mahindra. Todos los derechos reservados.
+              &copy; 2026 ABCDH Technologies. Todos los derechos reservados.
             </p>
           </div>
         </div>
