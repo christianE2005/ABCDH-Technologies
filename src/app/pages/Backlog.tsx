@@ -3,10 +3,10 @@ import { useSearchParams } from 'react-router';
 import { DndContext, DragEndEvent, DragOverlay, closestCenter, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Calendar, AlertCircle, LayoutGrid, List, Search, Loader2 } from 'lucide-react';
+import { GripVertical, Calendar, AlertCircle, AlertTriangle, LayoutGrid, List, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
-import { useApiBoards, useApiTaskAssignments, useApiProjects, useApiTasks, useApiUsers, useApiProjectMembers, useApiRoles } from '../hooks/useProjectData';
+import { useApiBoards, useApiTaskAssignments, useApiProjects, useApiTasks, useApiUsers, useApiProjectMembers, useApiRoles, useApiTaskWarnings } from '../hooks/useProjectData';
 import { tasksService } from '../../services';
 import type { ApiTask, ApiTaskStatus, ApiTaskPriority, ApiTaskAssignment } from '../../services';
 import { TaskDetailPanel } from '../components/TaskDetailPanel';
@@ -47,6 +47,7 @@ function TaskCard({
   statusName,
   assignedNames,
   assignedToCurrentUser,
+  warningCount = 0,
   projectName,
   onOpen,
 }: {
@@ -56,6 +57,7 @@ function TaskCard({
   statusName?: string;
   assignedNames: string[];
   assignedToCurrentUser: boolean;
+  warningCount?: number;
   projectName?: string;
   onOpen: (task: ApiTask) => void;
 }) {
@@ -70,9 +72,15 @@ function TaskCard({
     <div
       ref={setNodeRef}
       style={{ ...style, borderLeftColor: statusColor }}
-      className="bg-card border border-border border-l-[3px] rounded-[4px] p-2.5 mb-1.5 hover:border-primary/30 transition-colors cursor-pointer group"
+      className="relative bg-card border border-border border-l-[3px] rounded-[4px] p-2.5 mb-1.5 hover:border-primary/30 transition-colors cursor-pointer group"
       onClick={() => onOpen(task)}
     >
+      {assignedToCurrentUser && (
+        <span title="Asignada a ti" className="absolute right-2 top-2 inline-flex h-4 w-4 items-center justify-center rounded-full border border-primary/20 bg-primary/5">
+          <span className="h-1.5 w-1.5 rounded-full bg-primary/80" />
+          <span className="sr-only">Asignada a ti</span>
+        </span>
+      )}
       <div className="flex items-start gap-2">
         <button
           type="button"
@@ -88,9 +96,13 @@ function TaskCard({
           <div className="flex items-center gap-1.5 mb-1">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: statusColor }} />
             <h3 className="text-[12px] font-medium text-foreground truncate">{task.title}</h3>
-            {assignedToCurrentUser && (
-              <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.05em] text-primary">
-                              Asignada a ti
+            {warningCount > 0 && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full border border-warning/20 bg-warning/10 px-1.5 py-0.5 text-[9px] text-warning"
+                title={`${warningCount} warning${warningCount === 1 ? '' : 's'} activo${warningCount === 1 ? '' : 's'}`}
+              >
+                <AlertTriangle className="w-2.5 h-2.5" />
+                {warningCount}
               </span>
             )}
           </div>
@@ -150,6 +162,10 @@ export default function Backlog() {
 
   // Tasks for selected project/board
   const { data: tasks, loading: loadingTasks, statuses, priorities, refetch: refetchTasks } = useApiTasks(selectedBoard ?? undefined, selectedProject ?? undefined);
+  const { data: warnings } = useApiTaskWarnings({
+    ...(selectedProject != null ? { project_id: selectedProject } : {}),
+    status: 'active',
+  });
   const taskIds = useMemo(() => (tasks ?? []).map((task) => task.id_task), [tasks]);
   const { data: taskAssignments } = useApiTaskAssignments(taskIds);
 
@@ -228,6 +244,14 @@ export default function Backlog() {
     });
     return nextMap;
   }, [taskAssignments]);
+
+  const warningCountByTask = useMemo(() => {
+    const map = new Map<number, number>();
+    (warnings ?? []).forEach((warning) => {
+      map.set(warning.task, (map.get(warning.task) ?? 0) + 1);
+    });
+    return map;
+  }, [warnings]);
 
   const getAssignedNames = (task: ApiTask) => {
     const assignments = taskAssignmentsByTask.get(task.id_task) ?? [];
@@ -475,6 +499,7 @@ export default function Backlog() {
                             statusName={col.status.name}
                             assignedNames={getAssignedNames(task)}
                             assignedToCurrentUser={isAssignedToCurrentUser(task)}
+                            warningCount={warningCountByTask.get(task.id_task) ?? 0}
                             projectName={getProjectNameForTask(task)}
                             onOpen={setSelectedTask}
                           />
@@ -524,13 +549,20 @@ export default function Backlog() {
               return (
                 <motion.div key={task.id_task} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.04, ease: 'easeOut' }} className="grid grid-cols-[40px_1fr_120px_100px_100px] gap-0 px-4 py-2 border-b border-border/50 hover:bg-accent/30 transition-colors items-center cursor-pointer" onClick={() => setSelectedTask(task)}>
                   <span className="text-[11px] text-muted-foreground">{index + 1}</span>
-                  <div className="min-w-0 pr-4">
+                  <div className="relative min-w-0 pr-4">
+                    {assignedToCurrentUser && (
+                      <span title="Asignada a ti" className="absolute right-0 top-0 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary/80" />
+                        <span className="sr-only">Asignada a ti</span>
+                      </span>
+                    )}
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${priorityColor(pr?.level ?? 0)}`} />
                       <span className="text-[12px] font-medium text-foreground truncate">{task.title}</span>
-                      {assignedToCurrentUser && (
-                        <span className="text-[9px] font-semibold text-primary shrink-0">
-                          Asignada a ti
+                      {(warningCountByTask.get(task.id_task) ?? 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-warning/20 bg-warning/10 px-1.5 py-0.5 text-[9px] text-warning">
+                          <AlertTriangle className="w-2.5 h-2.5" />
+                          {warningCountByTask.get(task.id_task)}
                         </span>
                       )}
                     </div>

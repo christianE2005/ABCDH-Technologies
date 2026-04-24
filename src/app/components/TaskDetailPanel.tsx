@@ -15,6 +15,8 @@ import { useAuth } from '../context/AuthContext';
 const DONE_STATUS_NAMES = new Set(['done', 'completada', 'completado']);
 const EMPTY_ASSIGNABLE_USERS: Array<{ id: number; name: string }> = [];
 const EMPTY_TASK_ASSIGNMENTS: ApiTaskAssignment[] = [];
+export const TASK_REOPEN_ID_STORAGE_KEY = 'pip_reopen_task_id';
+export const TASK_REOPEN_PATH_STORAGE_KEY = 'pip_reopen_task_path';
 
 function formatCommentTimestamp(value: string) {
   const parsed = new Date(value);
@@ -77,6 +79,7 @@ export function TaskDetailPanel({
   const [isEditingTask, setIsEditingTask] = useState(false);
   const [savingTask, setSavingTask] = useState(false);
   const [deletingTask, setDeletingTask] = useState(false);
+  const [deletingWarningId, setDeletingWarningId] = useState<number | null>(null);
   const [taskForm, setTaskForm] = useState({
     title: '',
     description: '',
@@ -84,7 +87,6 @@ export function TaskDetailPanel({
     priority: '',
     assignedTo: [] as string[],
     dueDate: '',
-    completed: false,
   });
 
   const currentTaskAssignments = useMemo(
@@ -110,7 +112,6 @@ export function TaskDetailPanel({
         ? currentTaskAssignments.map((assignment) => String(assignment.assigned_to))
         : task.assigned_to != null ? [String(task.assigned_to)] : [],
       dueDate: task.due_date ?? '',
-      completed: Boolean(task.completed_at),
     });
   }, [task, currentTaskAssignments]);
 
@@ -213,14 +214,16 @@ export function TaskDetailPanel({
 
     setSavingTask(true);
     try {
+      const nextStatusId = taskForm.status ? Number(taskForm.status) : null;
+      const shouldSetCompleted = nextStatusId != null && doneStatusIds.has(nextStatusId);
       const updated = await tasksService.update(task.id_task, {
         title: taskForm.title.trim(),
         description: taskForm.description.trim() || null,
-        status: taskForm.status ? Number(taskForm.status) : null,
+        status: nextStatusId,
         priority: taskForm.priority ? Number(taskForm.priority) : null,
         assigned_to: taskForm.assignedTo.length > 0 ? Number(taskForm.assignedTo[0]) : null,
         due_date: taskForm.dueDate || null,
-        completed_at: taskForm.completed ? (task.completed_at ?? new Date().toISOString()) : null,
+        completed_at: shouldSetCompleted ? (task.completed_at ?? new Date().toISOString()) : null,
       });
 
       const nextAssignedIds = new Set(taskForm.assignedTo.map((value) => Number(value)));
@@ -260,6 +263,29 @@ export function TaskDetailPanel({
       await onDeleteTask(task);
     } finally {
       setDeletingTask(false);
+    }
+  };
+
+  const handleDeleteWarning = async (warningId: number) => {
+    if (!canEditTask) {
+      toast.error('Tu rol no puede eliminar warnings.');
+      return;
+    }
+    if (!window.confirm('¿Eliminar este warning?')) return;
+
+    setDeletingWarningId(warningId);
+    try {
+      await tasksService.deleteWarning(warningId);
+      if (task) {
+        sessionStorage.setItem(TASK_REOPEN_ID_STORAGE_KEY, String(task.id_task));
+        sessionStorage.setItem(TASK_REOPEN_PATH_STORAGE_KEY, window.location.pathname);
+      }
+      toast.success('Warning eliminado.');
+      window.location.reload();
+    } catch {
+      toast.error('No se pudo eliminar el warning.');
+    } finally {
+      setDeletingWarningId(null);
     }
   };
 
@@ -352,11 +378,9 @@ export function TaskDetailPanel({
                         value={taskForm.status}
                         onChange={(e) => {
                           const nextStatus = e.target.value;
-                          const shouldBeCompleted = nextStatus ? doneStatusIds.has(Number(nextStatus)) : false;
                           setTaskForm((prev) => ({
                             ...prev,
                             status: nextStatus,
-                            completed: shouldBeCompleted,
                           }));
                         }}
                         className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
@@ -421,15 +445,6 @@ export function TaskDetailPanel({
                       className="w-full h-7 bg-surface-secondary/60 border border-border rounded-[3px] px-2.5 text-[11px] text-muted-foreground"
                     />
                   </div>
-
-                  <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      checked={taskForm.completed}
-                      onChange={(e) => setTaskForm((prev) => ({ ...prev, completed: e.target.checked }))}
-                    />
-                    Marcar como completada
-                  </label>
 
                   <div className="flex items-center gap-2 pt-1">                    {canDeleteTask && (
                       <button
@@ -538,7 +553,18 @@ export function TaskDetailPanel({
                   <div className="space-y-1.5">
                     {activeWarnings.map((w) => (
                       <div key={w.id_warning} className="p-2.5 bg-warning/5 border border-warning/20 rounded-[4px]">
-                        <p className="text-[11px] text-foreground leading-relaxed">{w.message}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-[11px] text-foreground leading-relaxed">{w.message}</p>
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteWarning(w.id_warning)}
+                            disabled={!canEditTask || deletingWarningId === w.id_warning}
+                            className="inline-flex items-center gap-1 rounded-[3px] border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-[10px] text-destructive hover:bg-destructive/20 disabled:opacity-50"
+                          >
+                            {deletingWarningId === w.id_warning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                            Eliminar
+                          </button>
+                        </div>
                         <p className="text-[10px] text-muted-foreground mt-1">{w.created_at.slice(0, 10)}</p>
                       </div>
                     ))}

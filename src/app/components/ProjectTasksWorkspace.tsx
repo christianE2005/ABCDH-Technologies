@@ -13,20 +13,23 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
+  AlertTriangle,
   Calendar,
+  ChevronDown,
   GripVertical,
   LayoutGrid,
   List,
   Loader2,
   Plus,
   Search,
+  Trash2,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
-import { useApiBoards, useApiTaskAssignments, useApiTasks } from '../hooks/useProjectData';
+import { useApiBoards, useApiTaskAssignments, useApiTasks, useApiTaskWarnings } from '../hooks/useProjectData';
 import { tasksService } from '../../services';
 import type { ApiTask, ApiTaskPriority, ApiTaskStatus, ApiTaskAssignment } from '../../services';
-import { TaskDetailPanel } from './TaskDetailPanel';
+import { TaskDetailPanel, TASK_REOPEN_ID_STORAGE_KEY, TASK_REOPEN_PATH_STORAGE_KEY } from './TaskDetailPanel';
 import { TaskAssigneePicker } from './TaskAssigneePicker';
 import { DatePickerField } from './DatePickerField';
 import { useAuth } from '../context/AuthContext';
@@ -110,6 +113,7 @@ function TaskCard({
   priorities,
   assignedNames,
   assignedToCurrentUser,
+  warningCount = 0,
   statusName,
   onOpen,
   draggable,
@@ -118,6 +122,7 @@ function TaskCard({
   priorities: ApiTaskPriority[];
   assignedNames: string[];
   assignedToCurrentUser: boolean;
+  warningCount?: number;
   statusName?: string;
   onOpen: (task: ApiTask) => void;
   draggable: boolean;
@@ -142,10 +147,16 @@ function TaskCard({
     <div
       ref={setNodeRef}
       onClick={() => onOpen(task)}
-      className="bg-card border border-border border-l-[3px] rounded-[4px] p-2.5 mb-1.5 hover:border-primary/30 transition-colors cursor-pointer group"
+      className="relative bg-card border border-border border-l-[3px] rounded-[4px] p-2.5 mb-1.5 hover:border-primary/30 transition-colors cursor-pointer group"
       // Status color on the side accent makes state visible while dragging through columns.
       style={{ ...style, borderLeftColor: statusColor }}
     >
+      {assignedToCurrentUser && (
+        <span title="Asignada a ti" className="absolute right-2 top-2 inline-flex h-4 w-4 items-center justify-center rounded-full border border-primary/20 bg-primary/5">
+          <span className="h-1.5 w-1.5 rounded-full bg-primary/80" />
+          <span className="sr-only">Asignada a ti</span>
+        </span>
+      )}
       <div className="flex items-start gap-2">
         <button
           type="button"
@@ -162,9 +173,13 @@ function TaskCard({
           <div className="flex items-center gap-1.5 mb-1">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: statusColor }} />
             <h3 className="text-[12px] font-medium text-foreground truncate">{task.title}</h3>
-            {assignedToCurrentUser && (
-              <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.05em] text-primary">
-                Asignada a ti
+            {warningCount > 0 && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full border border-warning/25 bg-warning/10 px-1.5 py-0.5 text-[9px] font-medium text-warning"
+                title={`${warningCount} warning${warningCount === 1 ? '' : 's'} activo${warningCount === 1 ? '' : 's'}`}
+              >
+                <AlertTriangle className="w-2.5 h-2.5" />
+                {warningCount}
               </span>
             )}
           </div>
@@ -212,10 +227,12 @@ export function ProjectTasksWorkspace({
 
   const { data: boards, loading: loadingBoards, refetch: refetchBoards } = useApiBoards(projectId);
   const [selectedBoardId, setSelectedBoardId] = useState<number | undefined>(undefined);
+  const [showBoardChooser, setShowBoardChooser] = useState(false);
 
   const { data: tasks, loading: loadingTasks, statuses, priorities, refetch: refetchTasks } = useApiTasks(selectedBoardId, projectId);
   const taskIds = useMemo(() => (tasks ?? []).map((task) => task.id_task), [tasks]);
   const { data: taskAssignments, refetch: refetchTaskAssignments } = useApiTaskAssignments(taskIds);
+  const { data: taskWarnings, refetch: refetchWarnings } = useApiTaskWarnings({ project_id: projectId, status: 'active' });
 
 
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
@@ -240,6 +257,26 @@ export function ProjectTasksWorkspace({
   const [boardName, setBoardName] = useState('');
   const [boardDescription, setBoardDescription] = useState('');
   const [pendingInitialTaskId, setPendingInitialTaskId] = useState<number | null>(initialTaskId);
+
+  useEffect(() => {
+    const storedTaskId = Number(sessionStorage.getItem(TASK_REOPEN_ID_STORAGE_KEY));
+    const storedPath = sessionStorage.getItem(TASK_REOPEN_PATH_STORAGE_KEY);
+    const isValidTaskId = !Number.isNaN(storedTaskId) && storedTaskId > 0;
+
+    if (!isValidTaskId) {
+      sessionStorage.removeItem(TASK_REOPEN_ID_STORAGE_KEY);
+      sessionStorage.removeItem(TASK_REOPEN_PATH_STORAGE_KEY);
+      return;
+    }
+
+    if (storedPath && storedPath !== window.location.pathname) {
+      return;
+    }
+
+    setPendingInitialTaskId((current) => current ?? storedTaskId);
+    sessionStorage.removeItem(TASK_REOPEN_ID_STORAGE_KEY);
+    sessionStorage.removeItem(TASK_REOPEN_PATH_STORAGE_KEY);
+  }, []);
 
   useEffect(() => {
     if (boards && boards.length > 0 && !selectedBoardId) {
@@ -324,6 +361,14 @@ export function ProjectTasksWorkspace({
     });
     return map;
   }, [taskAssignments]);
+
+  const warningCountByTask = useMemo(() => {
+    const map = new Map<number, number>();
+    (taskWarnings ?? []).forEach((warning) => {
+      map.set(warning.task, (map.get(warning.task) ?? 0) + 1);
+    });
+    return map;
+  }, [taskWarnings]);
 
   const getAssignedNames = (task: ApiTask) => {
     const assignments = taskAssignmentsByTask.get(task.id_task) ?? [];
@@ -441,10 +486,6 @@ export function ProjectTasksWorkspace({
       toast.error('Selecciona una prioridad.');
       return;
     }
-    if (formAssignedTo.length === 0) {
-      toast.error('Selecciona al menos una persona responsable.');
-      return;
-    }
 
     setCreatingTask(true);
     try {
@@ -455,14 +496,16 @@ export function ProjectTasksWorkspace({
         status: formStatus,
         priority: formPriority,
         created_by: currentUserId ?? undefined,
-        assigned_to: formAssignedTo[0],
+        ...(formAssignedTo.length > 0 ? { assigned_to: formAssignedTo[0] } : {}),
         due_date: formDueDate || undefined,
       });
 
-      await Promise.all(formAssignedTo.map((assignedUserId) => tasksService.createAssignment({
-        task: createdTask.id_task,
-        assigned_to: assignedUserId,
-      })));
+      if (formAssignedTo.length > 0) {
+        await Promise.all(formAssignedTo.map((assignedUserId) => tasksService.createAssignment({
+          task: createdTask.id_task,
+          assigned_to: assignedUserId,
+        })));
+      }
 
       setFormTitle('');
       setFormDesc('');
@@ -509,6 +552,36 @@ export function ProjectTasksWorkspace({
     }
   };
 
+  const handleDeleteBoard = async (boardId: number) => {
+    if (!canCreateBoards) {
+      toast.error('Tu rol no puede eliminar boards.');
+      return;
+    }
+    const board = (boards ?? []).find((candidate) => candidate.id_board === boardId);
+    if (!board) return;
+    if (!window.confirm(`¿Eliminar el board "${board.name}"?`)) return;
+
+    try {
+      await tasksService.deleteBoard(boardId);
+      toast.success('Board eliminado.');
+
+      const remainingBoards = (boards ?? []).filter((candidate) => candidate.id_board !== boardId);
+      setSelectedBoardId((current) => {
+        if (current !== boardId) return current;
+        return remainingBoards[0]?.id_board;
+      });
+      setShowBoardChooser(false);
+      await refetchBoards();
+      refetchTasks();
+      refetchTaskAssignments();
+      refetchWarnings();
+    } catch {
+      toast.error('No se pudo eliminar el board.');
+    }
+  };
+
+  const selectedBoard = (boards ?? []).find((board) => board.id_board === selectedBoardId) ?? null;
+
   const handleStatusChangeFromPanel = async (task: ApiTask, newStatusId: number) => {
     if (!canEditTasks) {
       toast.error('Tu rol no puede editar historias.');
@@ -551,22 +624,51 @@ export function ProjectTasksWorkspace({
     <div className="h-full min-h-0 flex flex-col gap-3 overflow-hidden">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2 rounded-[6px] border border-border bg-surface-secondary/40 px-2 py-1.5">
+          <div className="relative flex items-center gap-2 rounded-[6px] border border-border bg-surface-secondary/40 px-2 py-1.5">
             <span className="text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">Board</span>
-            <select
-              value={selectedBoardId ?? ''}
-              onChange={(e) => setSelectedBoardId(Number(e.target.value))}
-              className="h-8 min-w-[220px] bg-card border border-border rounded-[4px] px-2.5 text-[11px] text-foreground"
+            <button
+              type="button"
+              onClick={() => setShowBoardChooser((current) => !current)}
+              className="h-8 min-w-[220px] bg-card border border-border rounded-[4px] px-2.5 text-[11px] text-foreground inline-flex items-center justify-between gap-2"
               disabled={!boards || boards.length === 0}
             >
-              {!boards || boards.length === 0 ? (
-                <option value="">Sin boards</option>
-              ) : (
-                boards.map((b) => (
-                  <option key={b.id_board} value={b.id_board}>{b.name}</option>
-                ))
-              )}
-            </select>
+              <span className="truncate">{selectedBoard?.name ?? 'Sin boards'}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+
+            {showBoardChooser && !!boards && boards.length > 0 && (
+              <div className="absolute left-12 top-[46px] z-20 w-[320px] rounded-[6px] border border-border bg-card shadow-lg">
+                <div className="max-h-64 overflow-y-auto py-1">
+                  {boards.map((board) => {
+                    const isSelectedBoard = selectedBoardId === board.id_board;
+                    return (
+                      <div key={board.id_board} className="flex items-center justify-between gap-2 px-2 py-1.5 hover:bg-accent/50">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedBoardId(board.id_board);
+                            setShowBoardChooser(false);
+                          }}
+                          className={`flex-1 text-left text-[11px] ${isSelectedBoard ? 'text-foreground font-medium' : 'text-muted-foreground'}`}
+                        >
+                          {board.name}
+                        </button>
+                        {canCreateBoards && (
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteBoard(board.id_board)}
+                            className="inline-flex items-center gap-1 rounded-[3px] border border-destructive/20 bg-destructive/10 px-1.5 py-0.5 text-[10px] text-destructive hover:bg-destructive/20"
+                            title="Eliminar board"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {canCreateBoards && (
               <button
@@ -696,6 +798,7 @@ export function ProjectTasksWorkspace({
                             priorities={priorities}
                             assignedNames={getAssignedNames(task)}
                             assignedToCurrentUser={isAssignedToCurrentUser(task)}
+                            warningCount={warningCountByTask.get(task.id_task) ?? 0}
                             statusName={statusNameById.get(task.status ?? -1)}
                             onOpen={setSelectedTask}
                             draggable={canEditTasks}
@@ -754,12 +857,19 @@ export function ProjectTasksWorkspace({
 
                 return (
                   <tr key={task.id_task} className="border-b border-border/60 hover:bg-accent/30 transition-colors cursor-pointer" onClick={() => setSelectedTask(task)}>
-                    <td className="py-2 px-3">
+                    <td className="relative py-2 px-3">
+                      {assignedToCurrentUser && (
+                        <span title="Asignada a ti" className="absolute right-2 top-2 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary/80" />
+                          <span className="sr-only">Asignada a ti</span>
+                        </span>
+                      )}
                       <div className="flex items-center gap-1.5 max-w-[280px]">
                         <p className="text-[12px] font-medium text-foreground truncate">{task.title}</p>
-                        {assignedToCurrentUser && (
-                          <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.05em] text-primary">
-                            Asignada a ti
+                        {(warningCountByTask.get(task.id_task) ?? 0) > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-warning/20 bg-warning/10 px-1.5 py-0.5 text-[9px] text-warning">
+                            <AlertTriangle className="w-2.5 h-2.5" />
+                            {warningCountByTask.get(task.id_task)}
                           </span>
                         )}
                       </div>
@@ -882,19 +992,19 @@ export function ProjectTasksWorkspace({
 
               <div>
                 <div>
-                  <label className="block text-[11px] font-medium text-foreground mb-1">Asignar a *</label>
+                  <label className="block text-[11px] font-medium text-foreground mb-1">Asignar a</label>
                   <TaskAssigneePicker
                     users={assignableUsers}
                     selectedIds={formAssignedTo}
                     onChange={setFormAssignedTo}
-                    emptyText="Selecciona una o varias personas"
+                    emptyText="Opcional"
                   />
-                  <p className="text-[10px] text-muted-foreground mt-1">Puedes asignar varias personas. La primera seleccionada también se conserva como responsable principal para compatibilidad.</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Opcional. Si asignas personas, la primera se conserva como responsable principal para compatibilidad.</p>
                 </div>
               </div>
 
               <div className="rounded-[4px] border border-border bg-surface-secondary/30 px-3 py-2">
-                <p className="text-[10px] text-muted-foreground">Campos obligatorios: estado, prioridad y responsables deben elegirse explícitamente.</p>
+                <p className="text-[10px] text-muted-foreground">Campos obligatorios: estado y prioridad.</p>
               </div>
 
               <div className="flex gap-2 pt-1">

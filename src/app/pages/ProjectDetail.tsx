@@ -77,7 +77,8 @@ export default function ProjectDetail() {
   }, [boards, selectedBoardId]);
 
   // ── Tasks ─────────────────────────────────────────────────────────────────
-  const { data: tasks, loading: loadingTasks, statuses, refetch: refetchTasks } = useApiTasks(selectedBoardId, projectId);
+  const { loading: loadingTasks, statuses, refetch: refetchTasks } = useApiTasks(selectedBoardId, projectId);
+  const { data: allProjectTasks, loading: loadingAllProjectTasks } = useApiTasks(undefined, projectId);
 
   // ── Members + Users ───────────────────────────────────────────────────────
   const { data: members, loading: loadingMembers, refetch: refetchMembers } = useApiProjectMembers(projectId);
@@ -177,7 +178,7 @@ export default function ProjectDetail() {
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
-    const tList = tasks ?? [];
+    const tList = allProjectTasks ?? [];
     const now = new Date();
     const total = tList.length;
     const completed = tList.filter((t) => t.completed_at != null || (t.status != null && doneStatusIds.has(t.status))).length;
@@ -186,13 +187,13 @@ export default function ProjectDetail() {
     ).length;
     const memberCount = (members ?? []).length;
     return { total, completed, overdue, memberCount };
-  }, [tasks, members, doneStatusIds]);
+  }, [allProjectTasks, members, doneStatusIds]);
 
   // ── Task-status breakdown ─────────────────────────────────────────────────
   const statusCounts = useMemo(() => {
-    if (!tasks || statuses.length === 0) return [];
+    if (!allProjectTasks || statuses.length === 0) return [];
     const counts = new Map<number, number>();
-    tasks.forEach((t) => {
+    allProjectTasks.forEach((t) => {
       const sid = t.status ?? 0;
       counts.set(sid, (counts.get(sid) ?? 0) + 1);
     });
@@ -200,7 +201,7 @@ export default function ProjectDetail() {
       name: s.name,
       count: counts.get(s.id_status) ?? 0,
     }));
-  }, [tasks, statuses]);
+  }, [allProjectTasks, statuses]);
 
   // ── Days remaining ───────────────────────────────────────────────────────
   const daysLabel = getProjectDaysLabel(project?.end_date ?? null, project?.status).label;
@@ -510,7 +511,7 @@ export default function ProjectDetail() {
       <ADOTabs
         tabs={[
           { id: 'resumen', label: 'Overview' },
-          { id: 'tareas', label: 'Tareas', count: (tasks ?? []).length },
+          { id: 'tareas', label: 'Tareas', count: (allProjectTasks ?? []).length },
           { id: 'code-review', label: 'Code Review' },
           { id: 'repositorios', label: 'Repositorios' },
           { id: 'equipo', label: 'Equipo', count: (members ?? []).length },
@@ -532,7 +533,7 @@ export default function ProjectDetail() {
           <div className="space-y-3">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
               {[
-                { title: 'Tareas', value: kpis.total, subtitle: 'en este tablero', icon: <List className="w-4 h-4" />, accentColor: 'info' as const },
+                { title: 'Tareas', value: kpis.total, subtitle: 'en todo el proyecto', icon: <List className="w-4 h-4" />, accentColor: 'info' as const },
                 { title: 'Completadas', value: kpis.completed, subtitle: 'finalizadas', icon: <CheckCircle2 className="w-4 h-4" />, accentColor: 'success' as const },
                 { title: 'Vencidas', value: kpis.overdue, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" />, accentColor: 'destructive' as const },
                 {
@@ -605,12 +606,12 @@ export default function ProjectDetail() {
                 <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-2.5">
                   Tareas por Estado
                 </h2>
-                {loadingTasks ? (
+                {loadingTasks || loadingAllProjectTasks ? (
                   <div className="space-y-2">
                     {[1, 2, 3].map((i) => <div key={i} className="h-5 animate-pulse bg-secondary rounded" />)}
                   </div>
                 ) : statusCounts.length === 0 ? (
-                  <p className="text-[11px] text-muted-foreground">Sin tareas en este tablero.</p>
+                  <p className="text-[11px] text-muted-foreground">Sin tareas en el proyecto.</p>
                 ) : (
                   <div className="space-y-1.5">
                     {statusCounts.map((s) => (
