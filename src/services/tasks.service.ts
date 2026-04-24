@@ -106,6 +106,10 @@ export const tasksService = {
     return api.post<ApiBoard>('/boards/', { project: projectId, name, description });
   },
 
+  deleteBoard(id: number): Promise<void> {
+    return api.delete<void>(`/boards/${id}/`);
+  },
+
   // ── Task assignments ────────────────────────────────────────────
   listAssignments(taskId?: number): Promise<ApiTaskAssignment[]> {
     const url = taskId ? `/task-assignments/?task=${taskId}` : '/task-assignments/';
@@ -138,5 +142,10 @@ export const tasksService = {
     if (filters?.status) params.set('status', filters.status);
     const qs = params.toString();
     return api.get<ApiTaskWarning[]>(`/task-warnings/${qs ? `?${qs}` : ''}`);
+  },
+
+  /** DELETE /api/task-warnings/:id */
+  deleteWarning(id: number): Promise<void> {
+    return api.delete<void>(`/task-warnings/${id}/`);
   },
 };

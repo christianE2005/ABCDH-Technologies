@@ -1,30 +1,92 @@
 import { useState, useMemo } from 'react';
 import {
   AlertTriangle, CheckCircle2, Clock, ExternalLink,
-  RefreshCw, Loader2, Search,
+  RefreshCw, Loader2, Search, Trash2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { CommandBar } from '../components/CommandBar';
 import { StatusBadge } from '../components/StatusBadge';
-import { useApiTaskWarnings, useApiTasks } from '../hooks/useProjectData';
+import { useApiBoards, useApiProjectMembers, useApiRoles, useApiTaskWarnings, useApiTasks } from '../hooks/useProjectData';
+import { useAuth } from '../context/AuthContext';
+import { getProjectCapabilities, getProjectRoleIds } from '../utils/projectPermissions';
+import { tasksService } from '../../services';
 
 type SeverityFilter = 'all' | 'active' | 'resolved';
 
 export default function Alerts() {
+  const { user } = useAuth();
   const { data: warnings, loading, refetch } = useApiTaskWarnings();
   const { data: tasks } = useApiTasks();
+  const { data: boards } = useApiBoards();
+  const currentUserId = useMemo(() => {
+    const parsed = Number(user?.id ?? 0);
+    return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
+  }, [user]);
+  const { data: myMemberships } = useApiProjectMembers(undefined, currentUserId ?? undefined);
+  const { data: roles } = useApiRoles();
 
   const [severity, setSeverity] = useState<SeverityFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWarning, setSelectedWarning] = useState<number | null>(null);
+  const [deletingWarningId, setDeletingWarningId] = useState<number | null>(null);
+
+  const boardProjectMap = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const board of boards ?? []) {
+      map.set(board.id_board, board.project);
+    }
+    return map;
+  }, [boards]);
 
   // Build task lookup
   const taskMap = useMemo(() => {
-    const map = new Map<number, { title: string; board: number }>();
+    const map = new Map<number, { title: string; board: number; project: number | null }>();
     for (const t of tasks ?? []) {
-      map.set(t.id_task, { title: t.title, board: t.board });
+      map.set(t.id_task, {
+        title: t.title,
+        board: t.board,
+        project: boardProjectMap.get(t.board) ?? null,
+      });
     }
     return map;
-  }, [tasks]);
+  }, [tasks, boardProjectMap]);
+
+  const projectDeletePermissions = useMemo(() => {
+    const map = new Map<number, boolean>();
+    if (!myMemberships || !roles) return map;
+    const roleIds = getProjectRoleIds(roles);
+    for (const membership of myMemberships) {
+      const capabilities = getProjectCapabilities(membership, null, roleIds);
+      map.set(membership.project, capabilities.canManageTasks);
+    }
+    return map;
+  }, [myMemberships, roles]);
+
+  const canDeleteWarningInProject = (projectId: number | null) => {
+    if (projectId == null) return false;
+    return projectDeletePermissions.get(projectId) ?? false;
+  };
+
+  const handleDeleteWarning = async (warningId: number, projectId: number | null) => {
+    if (!canDeleteWarningInProject(projectId)) {
+      toast.error('Solo PM y PO pueden eliminar alertas de tareas en este proyecto.');
+      return;
+    }
+
+    try {
+      setDeletingWarningId(warningId);
+      await tasksService.deleteWarning(warningId);
+      if (selectedWarning === warningId) {
+        setSelectedWarning(null);
+      }
+      refetch();
+      toast.success('Alerta eliminada.');
+    } catch {
+      toast.error('No se pudo eliminar la alerta.');
+    } finally {
+      setDeletingWarningId(null);
+    }
+  };
 
   // Filtered warnings
   const filtered = useMemo(() => {
@@ -161,6 +223,8 @@ export default function Alerts() {
               const taskInfo = taskMap.get(w.task);
               const isActive = w.status === 'active';
               const isSelected = selectedWarning === w.id_warning;
+              const canDeleteWarning = canDeleteWarningInProject(taskInfo?.project ?? null);
+              const isDeleting = deletingWarningId === w.id_warning;
 
               return (
                 <button
@@ -206,6 +270,20 @@ export default function Alerts() {
                       {/* Expanded detail */}
                       {isSelected && (
                         <div className="mt-2 p-3 bg-card border border-border rounded-[4px] text-[11px] space-y-1">
+                          <div className="flex items-center justify-end mb-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleDeleteWarning(w.id_warning, taskInfo?.project ?? null);
+                              }}
+                              disabled={!canDeleteWarning || isDeleting}
+                              className="inline-flex items-center gap-1.5 rounded-[4px] border border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] font-medium text-destructive transition-colors disabled:cursor-not-allowed disabled:opacity-50 hover:bg-destructive/20"
+                            >
+                              {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                              Eliminar alerta
+                            </button>
+                          </div>
                           <div><span className="text-muted-foreground">ID:</span> {w.id_warning}</div>
                           <div><span className="text-muted-foreground">Tarea ID:</span> {w.task}</div>
                           <div><span className="text-muted-foreground">Creado:</span> {new Date(w.created_at).toLocaleString('es-ES')}</div>
@@ -214,6 +292,9 @@ export default function Alerts() {
                           )}
                           {w.resolved_in_push && (
                             <div><span className="text-muted-foreground">Push de resolución:</span> #{w.resolved_in_push}</div>
+                          )}
+                          {!canDeleteWarning && (
+                            <div className="text-muted-foreground">Solo PM y PO del proyecto pueden eliminar esta alerta.</div>
                           )}
                         </div>
                       )}
