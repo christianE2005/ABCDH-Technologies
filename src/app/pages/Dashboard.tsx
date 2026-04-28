@@ -12,10 +12,24 @@ import {
 import { KPICard } from '../components/KPICard';
 import { StatusBadge } from '../components/StatusBadge';
 import { CommandBar } from '../components/CommandBar';
+import { ProgressBar } from '../components/ProgressBar';
 import { useApiBoards, useApiProjectMembers, useApiProjects, useApiTasks, useApiTaskAssignments, useApiTaskWarnings, useApiGithubPushes } from '../hooks/useProjectData';
 import { useAuth } from '../context/AuthContext';
 import { compareProjectsForGenericPriority, getProjectStatusBadge, getProjectStatusChartColor, getProjectStatusLabel, normalizeProjectStatus, shouldShowInGenericProjectDisplays } from '../utils/projectStatus';
 import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
+import { computeProjectProgress, getProjectHealth, type ProjectHealth } from '../utils/projectHealth';
+
+const HEALTH_DOT_CLASS: Record<ProjectHealth, string> = {
+  green: 'bg-success',
+  yellow: 'bg-warning',
+  red: 'bg-destructive',
+};
+
+const HEALTH_LABEL: Record<ProjectHealth, string> = {
+  green: 'Saludable',
+  yellow: 'En riesgo',
+  red: 'Crítico',
+};
 
 const DASHBOARD_PANEL_BATCH_SIZE = 10;
 
@@ -49,14 +63,18 @@ export default function Dashboard() {
   const { data: warnings } = useApiTaskWarnings({ status: 'active' });
   const { data: pushes } = useApiGithubPushes();
   const isStakeholderUser = user?.role === 'stakeholder';
+  const isAdminUser = user?.role === 'admin';
 
-  const loading = loadingProjects || loadingTasks || loadingBoards || loadingMemberships;
+  const loading = loadingProjects || loadingTasks || loadingBoards || (isAdminUser ? false : loadingMemberships);
 
   const visibleProjectIds = useMemo(() => {
+    if (isAdminUser) {
+      return new Set<number>((projects ?? []).map((project) => project.id_project));
+    }
     const ids = new Set<number>();
     (myProjectMemberships ?? []).forEach((member) => ids.add(member.project));
     return ids;
-  }, [myProjectMemberships]);
+  }, [isAdminUser, projects, myProjectMemberships]);
 
   const visibleProjects = useMemo(
     () => (projects ?? []).filter((project) => visibleProjectIds.has(project.id_project)),
@@ -191,6 +209,18 @@ export default function Dashboard() {
       .filter((project) => shouldShowInGenericProjectDisplays(project.status))
       .sort(compareProjectsForGenericPriority);
   }, [visibleProjects]);
+
+  const projectHealthMap = useMemo(() => {
+    const map = new Map<number, { progress: { completed: number; total: number; percentage: number }; health: ProjectHealth }>();
+    const taskList = tasks ?? [];
+    const boardList = boards ?? [];
+    upcomingProjects.forEach((project) => {
+      const progress = computeProjectProgress(project.id_project, taskList, boardList);
+      const health = getProjectHealth(project, progress);
+      map.set(project.id_project, { progress, health });
+    });
+    return map;
+  }, [upcomingProjects, tasks, boards]);
 
   // ── Pie data: project status distribution ──
   const projectStatusData = useMemo(() => {
@@ -390,20 +420,26 @@ export default function Dashboard() {
           <div className="py-12 text-center text-[12px] text-muted-foreground">No hay proyectos registrados.</div>
         ) : (
           <div className="flex flex-col">
-            <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(112px,0.95fr)_minmax(120px,0.9fr)_minmax(84px,0.65fr)] gap-3 border-b border-border bg-surface-secondary/50 px-4 py-1.5">
+            <div className="grid grid-cols-[minmax(0,2fr)_minmax(112px,0.9fr)_minmax(110px,1.1fr)_44px_minmax(110px,0.85fr)_minmax(78px,0.6fr)] gap-3 border-b border-border bg-surface-secondary/50 px-4 py-1.5">
               <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Proyecto</span>
               <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</span>
+              <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Progreso</span>
+              <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Salud</span>
               <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Fecha Fin</span>
               <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Días rest.</span>
             </div>
             <div className="max-h-[360px] overflow-y-auto scrollbar-app divide-y divide-border">
               {upcomingProjects.map((project) => {
                 const dl = getProjectDaysLabel(project.end_date, project.status);
+                const ph = projectHealthMap.get(project.id_project);
+                const pct = ph?.progress.percentage ?? 0;
+                const hasTasks = (ph?.progress.total ?? 0) > 0;
+                const health = ph?.health ?? 'yellow';
                 return (
                   <button
                     key={project.id_project}
                     type="button"
-                    className="grid w-full grid-cols-[minmax(0,2.1fr)_minmax(112px,0.95fr)_minmax(120px,0.9fr)_minmax(84px,0.65fr)] items-center gap-3 px-4 py-1.5 hover:bg-accent/30 transition-colors text-left"
+                    className="grid w-full grid-cols-[minmax(0,2fr)_minmax(112px,0.9fr)_minmax(110px,1.1fr)_44px_minmax(110px,0.85fr)_minmax(78px,0.6fr)] items-center gap-3 px-4 py-1.5 hover:bg-accent/30 transition-colors text-left"
                     onClick={() => navigate(`/projects/${project.id_project}`)}
                   >
                     <div className="min-w-0">
@@ -411,6 +447,15 @@ export default function Dashboard() {
                     </div>
                     <div className="min-w-0">
                       <StatusBadge status={getProjectStatusBadge(project.status)} text={getProjectStatusLabel(project.status)} size="sm" />
+                    </div>
+                    <div className="min-w-0 flex items-center gap-2">
+                      <ProgressBar value={pct} height={5} className="flex-1" />
+                      <span className="text-[10px] font-medium text-muted-foreground tabular-nums whitespace-nowrap">
+                        {hasTasks ? `${pct}%` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-start" title={HEALTH_LABEL[health]}>
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${HEALTH_DOT_CLASS[health]}`} />
                     </div>
                     <span className="text-[11px] text-muted-foreground whitespace-nowrap">{formatProjectDate(project.end_date)}</span>
                     <span className={`text-[11px] ${dl.cls}`}>{dl.label}</span>
