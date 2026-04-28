@@ -7,11 +7,25 @@ import {
 } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
 import { DatePickerField } from '../components/DatePickerField';
-import { useApiProjectMembers, useApiProjects } from '../hooks/useProjectData';
+import { ProgressBar } from '../components/ProgressBar';
+import { useApiBoards, useApiProjectMembers, useApiProjects, useApiTasks } from '../hooks/useProjectData';
 import { useAuth } from '../context/AuthContext';
 import { projectsService, usersService } from '../../services';
 import { compareProjectsForGenericPriority, getProjectStatusBadge, getProjectStatusLabel, isTerminalProjectStatus, normalizeProjectStatus, PROJECT_STATUS_OPTIONS } from '../utils/projectStatus';
 import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
+import { computeProjectProgress, getProjectHealth, type ProjectHealth } from '../utils/projectHealth';
+
+const HEALTH_DOT_CLASS: Record<ProjectHealth, string> = {
+  green: 'bg-success',
+  yellow: 'bg-warning',
+  red: 'bg-destructive',
+};
+
+const HEALTH_LABEL: Record<ProjectHealth, string> = {
+  green: 'Saludable',
+  yellow: 'En riesgo',
+  red: 'Crítico',
+};
 
 const PROJECTS_BATCH_SIZE = 8;
 type ProjectsSort = 'nearest_due' | 'farthest_due' | 'name_asc' | 'name_desc';
@@ -20,9 +34,12 @@ export default function Projects() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const membershipUserId = Number(user?.id ?? -1);
+  const isAdminUser = user?.role === 'admin';
   const canCreateProjects = user?.role === 'admin' || user?.role === 'user' || user?.role === 'project_manager';
   const { data: projects, loading, refetch } = useApiProjects();
   const { data: memberRows, loading: loadingMemberRows, refetch: refetchMemberRows } = useApiProjectMembers(undefined, membershipUserId);
+  const { data: tasks } = useApiTasks();
+  const { data: boards } = useApiBoards();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,9 +55,22 @@ export default function Projects() {
 
   const visibleProjects = useMemo(() => {
     if (!projects) return [];
+    if (isAdminUser) return projects;
     const allowedProjectIds = new Set((memberRows ?? []).map((member) => member.project));
     return projects.filter((project) => allowedProjectIds.has(project.id_project));
-  }, [projects, memberRows]);
+  }, [projects, memberRows, isAdminUser]);
+
+  const projectHealthMap = useMemo(() => {
+    const map = new Map<number, { progress: { completed: number; total: number; percentage: number }; health: ProjectHealth }>();
+    const taskList = tasks ?? [];
+    const boardList = boards ?? [];
+    visibleProjects.forEach((project) => {
+      const progress = computeProjectProgress(project.id_project, taskList, boardList);
+      const health = getProjectHealth(project, progress);
+      map.set(project.id_project, { progress, health });
+    });
+    return map;
+  }, [visibleProjects, tasks, boards]);
 
   const filteredProjects = useMemo(() => {
     if (!visibleProjects) return [];
@@ -105,7 +135,7 @@ export default function Projects() {
     return counts;
   }, [visibleProjects]);
 
-  const isLoadingPage = loading || loadingMemberRows;
+  const isLoadingPage = loading || (isAdminUser ? false : loadingMemberRows);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -262,9 +292,11 @@ export default function Projects() {
       ) : viewMode === 'list' ? (
         /* Table view */
         <div className="bg-card border border-border rounded-[4px] overflow-hidden">
-          <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(112px,0.95fr)_minmax(120px,0.9fr)_minmax(84px,0.65fr)] gap-3 border-b border-border bg-surface-secondary/50 px-4 py-1.5">
+          <div className="grid grid-cols-[minmax(0,2fr)_minmax(112px,0.9fr)_minmax(110px,1.1fr)_44px_minmax(110px,0.85fr)_minmax(78px,0.6fr)] gap-3 border-b border-border bg-surface-secondary/50 px-4 py-1.5">
             <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Proyecto</span>
             <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</span>
+            <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Progreso</span>
+            <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Salud</span>
             <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Fecha Fin</span>
             <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Días rest.</span>
           </div>
@@ -272,6 +304,10 @@ export default function Projects() {
           <div className="overflow-y-auto scrollbar-app max-h-[600px] divide-y divide-border">
             {paginatedProjects.map((project, i) => {
               const dl = getProjectDaysLabel(project.end_date, project.status);
+              const ph = projectHealthMap.get(project.id_project);
+              const pct = ph?.progress.percentage ?? 0;
+              const hasTasks = (ph?.progress.total ?? 0) > 0;
+              const health = ph?.health ?? 'yellow';
               return (
                 <motion.button
                   key={project.id_project}
@@ -279,7 +315,7 @@ export default function Projects() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.25, delay: i * 0.04, ease: 'easeOut' }}
-                  className="grid w-full grid-cols-[minmax(0,2.1fr)_minmax(112px,0.95fr)_minmax(120px,0.9fr)_minmax(84px,0.65fr)] items-center gap-3 px-4 py-1.5 hover:bg-accent/30 transition-colors text-left"
+                  className="grid w-full grid-cols-[minmax(0,2fr)_minmax(112px,0.9fr)_minmax(110px,1.1fr)_44px_minmax(110px,0.85fr)_minmax(78px,0.6fr)] items-center gap-3 px-4 py-1.5 hover:bg-accent/30 transition-colors text-left"
                   onClick={() => navigate(`/projects/${project.id_project}`)}
                 >
                   <div className="min-w-0">
@@ -290,6 +326,15 @@ export default function Projects() {
                   </div>
                   <div className="min-w-0">
                     <StatusBadge status={getProjectStatusBadge(project.status)} text={getProjectStatusLabel(project.status)} size="sm" />
+                  </div>
+                  <div className="min-w-0 flex items-center gap-2">
+                    <ProgressBar value={pct} height={5} className="flex-1" />
+                    <span className="text-[10px] font-medium text-muted-foreground tabular-nums whitespace-nowrap">
+                      {hasTasks ? `${pct}%` : '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-start" title={HEALTH_LABEL[health]}>
+                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${HEALTH_DOT_CLASS[health]}`} />
                   </div>
                   <span className="text-[11px] text-muted-foreground whitespace-nowrap">{formatProjectDate(project.end_date)}</span>
                   <span className={`text-[12px] ${dl.cls}`}>{dl.label}</span>
@@ -312,6 +357,10 @@ export default function Projects() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 content-start min-h-0">
           {paginatedProjects.map((project, i) => {
             const dl = getProjectDaysLabel(project.end_date, project.status);
+            const ph = projectHealthMap.get(project.id_project);
+            const pct = ph?.progress.percentage ?? 0;
+            const hasTasks = (ph?.progress.total ?? 0) > 0;
+            const health = ph?.health ?? 'yellow';
             return (
               <motion.div
                 key={project.id_project}
@@ -325,7 +374,13 @@ export default function Projects() {
                   className="bg-card border border-border hover:border-primary/40 transition-colors flex h-full min-h-[152px] flex-col rounded-[4px] p-3"
                 >
                   <div className="flex items-start justify-between mb-2 gap-2">
-                    <h3 className="text-[13px] font-semibold text-foreground leading-snug">{project.name}</h3>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full shrink-0 ${HEALTH_DOT_CLASS[health]}`}
+                        title={HEALTH_LABEL[health]}
+                      />
+                      <h3 className="text-[13px] font-semibold text-foreground leading-snug truncate">{project.name}</h3>
+                    </div>
                     <StatusBadge status={getProjectStatusBadge(project.status)} text={getProjectStatusLabel(project.status)} size="sm" />
                   </div>
 
@@ -341,6 +396,16 @@ export default function Projects() {
                       </span>
                     )}
                     <span className={`${dl.cls}`}>{dl.label}</span>
+                  </div>
+
+                  <div className="mb-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] text-muted-foreground">Progreso</span>
+                      <span className="text-[10px] font-medium text-foreground tabular-nums">
+                        {hasTasks ? `${pct}%` : 'Sin tareas'}
+                      </span>
+                    </div>
+                    <ProgressBar value={pct} height={5} />
                   </div>
 
                   <div className="pt-2 border-t border-border mt-auto">
