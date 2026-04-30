@@ -12,7 +12,7 @@ import { useApiBoards, useApiProjectMembers, useApiProjects, useApiTasks } from 
 import { useAuth } from '../context/AuthContext';
 import { projectsService, usersService } from '../../services';
 import { compareProjectsForGenericPriority, getProjectStatusBadge, getProjectStatusLabel, isTerminalProjectStatus, normalizeProjectStatus, PROJECT_STATUS_OPTIONS } from '../utils/projectStatus';
-import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
+import { formatProjectDate } from '../utils/projectDates';
 import { computeProjectProgress, getProjectHealth, type ProjectHealth } from '../utils/projectHealth';
 
 const HEALTH_DOT_CLASS: Record<ProjectHealth, string> = {
@@ -29,6 +29,32 @@ const HEALTH_LABEL: Record<ProjectHealth, string> = {
 
 const PROJECTS_BATCH_SIZE = 8;
 type ProjectsSort = 'nearest_due' | 'farthest_due' | 'name_asc' | 'name_desc';
+
+function getProjectsRemainingLabel(endDate: string | null, status?: string | null) {
+  if (!endDate) return { label: '—', cls: 'text-muted-foreground' };
+  if (isTerminalProjectStatus(status)) return { label: '—', cls: 'text-muted-foreground' };
+
+  const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / 86_400_000);
+  if (Number.isNaN(days)) return { label: '—', cls: 'text-muted-foreground' };
+  if (days < 0) return { label: 'Vencido', cls: 'text-destructive font-semibold' };
+  if (days === 0) return { label: 'Hoy', cls: 'text-destructive font-semibold' };
+
+  if (days >= 365) {
+    const years = Math.floor(days / 365);
+    const months = Math.floor((days % 365) / 30);
+    const label = `${years}a${months > 0 ? ` ${months}m` : ''}`;
+    return { label, cls: 'text-muted-foreground' };
+  }
+
+  if (days >= 30) {
+    const months = Math.floor(days / 30);
+    const remDays = days % 30;
+    const label = `${months}m${remDays > 0 ? ` ${remDays}d` : ''}`;
+    return { label, cls: 'text-muted-foreground' };
+  }
+
+  return { label: `${days}d`, cls: days <= 7 ? 'text-warning font-semibold' : 'text-muted-foreground' };
+}
 
 export default function Projects() {
   const navigate = useNavigate();
@@ -47,6 +73,11 @@ export default function Projects() {
   const [sortBy, setSortBy] = useState<ProjectsSort>('nearest_due');
   const [creating, setCreating] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
+  const tomorrowDate = useMemo(() => {
+    const next = new Date();
+    next.setDate(next.getDate() + 1);
+    return next.toISOString().slice(0, 10);
+  }, []);
 
   // Form state
   const [formName, setFormName] = useState('');
@@ -298,12 +329,12 @@ export default function Projects() {
             <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Progreso</span>
             <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Salud</span>
             <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Fecha Fin</span>
-            <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Días rest.</span>
+            <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Tiempo rest.</span>
           </div>
 
           <div className="overflow-y-auto scrollbar-app max-h-[600px] divide-y divide-border">
             {paginatedProjects.map((project, i) => {
-              const dl = getProjectDaysLabel(project.end_date, project.status);
+              const dl = getProjectsRemainingLabel(project.end_date, project.status);
               const ph = projectHealthMap.get(project.id_project);
               const pct = ph?.progress.percentage ?? 0;
               const hasTasks = (ph?.progress.total ?? 0) > 0;
@@ -341,22 +372,21 @@ export default function Projects() {
                 </motion.button>
               );
             })}
-          </div>
 
-          {filteredProjects.length === 0 && (
-            <div className="px-4 py-8">
-              <div className="bg-surface-secondary/40 border border-dashed border-border rounded-[4px] p-6 text-center">
+            {filteredProjects.length === 0 && (
+              <div className="px-4 py-8 text-center">
                 <p className="text-[12px] font-medium text-foreground">Sin proyectos para mostrar</p>
                 <p className="text-[11px] text-muted-foreground mt-1">No hay proyectos con los filtros actuales.</p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
         </div>
       ) : (
         /* Grid view */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 content-start min-h-0">
           {paginatedProjects.map((project, i) => {
-            const dl = getProjectDaysLabel(project.end_date, project.status);
+            const dl = getProjectsRemainingLabel(project.end_date, project.status);
             const ph = projectHealthMap.get(project.id_project);
             const pct = ph?.progress.percentage ?? 0;
             const hasTasks = (ph?.progress.total ?? 0) > 0;
@@ -496,6 +526,7 @@ export default function Projects() {
                 <DatePickerField
                   value={formEnd}
                   onChange={setFormEnd}
+                  minDate={tomorrowDate}
                   placeholder="Selecciona la fecha de entrega"
                 />
               </div>
