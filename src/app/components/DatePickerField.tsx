@@ -10,6 +10,8 @@ interface DatePickerFieldProps {
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  minDate?: string;
+  maxDate?: string;
 }
 
 function parseDateValue(value: string) {
@@ -23,13 +25,23 @@ export function DatePickerField({
   onChange,
   placeholder = 'Selecciona una fecha',
   disabled = false,
+  minDate,
+  maxDate,
 }: DatePickerFieldProps) {
   const [open, setOpen] = useState(false);
 
   const selectedDate = useMemo(() => parseDateValue(value), [value]);
+  const minDateValue = useMemo(() => parseDateValue(minDate ?? ''), [minDate]);
+  const maxDateValue = useMemo(() => parseDateValue(maxDate ?? ''), [maxDate]);
   const buttonLabel = selectedDate
     ? format(selectedDate, "dd 'de' MMM yyyy", { locale: es })
     : placeholder;
+
+  const isDateDisabled = (date: Date) => {
+    if (minDateValue && date < minDateValue) return true;
+    if (maxDateValue && date > maxDateValue) return true;
+    return false;
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -47,8 +59,10 @@ export function DatePickerField({
         <Calendar
           mode="single"
           selected={selectedDate}
+          disabled={isDateDisabled}
           onSelect={(date) => {
             if (!date) return;
+            if (isDateDisabled(date)) return;
             onChange(format(date, 'yyyy-MM-dd'));
             setOpen(false);
           }}
