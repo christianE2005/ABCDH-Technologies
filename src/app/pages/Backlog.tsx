@@ -16,7 +16,7 @@ export default function Backlog() {
   const [newTag, setNewTag] = useState({ color: '#56697f' });
 
   const { data: projects, loading: loadingProjects } = useApiProjects();
-  const { data: tasks, loading: loadingTasks, refetch: refetchTasks, priorities } = useApiTasks(undefined, selectedProjectId ?? undefined);
+  const { data: tasks, loading: loadingTasks, priorities } = useApiTasks(undefined, selectedProjectId ?? undefined);
   const { data: tags, loading: loadingTags, refetch: refetchTags } = useApiTags(selectedProjectId ?? undefined);
 
   const loading = loadingProjects || loadingTasks || loadingTags;
@@ -122,13 +122,14 @@ export default function Backlog() {
                   key={tag.id_tag}
                   type="button"
                   onClick={() => setSelectedTagIds((current) => selected ? current.filter((id) => id !== tag.id_tag) : [...current, tag.id_tag])}
-                  className="inline-flex items-center h-6 px-2.5 rounded-full border text-[10px] font-medium transition-colors"
+                  className={selected
+                    ? 'inline-flex items-center h-6 px-2.5 rounded-full border text-[10px] font-medium transition-colors'
+                    : 'inline-flex items-center h-6 px-2.5 rounded-full border border-border text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors'}
                   style={selected ? {
                     borderColor: `${tag.color ?? '#56697f'}88`,
                     backgroundColor: `${tag.color ?? '#56697f'}22`,
                     color: tag.color ?? '#56697f',
-                  } : { borderColor: undefined }}
-                  {...(!selected ? { className: 'inline-flex items-center h-6 px-2.5 rounded-full border border-border text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors' } : {})}
+                  } : undefined}
                 >
                   {tag.name}
                 </button>

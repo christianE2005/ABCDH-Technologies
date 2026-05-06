@@ -1439,7 +1439,7 @@ export function ProjectTasksWorkspace({
         canEditTask={canEditTasks}
         canDeleteTask={canDeleteTasks}
         onClose={() => setSelectedTask(null)}
-        onStatusChange={() => undefined}
+
         onDeleteTask={async (taskToDelete) => {
           await tasksService.delete(taskToDelete.id_task);
           setSelectedTask(null);

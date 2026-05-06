@@ -109,7 +109,7 @@ export default function Dashboard() {
     const list = tasks ?? [];
     if (involvedProjectIds.size === 0) return [];
     return list.filter((task) => {
-      const projectId = boardProjectMap.get(task.board);
+      const projectId = boardProjectMap.get(task.board ?? 0);
       return projectId != null && involvedProjectIds.has(projectId);
     });
   }, [tasks, boardProjectMap, involvedProjectIds]);
@@ -494,7 +494,7 @@ export default function Dashboard() {
                 <div className="max-h-[360px] overflow-y-auto scrollbar-app divide-y divide-border">
                   {paginatedMyTasks.map((task) => {
                     const isOverdue = task.due_date && new Date(task.due_date) < new Date();
-                    const taskProjectId = boardProjectMap.get(task.board);
+                    const taskProjectId = boardProjectMap.get(task.board ?? 0);
                     const taskProjectName = taskProjectId ? (projectById.get(taskProjectId)?.name ?? `Proyecto #${taskProjectId}`) : 'Proyecto sin identificar';
                     const taskStatusLabel = task.status != null ? (taskStatusNameById.get(task.status) ?? `Estado #${task.status}`) : 'Sin estado';
                     const taskStatusColor = getTaskStatusChartColor(taskStatusLabel);

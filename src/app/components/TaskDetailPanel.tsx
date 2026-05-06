@@ -45,7 +45,6 @@ interface TaskDetailPanelProps {
   canEditTask?: boolean;
   canDeleteTask?: boolean;
   onClose: () => void;
-  onStatusChange: (task: ApiTask, newStatusId: number) => void;
   onDeleteTask?: (task: ApiTask) => Promise<void>;
   onTaskUpdated?: (updatedTask: ApiTask) => void;
   onCreateTag?: (name: string, color: string) => Promise<ApiTag>;
@@ -65,7 +64,6 @@ export function TaskDetailPanel({
   canEditTask = true,
   canDeleteTask = false,
   onClose,
-  onStatusChange,
   onDeleteTask,
   onTaskUpdated,
   onCreateTag,

@@ -42,10 +42,11 @@ export default function Alerts() {
   const taskMap = useMemo(() => {
     const map = new Map<number, { title: string; board: number; project: number | null }>();
     for (const t of tasks ?? []) {
+      const boardId = t.board ?? 0;
       map.set(t.id_task, {
         title: t.title,
-        board: t.board,
-        project: boardProjectMap.get(t.board) ?? null,
+        board: boardId,
+        project: boardProjectMap.get(boardId) ?? null,
       });
     }
     return map;

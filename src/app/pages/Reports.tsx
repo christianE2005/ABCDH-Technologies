@@ -36,7 +36,7 @@ export default function Reports() {
   const filteredTasks = useMemo(() => {
     const t = tasks ?? [];
     if (!selectedProject) return t;
-    return t.filter((task) => boardProjectMap.get(task.board) === selectedProject);
+    return t.filter((task) => boardProjectMap.get(task.board ?? 0) === selectedProject);
   }, [tasks, selectedProject, boardProjectMap]);
 
   // Filter warnings by project via task→board→project chain

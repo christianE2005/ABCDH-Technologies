@@ -24,7 +24,7 @@ export function computeProjectProgress(
   let total = 0;
   let completed = 0;
   for (const task of tasks) {
-    if (!projectBoardIds.has(task.board)) continue;
+    if (!projectBoardIds.has(task.board ?? 0)) continue;
     total += 1;
     if (task.completed_at) completed += 1;
   }
