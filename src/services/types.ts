@@ -66,16 +66,62 @@ export interface ApiTaskPriority {
 
 export interface ApiTask {
   id_task: number;
-  board: number;
+  project: number;
+  sprint: number | null;
+  board_column: number;
+  milestone: number | null;
+  tags: number[];
+  assigned_users: Array<{
+    id_user: number;
+    email: string;
+    username: string;
+    id_assignment: number;
+  }>;
   title: string;
   description: string | null;
-  status: number | null;
-  priority: number | null;
+  priority: number;
   created_by: number | null;
-  assigned_to: number | null;
   created_at: string;
   due_date: string | null;   // ISO date
   completed_at: string | null;
+
+  // Legacy compatibility fields retained while frontend migrates.
+  board?: number;
+  status?: number | null;
+  assigned_to?: number | null;
+}
+
+export interface ApiTag {
+  id_tag: number;
+  name: string;
+  color: string;
+  project: number;
+}
+
+export interface ApiSprint {
+  id_sprint: number;
+  name: string;
+  start_date: string | null;
+  end_date: string | null;
+  status: 'planned' | 'active' | 'closed';
+  project: number;
+}
+
+export interface ApiMilestone {
+  id_milestone: number;
+  name: string;
+  description: string | null;
+  due_date: string | null;
+  is_completed: boolean;
+  project: number;
+}
+
+export interface ApiBoardColumn {
+  id_column: number;
+  name: string;
+  order: number;
+  is_final: boolean;
+  board: number;
 }
 
 export interface ApiTaskAssignment {

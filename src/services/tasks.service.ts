@@ -1,8 +1,21 @@
 import { api } from './api';
-import type { ApiTask, ApiTaskStatus, ApiTaskPriority, ApiTaskComment, ApiBoard, ApiTaskWarning, ApiTaskAssignment } from './types';
+import type {
+  ApiTask,
+  ApiTaskStatus,
+  ApiTaskPriority,
+  ApiTaskComment,
+  ApiBoard,
+  ApiTaskWarning,
+  ApiTaskAssignment,
+  ApiBoardColumn,
+  ApiSprint,
+  ApiMilestone,
+  ApiTag,
+} from './types';
 
 export interface CreateTaskPayload {
-  board: number;
+  project: number;
+  board_column: number | null;
   title: string;
   description?: string;
   status?: number;
@@ -10,6 +23,9 @@ export interface CreateTaskPayload {
   created_by?: number;
   assigned_to?: number;
   due_date?: string;   // YYYY-MM-DD
+  sprint?: number | null;
+  milestone?: number | null;
+  tags?: number[];
 }
 
 export interface UpdateTaskPayload {
@@ -20,6 +36,10 @@ export interface UpdateTaskPayload {
   assigned_to?: number | null;
   due_date?: string | null;
   completed_at?: string | null;
+  sprint?: number | null;
+  board_column?: number | null;
+  milestone?: number | null;
+  tags?: number[];
 }
 
 export interface UpdateTaskCommentPayload {
@@ -38,10 +58,23 @@ export interface UpdateTaskAssignmentPayload {
 
 export const tasksService = {
   /** GET /api/tasks/ — optionally filter by board and/or project */
-  list(boardId?: number, projectId?: number): Promise<ApiTask[]> {
+  list(
+    boardId?: number,
+    projectId?: number,
+    filters?: {
+      sprintId?: number;
+      milestoneId?: number;
+      boardColumnId?: number;
+      tagId?: number;
+    },
+  ): Promise<ApiTask[]> {
     const params = new URLSearchParams();
     if (boardId) params.set('board', String(boardId));
     if (projectId) params.set('project', String(projectId));
+    if (filters?.sprintId) params.set('sprint', String(filters.sprintId));
+    if (filters?.milestoneId) params.set('milestone', String(filters.milestoneId));
+    if (filters?.boardColumnId) params.set('board_column', String(filters.boardColumnId));
+    if (filters?.tagId) params.set('tag', String(filters.tagId));
     const qs = params.toString();
     return api.get<ApiTask[]>(`/tasks/${qs ? `?${qs}` : ''}`);
   },
@@ -108,6 +141,92 @@ export const tasksService = {
 
   deleteBoard(id: number): Promise<void> {
     return api.delete<void>(`/boards/${id}/`);
+  },
+
+  // ── Board columns ─────────────────────────────────────────────
+  listBoardColumns(boardId?: number): Promise<ApiBoardColumn[]> {
+    const url = boardId ? `/board-columns/?board=${boardId}` : '/board-columns/';
+    return api.get<ApiBoardColumn[]>(url);
+  },
+
+  createBoardColumn(payload: { board: number; name: string; order: number; is_final?: boolean }): Promise<ApiBoardColumn> {
+    return api.post<ApiBoardColumn>('/board-columns/', payload);
+  },
+
+  updateBoardColumn(id: number, payload: { name?: string; order?: number; is_final?: boolean }): Promise<ApiBoardColumn> {
+    return api.patch<ApiBoardColumn>(`/board-columns/${id}/`, payload);
+  },
+
+  deleteBoardColumn(id: number): Promise<void> {
+    return api.delete<void>(`/board-columns/${id}/`);
+  },
+
+  // ── Sprints ───────────────────────────────────────────────────
+  listSprints(projectId?: number): Promise<ApiSprint[]> {
+    const url = projectId ? `/sprints/?project=${projectId}` : '/sprints/';
+    return api.get<ApiSprint[]>(url);
+  },
+
+  createSprint(payload: {
+    project: number;
+    name: string;
+    start_date?: string;
+    end_date?: string;
+    status?: 'planned' | 'active' | 'closed';
+  }): Promise<ApiSprint> {
+    return api.post<ApiSprint>('/sprints/', payload);
+  },
+
+  updateSprint(id: number, payload: {
+    name?: string;
+    start_date?: string | null;
+    end_date?: string | null;
+    status?: 'planned' | 'active' | 'closed';
+  }): Promise<ApiSprint> {
+    return api.patch<ApiSprint>(`/sprints/${id}/`, payload);
+  },
+
+  // ── Milestones ────────────────────────────────────────────────
+  listMilestones(projectId?: number): Promise<ApiMilestone[]> {
+    const url = projectId ? `/milestones/?project=${projectId}` : '/milestones/';
+    return api.get<ApiMilestone[]>(url);
+  },
+
+  createMilestone(payload: {
+    project: number;
+    name: string;
+    description?: string;
+    due_date?: string;
+    is_completed?: boolean;
+  }): Promise<ApiMilestone> {
+    return api.post<ApiMilestone>('/milestones/', payload);
+  },
+
+  updateMilestone(id: number, payload: {
+    name?: string;
+    description?: string | null;
+    due_date?: string | null;
+    is_completed?: boolean;
+  }): Promise<ApiMilestone> {
+    return api.patch<ApiMilestone>(`/milestones/${id}/`, payload);
+  },
+
+  // ── Tags ──────────────────────────────────────────────────────
+  listTags(projectId?: number): Promise<ApiTag[]> {
+    const url = projectId ? `/tags/?project=${projectId}` : '/tags/';
+    return api.get<ApiTag[]>(url);
+  },
+
+  createTag(payload: { project: number; name: string; color?: string }): Promise<ApiTag> {
+    return api.post<ApiTag>('/tags/', payload);
+  },
+
+  updateTag(id: number, payload: { name?: string; color?: string }): Promise<ApiTag> {
+    return api.patch<ApiTag>(`/tags/${id}/`, payload);
+  },
+
+  deleteTag(id: number): Promise<void> {
+    return api.delete<void>(`/tags/${id}/`);
   },
 
   // ── Task assignments ────────────────────────────────────────────

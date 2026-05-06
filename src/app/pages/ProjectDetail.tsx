@@ -16,16 +16,16 @@ import { ProgressBar } from '../components/ProgressBar';
 import { AssignResponsibleModal, type AssignCandidate } from '../components/AssignResponsibleModal';
 import { AddMemberModal } from '../components/AddMemberModal';
 import {
-  useApiBoards, useApiProjectMembers, useApiUsers, useApiTasks, useApiRoles,
+  useApiBoards, useApiProjectMembers, useApiUsers, useApiTasks, useApiRoles, useApiSprints,
 } from '../hooks/useProjectData';
 import { projectsService, tasksService, usersService } from '../../services';
 import type { ApiProject, ApiTask, ApiTaskAssignment, ApiUserAccount } from '../../services';
 import { useAuth } from '../context/AuthContext';
 import { GitHubReposView } from '../components/GitHubReposView';
 import { CodeReviewPanel } from '../components/CodeReviewPanel';
-import { ProjectTasksWorkspace } from '../components/ProjectTasksWorkspace';
+import { ProjectTasksWorkspace } from '../components/ProjectTasksWorkspace.tsx';
 import { getProjectStatusApiValue, getProjectStatusBadge, getProjectStatusLabel, normalizeProjectStatus, PROJECT_STATUS_OPTIONS } from '../utils/projectStatus';
-import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
+import { formatProjectDate, getProjectTimeRemainingLabel } from '../utils/projectDates';
 import {
   canEditMemberProjectRole,
   getAllowedProjectRoleIdsForUser,
@@ -75,10 +75,18 @@ export default function ProjectDetail() {
       setSelectedBoardId(boards[0].id_board);
     }
   }, [boards, selectedBoardId]);
-
+  // ── Sprints (for project end date validation) ─────────────────────────────
+  const { data: sprints } = useApiSprints(projectId);
+  const latestSprintEndDate = useMemo(() => {
+    const dates = (sprints ?? [])
+      .map((s) => s.end_date)
+      .filter((d): d is string => d != null)
+      .sort();
+    return dates.length > 0 ? dates[dates.length - 1] : null;
+  }, [sprints]);
   // ── Tasks ─────────────────────────────────────────────────────────────────
-  const { loading: loadingTasks, statuses, refetch: refetchTasks } = useApiTasks(selectedBoardId, projectId);
-  const { data: allProjectTasks, loading: loadingAllProjectTasks } = useApiTasks(undefined, projectId);
+  const { statuses, refetch: refetchTasks } = useApiTasks(selectedBoardId, projectId);
+  const { data: allProjectTasks } = useApiTasks(undefined, projectId);
 
   // ── Members + Users ───────────────────────────────────────────────────────
   const { data: members, loading: loadingMembers, refetch: refetchMembers } = useApiProjectMembers(projectId);
@@ -189,22 +197,13 @@ export default function ProjectDetail() {
     return { total, completed, overdue, memberCount };
   }, [allProjectTasks, members, doneStatusIds]);
 
-  // ── Task-status breakdown ─────────────────────────────────────────────────
-  const statusCounts = useMemo(() => {
-    if (!allProjectTasks || statuses.length === 0) return [];
-    const counts = new Map<number, number>();
-    allProjectTasks.forEach((t) => {
-      const sid = t.status ?? 0;
-      counts.set(sid, (counts.get(sid) ?? 0) + 1);
-    });
-    return statuses.map((s) => ({
-      name: s.name,
-      count: counts.get(s.id_status) ?? 0,
-    }));
-  }, [allProjectTasks, statuses]);
-
   // ── Days remaining ───────────────────────────────────────────────────────
-  const daysLabel = getProjectDaysLabel(project?.end_date ?? null, project?.status).label;
+  const timeRemainingLabel = getProjectTimeRemainingLabel(project?.end_date ?? null, project?.status).label;
+  const tomorrowDate = useMemo(() => {
+    const next = new Date();
+    next.setDate(next.getDate() + 1);
+    return next.toISOString().slice(0, 10);
+  }, []);
   const hasProjectConfigChanges = projectStatus !== (normalizeProjectStatus(project?.status) ?? 'planning') || projectEndDate !== (project?.end_date ?? '');
 
   // ── Assign modal ─────────────────────────────────────────────────────────
@@ -373,6 +372,10 @@ export default function ProjectDetail() {
 
   const handleProjectStatusSave = async () => {
     if (!project) return;
+    if (latestSprintEndDate && projectEndDate && projectEndDate < latestSprintEndDate) {
+      toast.error(`La fecha de entrega no puede ser antes del fin del último sprint (${latestSprintEndDate}).`);
+      return;
+    }
     const apiStatus = getProjectStatusApiValue(projectStatus);
     if (!apiStatus) {
       toast.error('Estado de proyecto inválido.');
@@ -415,20 +418,30 @@ export default function ProjectDetail() {
   const initialQueryTaskId = Number(searchParams.get('task'));
   const normalizedInitialTaskId = Number.isNaN(initialQueryTaskId) || initialQueryTaskId <= 0 ? null : initialQueryTaskId;
 
-  const [activeTab, setActiveTab] = useState<'resumen' | 'tareas' | 'code-review' | 'repositorios' | 'equipo' | 'configuracion'>(() => {
-    if (initialQueryTab === 'tareas') return 'tareas';
+  type ProjectWorkspaceTab = 'backlog' | 'sprints' | 'boards' | 'milestones';
+
+  const [activeTab, setActiveTab] = useState<'resumen' | ProjectWorkspaceTab | 'code-review' | 'repositorios' | 'equipo' | 'configuracion'>(() => {
+    if (initialQueryTab === 'tareas') return 'backlog';
+    if (initialQueryTab === 'backlog') return 'backlog';
+    if (initialQueryTab === 'sprints') return 'sprints';
+    if (initialQueryTab === 'boards') return 'boards';
+    if (initialQueryTab === 'milestones') return 'milestones';
     if (initialQueryTab === 'configuracion') return 'configuracion';
     return 'resumen';
   });
-  const [initialTaskId, setInitialTaskId] = useState<number | null>(initialQueryTab === 'tareas' ? normalizedInitialTaskId : null);
+  const [initialTaskId, setInitialTaskId] = useState<number | null>(
+    initialQueryTab === 'tareas' || initialQueryTab === 'backlog' || initialQueryTab === 'sprints' || initialQueryTab === 'boards' || initialQueryTab === 'milestones'
+      ? normalizedInitialTaskId
+      : null,
+  );
 
   useEffect(() => {
     const tab = searchParams.get('tab');
     const taskId = Number(searchParams.get('task'));
     const normalizedTaskId = Number.isNaN(taskId) || taskId <= 0 ? null : taskId;
 
-    if (tab === 'tareas') {
-      setActiveTab('tareas');
+    if (tab === 'tareas' || tab === 'backlog' || tab === 'sprints' || tab === 'boards' || tab === 'milestones') {
+      setActiveTab(tab === 'tareas' ? 'backlog' : tab);
       setInitialTaskId(normalizedTaskId);
       return;
     }
@@ -473,60 +486,65 @@ export default function ProjectDetail() {
 
   return (
     <div className="px-4 pb-6 pt-3 max-w-[1400px] min-h-full flex flex-col gap-3">
-      <CommandBar
-        actions={[
-          { label: 'Volver', icon: <ArrowLeft className="w-3.5 h-3.5" />, onClick: () => navigate('/projects') },
-          { label: 'Actualizar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: () => { refetchTasks(); refetchMembers(); refetchBoards(); } },
-          ...(canManageProject ? [{ label: 'Asignar responsable', icon: <UserPlus className="w-3.5 h-3.5" />, onClick: () => setShowAssignModal(true) }] : []),
-        ]}
-        rightSlot={project ? <StatusBadge status={getProjectStatusBadge(project.status)} text={getProjectStatusLabel(project.status)} size="sm" /> : null}
-      />
+      <section className="rounded-[6px] border border-border bg-card overflow-hidden">
+        <CommandBar
+          actions={[
+            { label: 'Volver', icon: <ArrowLeft className="w-3.5 h-3.5" />, onClick: () => navigate('/projects') },
+            { label: 'Actualizar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: () => { refetchTasks(); refetchMembers(); refetchBoards(); } },
+            ...(canManageProject ? [{ label: 'Asignar responsable', icon: <UserPlus className="w-3.5 h-3.5" />, onClick: () => setShowAssignModal(true) }] : []),
+          ]}
+          rightSlot={project ? <StatusBadge status={getProjectStatusBadge(project.status)} text={getProjectStatusLabel(project.status)} size="sm" /> : null}
+        />
 
-      {/* Header */}
-      {loading ? (
-        <div className="h-14 animate-pulse bg-card rounded-[4px]" />
-      ) : project ? (
-        <div>
-          <h1 className="text-[16px] font-semibold text-foreground">{project.name}</h1>
-          {project.description && (
-            <p className="text-[12px] text-muted-foreground mt-0.5 line-clamp-1">{project.description}</p>
-          )}
-          <div className="flex items-center gap-4 mt-1 text-[11px] text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3 h-3" />Inicio: {formatProjectDate(project.created_at)}
-            </span>
-            {project.end_date && (
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />Fin: {formatProjectDate(project.end_date)}
-              </span>
+        {loading ? (
+          <div className="mx-4 my-3 h-14 animate-pulse bg-surface-secondary/50 rounded-[4px]" />
+        ) : project ? (
+          <div className="px-4 pb-3 pt-2 border-b border-border">
+            <h1 className="text-[16px] font-semibold text-foreground">{project.name}</h1>
+            {project.description && (
+              <p className="text-[12px] text-muted-foreground mt-0.5 line-clamp-2">{project.description}</p>
             )}
-            <span className="flex items-center gap-1">
-              <Users className="w-3 h-3" />{kpis.memberCount} miembros
-            </span>
+            <div className="flex flex-wrap items-center gap-4 mt-2 text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Calendar className="w-3 h-3" />Inicio: {formatProjectDate(project.created_at)}
+              </span>
+              {project.end_date && (
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />Fin: {formatProjectDate(project.end_date)}
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <Users className="w-3 h-3" />{kpis.memberCount} miembros
+              </span>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {/* Tabs */}
-      <ADOTabs
-        tabs={[
-          { id: 'resumen', label: 'Overview' },
-          { id: 'tareas', label: 'Tareas', count: (allProjectTasks ?? []).length },
-          { id: 'code-review', label: 'Code Review' },
-          { id: 'repositorios', label: 'Repositorios' },
-          { id: 'equipo', label: 'Equipo', count: (members ?? []).length },
-          ...(canManageProject ? [{ id: 'configuracion', label: 'Configuración', icon: <Settings2 className="w-3.5 h-3.5" /> }] : []),
-        ]}
-        activeTab={activeTab}
-        onTabChange={(id) => setActiveTab(id as typeof activeTab)}
-      />
+        <div className="px-3">
+          <ADOTabs
+            tabs={[
+              { id: 'resumen', label: 'Overview' },
+              { id: 'backlog', label: 'Backlog' },
+              { id: 'sprints', label: 'Sprints' },
+              { id: 'boards', label: 'Boards' },
+              { id: 'milestones', label: 'Milestones' },
+              { id: 'code-review', label: 'Code Review' },
+              { id: 'repositorios', label: 'Repositorios' },
+              { id: 'equipo', label: 'Equipo', count: (members ?? []).length },
+              ...(canManageProject ? [{ id: 'configuracion', label: 'Configuración', icon: <Settings2 className="w-3.5 h-3.5" /> }] : []),
+            ]}
+            activeTab={activeTab}
+            onTabChange={(id) => setActiveTab(id as typeof activeTab)}
+          />
+        </div>
+      </section>
 
       <motion.div
         key={activeTab}
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
-        className={activeTab === 'tareas' ? 'flex-1 min-h-0 flex flex-col' : undefined}
+        className={activeTab === 'backlog' || activeTab === 'sprints' || activeTab === 'boards' || activeTab === 'milestones' ? 'flex-1 min-h-0 flex flex-col' : undefined}
       >
         {/* RESUMEN */}
         {activeTab === 'resumen' && (
@@ -537,9 +555,9 @@ export default function ProjectDetail() {
                 { title: 'Completadas', value: kpis.completed, subtitle: 'finalizadas', icon: <CheckCircle2 className="w-4 h-4" />, accentColor: 'success' as const },
                 { title: 'Vencidas', value: kpis.overdue, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" />, accentColor: 'destructive' as const },
                 {
-                  title: 'Días Restantes',
-                  value: daysLabel,
-                  subtitle: project?.end_date ?? '—',
+                  title: 'Tiempo Restante',
+                  value: timeRemainingLabel,
+                  subtitle: formatProjectDate(project?.end_date),
                   icon: <Clock className="w-4 h-4" />,
                   accentColor: 'warning' as const,
                 },
@@ -555,8 +573,8 @@ export default function ProjectDetail() {
               ))}
             </div>
 
-            <div className="grid lg:grid-cols-3 gap-3">
-              <div className="lg:col-span-2 space-y-3">
+            <div className="grid lg:grid-cols-1 gap-3">
+              <div className="space-y-3">
               <div className="bg-card border border-border rounded-[4px] p-4">
                 <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-2.5">
                   Información General
@@ -567,9 +585,8 @@ export default function ProjectDetail() {
                       { label: 'Estado', value: getProjectStatusLabel(project.status) },
                       { label: 'Creado', value: formatProjectDate(project.created_at) },
                       { label: 'Fecha fin', value: formatProjectDate(project.end_date) },
-                      { label: 'Días restantes', value: daysLabel },
+                      { label: 'Tiempo restante', value: timeRemainingLabel },
                       { label: 'Miembros', value: `${kpis.memberCount} personas` },
-                      { label: 'ID', value: `#${project.id_project}` },
                     ].map((item) => (
                       <div key={item.label}>
                         <dt className="text-[10px] text-muted-foreground">{item.label}</dt>
@@ -600,37 +617,12 @@ export default function ProjectDetail() {
                 </div>
               )}
               </div>
-
-              {/* Task status breakdown */}
-              <div className="bg-card border border-border rounded-[4px] p-4 h-fit">
-                <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-2.5">
-                  Tareas por Estado
-                </h2>
-                {loadingTasks || loadingAllProjectTasks ? (
-                  <div className="space-y-2">
-                    {[1, 2, 3].map((i) => <div key={i} className="h-5 animate-pulse bg-secondary rounded" />)}
-                  </div>
-                ) : statusCounts.length === 0 ? (
-                  <p className="text-[11px] text-muted-foreground">Sin tareas en el proyecto.</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {statusCounts.map((s) => (
-                      <div key={s.name} className="flex items-center justify-between">
-                        <span className="text-[12px] text-foreground">{s.name}</span>
-                        <span className="text-[11px] font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-                          {s.count}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         )}
 
-        {/* TAREAS */}
-        {activeTab === 'tareas' && (
+        {/* WORKSPACE TABS */}
+        {(activeTab === 'backlog' || activeTab === 'sprints' || activeTab === 'boards' || activeTab === 'milestones') && (
           <div className="flex-1 min-h-0 flex flex-col">
             <ProjectTasksWorkspace
               projectId={projectId}
@@ -643,8 +635,10 @@ export default function ProjectDetail() {
               canCreateBoards={canManageTasks}
               canEditTasks={canManageTasks}
               canDeleteTasks={canManageTasks}
+              projectEndDate={project?.end_date ?? null}
+              forcedTab={activeTab}
               initialTaskId={initialTaskId}
-              onInitialTaskHandled={(taskId) => {
+              onInitialTaskHandled={(taskId: number) => {
                 setInitialTaskId((current) => (current === taskId ? null : current));
                 const nextParams = new URLSearchParams(searchParams);
                 nextParams.delete('task');
@@ -799,8 +793,14 @@ export default function ProjectDetail() {
                     value={projectEndDate}
                     onChange={setProjectEndDate}
                     disabled={!canManageProject || savingProjectConfig}
+                    minDate={latestSprintEndDate ?? tomorrowDate}
                     placeholder="Selecciona una fecha de entrega"
                   />
+                  {latestSprintEndDate && (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      No puede ser antes del último sprint: <span className="font-medium">{latestSprintEndDate}</span>
+                    </p>
+                  )}
                 </div>
 
                 <button

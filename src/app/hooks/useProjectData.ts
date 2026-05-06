@@ -3,6 +3,7 @@ import { projectsService, tasksService, usersService, githubService, ApiRequestE
 import type {
   ApiProject, ApiTask, ApiUserAccount, ApiTaskStatus, ApiTaskPriority,
   ApiBoard, ApiProjectMember, ApiActivityLog, ApiRole, ApiTaskWarning, ApiGithubPushEvent, ApiTaskAssignment,
+  ApiBoardColumn, ApiSprint, ApiMilestone, ApiTag,
 } from '../../services';
 
 // â”€â”€â”€ Real API hooks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -70,8 +71,8 @@ export function useApiTasks(boardId?: number, projectId?: number): UseApiTasksSt
 
     Promise.all([
       tasksService.list(boardId, projectId),
-      tasksService.listStatuses(),
-      tasksService.listPriorities(),
+      tasksService.listStatuses().catch(() => []),
+      tasksService.listPriorities().catch(() => []),
     ])
       .then(([tasks, sts, prios]) => {
         if (cancelled) return;
@@ -136,6 +137,110 @@ export function useApiBoards(projectId?: number): UseApiState<ApiBoard[]> {
       .then((boards) => { if (!cancelled) setData(boards); })
       .catch((err) => {
         if (!cancelled) setError(err instanceof ApiRequestError ? err.message : 'Error cargando boards.');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [projectId, tick]);
+
+  const refetch = useCallback(() => setTick((t) => t + 1), []);
+  return { data, loading, error, refetch };
+}
+
+/** Fetches board columns, optionally filtered by board. */
+export function useApiBoardColumns(boardId?: number): UseApiState<ApiBoardColumn[]> {
+  const [data, setData]       = useState<ApiBoardColumn[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [tick, setTick]       = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    tasksService.listBoardColumns(boardId)
+      .then((columns) => { if (!cancelled) setData(columns); })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof ApiRequestError ? err.message : 'Error cargando columnas.');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [boardId, tick]);
+
+  const refetch = useCallback(() => setTick((t) => t + 1), []);
+  return { data, loading, error, refetch };
+}
+
+/** Fetches sprints, optionally filtered by project. */
+export function useApiSprints(projectId?: number): UseApiState<ApiSprint[]> {
+  const [data, setData]       = useState<ApiSprint[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [tick, setTick]       = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    tasksService.listSprints(projectId)
+      .then((sprints) => { if (!cancelled) setData(sprints); })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof ApiRequestError ? err.message : 'Error cargando sprints.');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [projectId, tick]);
+
+  const refetch = useCallback(() => setTick((t) => t + 1), []);
+  return { data, loading, error, refetch };
+}
+
+/** Fetches milestones, optionally filtered by project. */
+export function useApiMilestones(projectId?: number): UseApiState<ApiMilestone[]> {
+  const [data, setData]       = useState<ApiMilestone[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [tick, setTick]       = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    tasksService.listMilestones(projectId)
+      .then((milestones) => { if (!cancelled) setData(milestones); })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof ApiRequestError ? err.message : 'Error cargando milestones.');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [projectId, tick]);
+
+  const refetch = useCallback(() => setTick((t) => t + 1), []);
+  return { data, loading, error, refetch };
+}
+
+/** Fetches tags, optionally filtered by project. */
+export function useApiTags(projectId?: number): UseApiState<ApiTag[]> {
+  const [data, setData]       = useState<ApiTag[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [tick, setTick]       = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    tasksService.listTags(projectId)
+      .then((tags) => { if (!cancelled) setData(tags); })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof ApiRequestError ? err.message : 'Error cargando tags.');
       })
       .finally(() => { if (!cancelled) setLoading(false); });
 
