@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -221,7 +221,7 @@ export function ProjectTasksWorkspace({
     return dates.length > 0 ? dates[dates.length - 1] : null;
   }, [sprints]);
 
-  // True when the latest sprint already reaches the project end — no room for more
+  // True when the latest sprint already reaches the project end - no room for more
   const noMoreSprintsAllowed = !!(latestSprintEndDate && projectEndDate && latestSprintEndDate >= projectEndDate);
 
   // Minimum start date for a new sprint: day AFTER latest sprint end (or tomorrow)
@@ -453,11 +453,11 @@ export function ProjectTasksWorkspace({
       return;
     }
     if (latestSprintEndDate && newSprint.start_date <= latestSprintEndDate) {
-      toast.error(`El sprint debe iniciar después del ${latestSprintEndDate} (el día siguiente o más tarde).`);
+      toast.error(`El sprint debe iniciar despues del ${latestSprintEndDate} (el dia siguiente o mas tarde).`);
       return;
     }
     if (projectEndDate && newSprint.end_date > projectEndDate) {
-      toast.error(`El sprint no puede terminar después del fin del proyecto (${projectEndDate}).`);
+      toast.error(`El sprint no puede terminar despues del fin del proyecto (${projectEndDate}).`);
       return;
     }
     if (newSprint.start_date > newSprint.end_date) {
@@ -555,7 +555,7 @@ export function ProjectTasksWorkspace({
   return (
     <div className="h-full min-h-0 flex flex-col gap-3 overflow-hidden">
 
-      {/* ── Toolbar ───────────────────────────────────────────────────── */}
+      {/* Toolbar */}
       <div className="flex items-center gap-2">
         {/* Left: tab switcher (when not forced) */}
         {!forcedTab && (
@@ -581,7 +581,7 @@ export function ProjectTasksWorkspace({
               <input
                 value={backlogSearch}
                 onChange={(e) => setBacklogSearch(e.target.value)}
-                placeholder="Buscar tarea…"
+                placeholder="Buscar tarea..."
                 className="h-8 w-48 rounded-[3px] border border-border bg-surface-secondary pl-7 pr-2 text-[11px] placeholder:text-muted-foreground/60"
               />
             </div>
@@ -790,7 +790,7 @@ export function ProjectTasksWorkspace({
                   onClick={() => { setNewSprint((prev) => ({ ...prev, start_date: sprintStartMinDate, end_date: '' })); setShowSprintModal(true); }}
                   disabled={noMoreSprintsAllowed}
                   className="h-6 w-6 rounded-[4px] bg-primary text-primary-foreground shadow-sm hover:opacity-90 transition-opacity inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
-                  title={noMoreSprintsAllowed ? 'No hay espacio para más sprints' : 'Nuevo sprint'}
+                  title={noMoreSprintsAllowed ? 'No hay espacio para mas sprints' : 'Nuevo sprint'}
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -1093,7 +1093,7 @@ export function ProjectTasksWorkspace({
                     <p className="font-medium text-foreground">{milestone.name}</p>
                     {milestone.description && <p className="text-muted-foreground">{milestone.description}</p>}
                   </td>
-                  <td className="px-3 py-2">{milestone.due_date ?? '—'}</td>
+                  <td className="px-3 py-2">{milestone.due_date ?? '-'}</td>
                   <td className="px-3 py-2">
                     <button
                       type="button"
@@ -1119,7 +1119,7 @@ export function ProjectTasksWorkspace({
           <form onSubmit={createTask} className="w-full max-w-2xl rounded-[6px] border border-border bg-card p-5 space-y-3">
             <h2 className="text-[13px] font-semibold text-foreground">
               {newTask.sprint != null
-                ? `Nueva tarea — ${(sprints ?? []).find((s) => s.id_sprint === newTask.sprint)?.name ?? 'Sprint'}`
+                ? `Nueva tarea - ${(sprints ?? []).find((s) => s.id_sprint === newTask.sprint)?.name ?? 'Sprint'}`
                 : 'Nueva tarea (Product Backlog)'}
             </h2>
             <input value={newTask.title} onChange={(e) => setNewTask((prev) => ({ ...prev, title: e.target.value }))} placeholder="Titulo" className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]" />
@@ -1147,7 +1147,7 @@ export function ProjectTasksWorkspace({
 
             <p className="text-[10px] text-muted-foreground">
               {newTask.sprint != null
-                ? 'La tarea se creará y asignará al sprint seleccionado.'
+                ? 'La tarea se creara y asignara al sprint seleccionado.'
                 : 'Las tareas nuevas se crean siempre en Product Backlog (sin sprint, sin milestone).'}
             </p>
 
@@ -1194,7 +1194,7 @@ export function ProjectTasksWorkspace({
           <div className="w-full max-w-sm rounded-[6px] border border-border bg-card p-5 space-y-3">
             <div>
               <h2 className="text-[13px] font-semibold">Mover al sprint</h2>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Selecciona sprint y board. La tarea se colocará en la primera columna del board.</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Selecciona sprint y board. La tarea se colocara en la primera columna del board.</p>
             </div>
             <select
               value={pushSprintId ?? ''}
@@ -1223,7 +1223,7 @@ export function ProjectTasksWorkspace({
             </select>
             {pushBoardId != null && pushColumnId != null && (
               <p className="text-[10px] text-muted-foreground bg-surface-secondary/60 rounded-[3px] px-2.5 py-1.5">
-                Columna asignada: <span className="font-medium text-foreground">{(boardColumnsByBoard.get(pushBoardId) ?? []).find((c) => c.id_column === pushColumnId)?.name ?? '—'}</span>
+                Columna asignada: <span className="font-medium text-foreground">{(boardColumnsByBoard.get(pushBoardId) ?? []).find((c) => c.id_column === pushColumnId)?.name ?? '-'}</span>
               </p>
             )}
             <div className="flex justify-end gap-2 pt-1">
@@ -1276,7 +1276,7 @@ export function ProjectTasksWorkspace({
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setEditingSprint(null)} className="h-8 px-3 border border-border rounded-[3px] text-[11px]">Cancelar</button>
               <button type="submit" disabled={savingSprintEdit} className="h-8 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px] disabled:opacity-50">
-                {savingSprintEdit ? 'Guardando…' : 'Guardar'}
+                {savingSprintEdit ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
           </form>
@@ -1334,11 +1334,11 @@ export function ProjectTasksWorkspace({
           <form onSubmit={createSprint} className="w-full max-w-md rounded-[6px] border border-border bg-card p-5 space-y-3">
             <div>
               <h2 className="text-[13px] font-semibold">Nuevo sprint</h2>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Se creará como <span className="font-medium text-foreground">Sprint {(sprints ?? []).length + 1}</span></p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Se creara como <span className="font-medium text-foreground">Sprint {(sprints ?? []).length + 1}</span></p>
             </div>
             {latestSprintEndDate && (
               <p className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-[3px] px-2.5 py-1.5">
-                El sprint anterior termina el <strong>{latestSprintEndDate}</strong>. Este sprint debe iniciar el <strong>{sprintStartMinDate}</strong> o después.
+                El sprint anterior termina el <strong>{latestSprintEndDate}</strong>. Este sprint debe iniciar el <strong>{sprintStartMinDate}</strong> o despues.
               </p>
             )}
             <div className="grid grid-cols-2 gap-2">
@@ -1402,7 +1402,7 @@ export function ProjectTasksWorkspace({
                 <input
                   value={newTag.name}
                   onChange={(e) => setNewTag((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="ej. Bug, Feature, Urgente…"
+                  placeholder="ej. Bug, Feature, Urgente..."
                   className="w-full h-9 rounded-[4px] border border-border bg-surface-secondary px-3 text-[12px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50"
                   autoFocus
                 />
@@ -1465,3 +1465,5 @@ export function ProjectTasksWorkspace({
     </div>
   );
 }
+
+

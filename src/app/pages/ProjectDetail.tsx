@@ -24,6 +24,7 @@ import { useAuth } from '../context/AuthContext';
 import { GitHubReposView } from '../components/GitHubReposView';
 import { CodeReviewPanel } from '../components/CodeReviewPanel';
 import { ProjectTasksWorkspace } from '../components/ProjectTasksWorkspace.tsx';
+import Timeline from '../components/Timeline';
 import { getProjectStatusApiValue, getProjectStatusBadge, getProjectStatusLabel, normalizeProjectStatus, PROJECT_STATUS_OPTIONS } from '../utils/projectStatus';
 import { formatProjectDate, getProjectTimeRemainingLabel } from '../utils/projectDates';
 import {
@@ -420,17 +421,17 @@ export default function ProjectDetail() {
 
   type ProjectWorkspaceTab = 'backlog' | 'sprints' | 'boards' | 'milestones';
 
-  const [activeTab, setActiveTab] = useState<'resumen' | ProjectWorkspaceTab | 'code-review' | 'repositorios' | 'equipo' | 'configuracion'>(() => {
-    if (initialQueryTab === 'tareas') return 'backlog';
-    if (initialQueryTab === 'backlog') return 'backlog';
+  const [activeTab, setActiveTab] = useState<'resumen' | ProjectWorkspaceTab | 'timeline' | 'code-review' | 'repositorios' | 'equipo' | 'configuracion'>(() => {
+    if (initialQueryTab === 'tareas' || initialQueryTab === 'backlog') return 'backlog';
     if (initialQueryTab === 'sprints') return 'sprints';
     if (initialQueryTab === 'boards') return 'boards';
     if (initialQueryTab === 'milestones') return 'milestones';
+    if (initialQueryTab === 'timeline') return 'timeline';
     if (initialQueryTab === 'configuracion') return 'configuracion';
     return 'resumen';
   });
   const [initialTaskId, setInitialTaskId] = useState<number | null>(
-    initialQueryTab === 'tareas' || initialQueryTab === 'backlog' || initialQueryTab === 'sprints' || initialQueryTab === 'boards' || initialQueryTab === 'milestones'
+    initialQueryTab === 'tareas' || initialQueryTab === 'backlog' || initialQueryTab === 'sprints' || initialQueryTab === 'boards' || initialQueryTab === 'milestones' || initialQueryTab === 'timeline'
       ? normalizedInitialTaskId
       : null,
   );
@@ -443,6 +444,11 @@ export default function ProjectDetail() {
     if (tab === 'tareas' || tab === 'backlog' || tab === 'sprints' || tab === 'boards' || tab === 'milestones') {
       setActiveTab(tab === 'tareas' ? 'backlog' : tab);
       setInitialTaskId(normalizedTaskId);
+      return;
+    }
+
+    if (tab === 'timeline') {
+      setActiveTab('timeline');
       return;
     }
 
@@ -525,6 +531,7 @@ export default function ProjectDetail() {
             tabs={[
               { id: 'resumen', label: 'Overview' },
               { id: 'backlog', label: 'Backlog' },
+              { id: 'timeline', label: 'Timeline' },
               { id: 'sprints', label: 'Sprints' },
               { id: 'boards', label: 'Boards' },
               { id: 'milestones', label: 'Milestones' },
@@ -544,7 +551,7 @@ export default function ProjectDetail() {
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
-        className={activeTab === 'backlog' || activeTab === 'sprints' || activeTab === 'boards' || activeTab === 'milestones' ? 'flex-1 min-h-0 flex flex-col' : undefined}
+        className={activeTab === 'backlog' || activeTab === 'sprints' || activeTab === 'boards' || activeTab === 'milestones' || activeTab === 'timeline' ? 'flex-1 min-h-0 flex flex-col' : undefined}
       >
         {/* RESUMEN */}
         {activeTab === 'resumen' && (
@@ -645,6 +652,12 @@ export default function ProjectDetail() {
                 setSearchParams(nextParams, { replace: true });
               }}
             />
+          </div>
+        )}
+
+        {activeTab === 'timeline' && (
+          <div className="flex-1 min-h-0 flex flex-col">
+            <Timeline projectId={projectId} projectEndDate={project?.end_date} />
           </div>
         )}
 
