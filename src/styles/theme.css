@@ -1,13 +1,17 @@
 @custom-variant dark (&:is(.dark *));
 
-/* ─── ABCDH Technologies · Project Intelligence Platform ────────── */
-/* TM Red (#D4192C) — brand accent · ADO-inspired dense design       */
+/* ─── YEMODA · Sistema de diseño · ABCDH Project Intelligence ───────── */
+/* SaaS premium moderno · neutros cálidos · TM Red como acento de precisión  */
+/* Ley: DESIGN.md (raíz). No cambiar valores sin actualizar DESIGN.md.        */
+/* Tokens de color como hsl() completo (valores HSL de DESIGN.md §3).         */
+/* La composición con alpha se hace con los modificadores /opacity de Tailwind */
+/* (p.ej. bg-brand/30, ring-ring/50) que usan color-mix — no requiere triplets.*/
 
 :root {
   /* ── Typography ── */
   --font-size: 14px;
-  --font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Noto Sans', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
-  --font-mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --font-family: 'Inter Tight', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
@@ -22,7 +26,7 @@
   --line-height-tight: 1.25;
   --line-height-normal: 1.5;
 
-  /* ── Spacing scale (ADO dense) ── */
+  /* ── Spacing scale (densidad operativa ADO) ── */
   --space-0: 0px;
   --space-1: 2px;
   --space-2: 4px;
@@ -36,71 +40,86 @@
   --space-10: 40px;
   --space-11: 48px;
   --space-12: 64px;
+  --space-section: 112px; /* YEMODA: respiración de sección en landing */
 
-  /* ── Surfaces ── */
-  --background: #F3F4F6;
-  --foreground: #24292F;
-  --card: #FFFFFF;
-  --card-foreground: #24292F;
-  --popover: #FFFFFF;
-  --popover-foreground: #24292F;
-  --surface-secondary: #F6F8FA;
-  --surface-tertiary: #EAEEF2;
+  /* ── Surfaces (neutros cálidos — NO blanco puro, NO gris frío) ── */
+  --background: hsl(36 24% 97%);
+  --foreground: hsl(222 22% 14%);
+  --card: hsl(40 30% 99%);
+  --card-foreground: hsl(222 22% 14%);
+  --popover: hsl(40 30% 99%);
+  --popover-foreground: hsl(222 22% 14%);
+  --surface-secondary: hsl(38 20% 95%);
+  --surface-tertiary: hsl(36 16% 92%);
 
-  /* ── TM Red — brand accent ── */
-  --primary: #D4192C;
-  --primary-hover: #B01420;
-  --primary-foreground: #FFFFFF;
-  --secondary: #F3F4F6;
-  --secondary-foreground: #374151;
-  --muted: #F3F4F6;
-  --muted-foreground: #656D76;
-  --accent: #F6F8FA;
-  --accent-foreground: #24292F;
+  /* ── Acción primaria = TINTA neutra (NO rojo; ver DESIGN.md §3.3) ── */
+  --primary: hsl(222 24% 16%);
+  --primary-hover: hsl(222 24% 12%);
+  --primary-foreground: hsl(40 30% 99%);
+  --secondary: hsl(38 20% 95%);
+  --secondary-foreground: hsl(222 22% 14%);
+  --muted: hsl(38 20% 95%);
+  --muted-foreground: hsl(220 9% 42%);
+  --accent: hsl(38 20% 95%);
+  --accent-foreground: hsl(222 22% 14%);
 
-  /* ── Semantic (status only) ── */
-  --destructive: #CF222E;
-  --destructive-foreground: #FFFFFF;
-  --success: #1A7F37;
-  --success-foreground: #FFFFFF;
-  --warning: #BF8700;
-  --warning-foreground: #FFFFFF;
-  --info: #0969DA;
-  --info-foreground: #FFFFFF;
+  /* ── TM Red — marca / acento de precisión (reservado, ~3 usos/pantalla) ── */
+  --brand: hsl(354 70% 47%);
+  --brand-hover: hsl(354 72% 41%);
+  --brand-foreground: hsl(0 0% 100%);
+  --brand-wash: hsl(354 60% 96%);
+
+  /* ── Semánticos de estado (separados de la marca) ── */
+  --destructive: hsl(8 62% 48%); /* rojo-ladrillo, distinto del brand */
+  --destructive-foreground: hsl(0 0% 100%);
+  --success: hsl(152 48% 36%);
+  --success-foreground: hsl(0 0% 100%);
+  --warning: hsl(38 84% 42%);
+  --warning-foreground: hsl(0 0% 100%);
+  --info: hsl(214 78% 48%);
+  --info-foreground: hsl(0 0% 100%);
 
   /* ── AI ── */
-  --ai-accent: #8250DF;
-  --ai-accent-foreground: #FFFFFF;
+  --ai-accent: hsl(256 52% 56%);
+  --ai-accent-foreground: hsl(0 0% 100%);
 
   /* ── Borders & inputs ── */
-  --border: #D0D7DE;
-  --border-subtle: #E8EAED;
-  --input: #D0D7DE;
-  --input-background: #FFFFFF;
-  --switch-background: #D1D5DB;
+  --border: hsl(38 16% 86%);
+  --border-subtle: hsl(36 14% 91%);
+  --input: hsl(38 16% 86%);
+  --input-background: hsl(40 30% 99%);
+  --switch-background: hsl(38 16% 86%);
+  --ring: hsl(354 70% 47% / 0.32);
 
-  --ring: rgba(212, 25, 44, 0.3);
+  /* ── Charts (paleta fija de 5; chart-1 = brand) ── */
+  --chart-1: hsl(354 70% 47%);
+  --chart-2: hsl(28 78% 52%);
+  --chart-3: hsl(168 52% 38%);
+  --chart-4: hsl(214 48% 48%);
+  --chart-5: hsl(268 32% 56%);
 
-  /* ── Charts ── */
-  --chart-1: #D4192C;
-  --chart-2: #656D76;
-  --chart-3: #1A7F37;
-  --chart-4: #BF8700;
-  --chart-5: #8250DF;
+  /* ── Elevación (sombras hairline, tinte cálido — NO negro puro) ── */
+  --elevation-1: 0 1px 2px hsl(222 24% 14% / 0.05);
+  --elevation-2: 0 2px 8px -2px hsl(222 24% 14% / 0.08), 0 1px 2px hsl(222 24% 14% / 0.05);
+  --elevation-3: 0 8px 24px -6px hsl(222 24% 14% / 0.12);
 
-  /* ── Radius (minimal) ── */
-  --radius: 4px;
+  /* ── Radius ── */
+  --radius: 8px;
 
-  /* ── Sidebar ── */
-  --sidebar: #1C2128;
-  --sidebar-foreground: #ADBAC7;
-  --sidebar-primary: #D4192C;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #2D333B;
-  --sidebar-accent-foreground: #ADBAC7;
-  --sidebar-border: #2D333B;
-  --sidebar-ring: rgba(212, 25, 44, 0.3);
-  --sidebar-muted: #636E7B;
+  /* ── Motion (easings YEMODA, DESIGN.md §5) ── */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* entradas */
+  --ease-in: cubic-bezier(0.4, 0, 0.2, 1);   /* salidas */
+
+  /* ── Sidebar (riel oscuro cálido; activo en TM Red) ── */
+  --sidebar: hsl(224 28% 8%);
+  --sidebar-foreground: hsl(220 12% 70%);
+  --sidebar-primary: hsl(354 78% 58%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(222 22% 14%);
+  --sidebar-accent-foreground: hsl(40 18% 92%);
+  --sidebar-border: hsl(220 14% 18%);
+  --sidebar-ring: hsl(354 78% 58% / 0.4);
+  --sidebar-muted: hsl(220 10% 50%);
 
   /* ── Layout ── */
   --sidebar-width: 220px;
@@ -110,67 +129,77 @@
 }
 
 .dark {
-  /* ── Surfaces — GitHub dark ── */
-  --background: #0D1117;
-  --foreground: #E6EDF3;
-  --card: #161B22;
-  --card-foreground: #E6EDF3;
-  --popover: #1C2128;
-  --popover-foreground: #E6EDF3;
-  --surface-secondary: #161B22;
-  --surface-tertiary: #21262D;
+  /* ── Surfaces — grafito azulado cálido (NO #0D1117 frío) ── */
+  --background: hsl(224 28% 8%);
+  --foreground: hsl(40 18% 92%);
+  --card: hsl(222 22% 12%);
+  --card-foreground: hsl(40 18% 92%);
+  --popover: hsl(222 22% 14%);
+  --popover-foreground: hsl(40 18% 92%);
+  --surface-secondary: hsl(222 20% 14%);
+  --surface-tertiary: hsl(220 18% 18%);
 
-  /* ── TM Red — brighter on dark ── */
-  --primary: #E52535;
-  --primary-hover: #F85149;
-  --primary-foreground: #FFFFFF;
-  --secondary: #21262D;
-  --secondary-foreground: #C9D1D9;
-  --muted: #21262D;
-  --muted-foreground: #8B949E;
-  --accent: #1C2128;
-  --accent-foreground: #E6EDF3;
+  /* ── Acción primaria = hueso claro (se invierte, estilo Linear) ── */
+  --primary: hsl(40 18% 92%);
+  --primary-hover: hsl(40 18% 86%);
+  --primary-foreground: hsl(224 28% 8%);
+  --secondary: hsl(222 20% 14%);
+  --secondary-foreground: hsl(40 18% 92%);
+  --muted: hsl(222 20% 14%);
+  --muted-foreground: hsl(220 12% 62%);
+  --accent: hsl(222 20% 14%);
+  --accent-foreground: hsl(40 18% 92%);
 
-  /* ── Semantic ── */
-  --destructive: #F85149;
-  --destructive-foreground: #FFFFFF;
-  --success: #3FB950;
-  --success-foreground: #FFFFFF;
-  --warning: #E3B341;
-  --warning-foreground: #0D1117;
-  --info: #58A6FF;
-  --info-foreground: #FFFFFF;
+  /* ── TM Red — sube luz para AA sobre fondo profundo ── */
+  --brand: hsl(354 78% 58%);
+  --brand-hover: hsl(354 80% 64%);
+  --brand-foreground: hsl(0 0% 100%);
+  --brand-wash: hsl(354 40% 18%);
+
+  /* ── Semánticos ── */
+  --destructive: hsl(6 68% 58%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --success: hsl(150 50% 50%);
+  --success-foreground: hsl(0 0% 100%);
+  --warning: hsl(38 84% 58%);
+  --warning-foreground: hsl(224 28% 8%);
+  --info: hsl(214 84% 64%);
+  --info-foreground: hsl(0 0% 100%);
 
   /* ── AI ── */
-  --ai-accent: #A371F7;
-  --ai-accent-foreground: #FFFFFF;
+  --ai-accent: hsl(256 70% 70%);
+  --ai-accent-foreground: hsl(0 0% 100%);
 
-  /* ── Borders ── */
-  --border: #30363D;
-  --border-subtle: #21262D;
-  --input: #30363D;
-  --input-background: #0D1117;
-  --switch-background: #30363D;
-
-  --ring: rgba(229, 37, 53, 0.35);
+  /* ── Borders & inputs ── */
+  --border: hsl(220 14% 22%);
+  --border-subtle: hsl(222 16% 16%);
+  --input: hsl(220 14% 22%);
+  --input-background: hsl(224 28% 8%);
+  --switch-background: hsl(220 14% 22%);
+  --ring: hsl(354 78% 58% / 0.4);
 
   /* ── Charts ── */
-  --chart-1: #E52535;
-  --chart-2: #8B949E;
-  --chart-3: #3FB950;
-  --chart-4: #E3B341;
-  --chart-5: #A371F7;
+  --chart-1: hsl(354 78% 60%);
+  --chart-2: hsl(30 82% 60%);
+  --chart-3: hsl(168 48% 50%);
+  --chart-4: hsl(214 60% 62%);
+  --chart-5: hsl(268 40% 66%);
+
+  /* ── Elevación (casi nula en oscuro; la jerarquía la da el border) ── */
+  --elevation-1: 0 1px 2px hsl(224 50% 2% / 0.5);
+  --elevation-2: 0 2px 8px -2px hsl(224 50% 2% / 0.55), 0 1px 2px hsl(224 50% 2% / 0.5);
+  --elevation-3: 0 10px 28px -8px hsl(224 50% 2% / 0.6);
 
   /* ── Sidebar ── */
-  --sidebar: #010409;
-  --sidebar-foreground: #8B949E;
-  --sidebar-primary: #E52535;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #161B22;
-  --sidebar-accent-foreground: #E6EDF3;
-  --sidebar-border: #21262D;
-  --sidebar-ring: rgba(229, 37, 53, 0.35);
-  --sidebar-muted: #484F58;
+  --sidebar: hsl(224 30% 6%);
+  --sidebar-foreground: hsl(220 12% 66%);
+  --sidebar-primary: hsl(354 78% 58%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(222 20% 12%);
+  --sidebar-accent-foreground: hsl(40 18% 92%);
+  --sidebar-border: hsl(222 16% 14%);
+  --sidebar-ring: hsl(354 78% 58% / 0.4);
+  --sidebar-muted: hsl(220 10% 46%);
 
   /* ── Layout ── */
   --sidebar-width: 220px;
@@ -199,6 +228,10 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-wash: var(--brand-wash);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
@@ -220,10 +253,13 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 1px);
+  --shadow-e1: var(--elevation-1);
+  --shadow-e2: var(--elevation-2);
+  --shadow-e3: var(--elevation-3);
+  --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 6px);
+  --radius-xl: calc(var(--radius) + 4px);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -245,6 +281,9 @@
     font-family: var(--font-family);
     font-size: var(--text-base);
     line-height: var(--line-height-normal);
+    /* Firma tipográfica YEMODA (DESIGN.md §2): features de Inter Tight + cifras tabulares */
+    font-feature-settings: 'cv05', 'cv08', 'ss03', 'cv11';
+    font-variant-numeric: tabular-nums;
   }
 
   html {

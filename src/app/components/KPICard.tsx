@@ -19,7 +19,7 @@ const accentMap: Record<string, string> = {
   warning: 'border-l-warning',
   destructive: 'border-l-destructive',
   info: 'border-l-info',
-  ai: 'border-l-[var(--ai)]',
+  ai: 'border-l-ai-accent',
 };
 
 export function KPICard({
@@ -47,7 +47,7 @@ export function KPICard({
   const borderClass = accentColor ? `border-l-[3px] ${accentMap[accentColor] ?? ''}` : '';
 
   return (
-    <div className={`bg-card border border-border rounded-[4px] px-3.5 py-2.5 transition-colors duration-100 hover:border-foreground/15 group ${borderClass}`}>
+    <div className={`bg-card border border-border rounded-lg px-3.5 py-2.5 transition-colors duration-100 hover:border-foreground/15 group ${borderClass}`}>
       <div className="flex items-center gap-3">
         {icon && (
           <div className="text-muted-foreground/50 group-hover:text-muted-foreground transition-colors shrink-0">
@@ -59,7 +59,7 @@ export function KPICard({
             {title}
           </p>
           <div className="flex items-baseline gap-2 mt-0.5">
-            <span className="text-[20px] font-semibold text-foreground tracking-tight leading-none">
+            <span className="font-mono tabular-nums text-[22px] font-medium text-foreground tracking-tight leading-none">
               {value}
             </span>
             {trendValue && (
