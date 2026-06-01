@@ -7,7 +7,6 @@ import {
   SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
-  Zap,
   BarChart3,
   Bell,
   Users,
@@ -71,7 +70,7 @@ export function Sidebar() {
       <Link
         to={item.path}
         className={`relative flex items-center gap-2.5 transition-colors duration-100 select-none
-          ${collapsed ? 'justify-center px-0 py-2 mx-1 rounded-[3px]' : 'px-3 py-[6px] mx-1.5 rounded-[3px]'}
+          ${collapsed ? 'justify-center px-0 py-2 mx-1 rounded-md' : 'px-3 py-[6px] mx-1.5 rounded-md'}
           ${
             isActive
               ? 'bg-sidebar-accent text-sidebar-accent-foreground before:absolute before:left-0 before:top-[4px] before:bottom-[4px] before:w-[2px] before:bg-primary before:rounded-r'
@@ -128,16 +127,16 @@ export function Sidebar() {
           collapsed ? 'justify-center' : 'px-3 gap-2.5'
         }`}
       >
-        <div className="flex items-center justify-center w-7 h-7 rounded-[3px] bg-primary shrink-0">
-          <Zap className="w-4 h-4 text-white" />
+        <div className="grid place-items-center w-7 h-7 rounded-md bg-brand shrink-0 font-mono text-[11px] font-semibold tracking-tight text-brand-foreground">
+          tm
         </div>
         {!collapsed && (
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-semibold text-sidebar-foreground leading-none tracking-tight truncate">
-              PI Platform
+              Tech Mahindra
             </p>
             <p className="text-[10px] text-sidebar-muted leading-none mt-0.5 truncate">
-              ABCDH Technologies
+              Project Intelligence
             </p>
           </div>
         )}
@@ -222,7 +221,7 @@ export function Sidebar() {
               <button
                 onClick={toggleCollapsed}
                 aria-label={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
-                className="p-1.5 rounded-[3px] hover:bg-sidebar-accent transition-colors text-sidebar-muted hover:text-sidebar-foreground"
+                className="p-1.5 rounded-md hover:bg-sidebar-accent transition-colors text-sidebar-muted hover:text-sidebar-foreground"
               >
                 {collapsed ? (
                   <ChevronRight className="w-3.5 h-3.5" />

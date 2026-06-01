@@ -110,11 +110,11 @@ export function Topbar() {
         <button
           onClick={openCommandPalette}
           aria-label="Buscar (Ctrl+K)"
-          className="flex items-center gap-2 pl-2 pr-2 py-1 bg-background rounded-[3px] border border-input text-[12px] text-muted-foreground hover:border-foreground/20 transition-colors cursor-pointer w-48 shrink-0"
+          className="flex items-center gap-2 pl-2 pr-2 py-1 bg-background rounded-md border border-input text-[12px] text-muted-foreground hover:border-foreground/20 transition-colors cursor-pointer w-48 shrink-0"
         >
           <Search className="w-3.5 h-3.5 shrink-0" />
           <span className="flex-1 text-left truncate">Buscar...</span>
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded-[2px] border border-border bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground shrink-0">
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded-sm border border-border bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground shrink-0">
             Ctrl K
           </kbd>
         </button>
@@ -131,7 +131,7 @@ export function Topbar() {
             <button
               onClick={toggleTheme}
               aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-              className="p-1.5 rounded-[3px] hover:bg-accent transition-colors"
+              className="p-1.5 rounded-md hover:bg-accent transition-colors"
             >
               {theme === 'dark' ? (
                 <Sun className="w-4 h-4 text-muted-foreground" />
@@ -151,7 +151,7 @@ export function Topbar() {
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-1.5 pl-1.5 pr-1 py-1 rounded-[3px] hover:bg-accent transition-colors"
+              className="flex items-center gap-1.5 pl-1.5 pr-1 py-1 rounded-md hover:bg-accent transition-colors"
               aria-label="Menú de usuario"
               aria-expanded={showUserMenu}
             >
@@ -167,7 +167,7 @@ export function Topbar() {
             </button>
 
             {showUserMenu && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-[4px] shadow-lg z-50 overflow-hidden">
+              <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-md shadow-lg z-50 overflow-hidden">
                 <div className="px-3 py-2.5 border-b border-border">
                   <p className="text-[12px] font-semibold text-foreground truncate">{user.name}</p>
                   <p className="text-[11px] text-muted-foreground capitalize truncate">{user.role.replace('_', ' ')}</p>
