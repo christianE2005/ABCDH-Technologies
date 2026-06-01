@@ -31,7 +31,7 @@ Fecha de inicio: 2026-05-31 · Rama base del rediseño: `redesign/landing-pilot`
 
 **Hecho en esta fase:**
 - Migración del bloque de color **hex → `hsl()`** con la paleta YEMODA (claro + oscuro) de DESIGN.md §3.
-- `--primary` pasa de TM Red a **tinta neutra**; se añade el token **`--brand`** (+ `--brand-hover/-foreground/-wash`) para el TM Red reservado.
+- Se añade el token **`--brand`** (+ `--brand-hover/-foreground/-wash`) para el TM Red. Nota: por decisión de stakeholder (2026-05-31), `--primary` (CTA) **se mantiene en TM Red** en el producto; `--brand` coincide en valor.
 - `--destructive` recalibrado a rojo-ladrillo (distinto del brand).
 - Neutros cálidos (hueso en claro, grafito azulado cálido en oscuro), no el gris/azul frío anterior.
 - `--radius` 4px → **8px** (escala sm6/md8/lg10/xl12).

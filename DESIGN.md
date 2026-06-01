@@ -10,12 +10,12 @@
 
 **Una linea:** Se siente como abrir Linear o Vercel en una sala de juntas — silencioso, nitido, caro por contencion — pero con la temperatura calida de un portal de tesoreria corporativa y un unico trazo rojo TM que marca el norte.
 
-**Tesis:** El lujo aqui es **ausencia, no ornamento**. Premium se demuestra con hairlines de 1px, sombras casi imperceptibles, neutros con temperatura y muchisimo aire — nunca con gradientes, glass ni decoracion. El producto real es el heroe; el TM Red es puntuacion, no parrafo. Claro y oscuro son dos calibraciones del mismo instrumento, ambas impecables.
+**Tesis:** El lujo aqui es **ausencia, no ornamento**. Premium se demuestra con hairlines de 1px, sombras casi imperceptibles, neutros con temperatura y muchisimo aire — nunca con gradientes, glass ni decoracion. El producto real es el heroe; el TM Red es la marca y el color de accion. Claro y oscuro son dos calibraciones del mismo instrumento, ambas impecables.
 
 ### Principios
 
 1. **El dato es el heroe, no la decoracion.** Cada pixel que no construye jerarquia se borra. Mostramos el producto con datos reales; no lo ilustramos con mockups inventados.
-2. **El rojo es puntuacion, no parrafo.** TM Red es instrumento de precision. Regla de oro cuantificada: **si hay mas de ~3 puntos de rojo visibles en una pantalla, se esta abusando.** (injerto Dir 1)
+2. **TM Red = marca + accion.** Por decision de stakeholder (2026-05-31), el TM Red es el color del **CTA primario en todo el producto** (no solo la marca). Sigue siendo disciplina: NO se usa para **estados** (eso es `destructive`/`success`/`warning`), ni para toggles, ni se satura como fondo de seccion; en charts es la serie protagonista (`chart-1`). En la **landing** es ademas protagonista de marca.
 3. **Premium por contencion medible.** Jerarquia con tipografia, peso y espacio — casi nunca con color. Hairline de 1px como lenguaje estructural primario; sombra solo donde separa de verdad.
 4. **Neutro calido, no clinico frio.** Los neutros llevan una pizca de temperatura (sustrato hueso en claro, grafito tibio azulado en oscuro) que vuelve humano y caro un tablero denso. (injerto Dir 3)
 5. **mono = dato medible / sans = prosa.** Invariante dura de todo el sistema: JetBrains Mono solo en cifras, IDs, SHAs, timestamps, rutas; Inter Tight en todo lo que se lee. (injerto Dir 3)
@@ -83,7 +83,7 @@ Donde haya cifras tabulares en mono o en KPI, reforzar con `font-variant-numeric
 
 **TM Red recalibrado:** `#D4192C ≈ 354 70% 49%`. Se asienta a **`354 70% 47%`** en claro (un punto mas profundo para asentar sobre papel calido) y sube a **`354 78% 58%`** en oscuro (contraste AA sobre fondo profundo). Es ajuste de tono permitido por el brief; **marca debe firmar la recalibracion lado a lado** (§11).
 
-**Decision de sistema (injerto Dir 1 + Dir 3):** `primary` (color de la accion CTA) es **tinta neutra**, NO rojo. `brand` (TM Red) es un token aparte, reservado. `destructive` es un **rojo-ladrillo distinto del brand** para que "destructivo ≠ marca". Esto resuelve a nivel de token el problema #4 del audit (rojo sirviendo 6 roles).
+**Decision de sistema (actualizada 2026-05-31):** `primary` (color de la accion CTA) es **TM Red** — por decision de stakeholder, los CTAs primarios del producto son rojos. `brand` (TM Red) coincide en valor con `primary` y se usa para marca/acentos. `destructive` es un **rojo-ladrillo distinto** para que "destructivo ≠ accion". El problema #4 del audit (rojo en 6 roles) se acota igual: rojo = accion primaria + marca + serie `chart-1`, pero NO estados (`success`/`warning`/`info`), ni toggles, ni bordes de input.
 
 ### 3.1 Tema CLARO
 
@@ -104,7 +104,7 @@ Donde haya cifras tabulares en mono o en KPI, reforzar con `font-variant-numeric
 | `--input` | `38 16% 86%` | Borde de input en reposo |
 | `--input-background` | `40 30% 99%` | |
 | `--ring` | `354 70% 47% / 0.32` | Focus ring (rojo a baja opacidad) |
-| `--primary` (CTA ink) | `222 24% 16%` | **Accion principal = tinta grafito** |
+| `--primary` (CTA = TM Red) | `354 70% 47%` | **Accion principal = TM Red** (decision stakeholder) |
 | `--primary-foreground` | `40 30% 99%` | |
 | `--secondary` | `38 20% 95%` | Boton secundario |
 | `--secondary-foreground` | `222 22% 14%` | |
@@ -156,7 +156,7 @@ Donde haya cifras tabulares en mono o en KPI, reforzar con `font-variant-numeric
 | `--input` | `220 14% 22%` | |
 | `--input-background` | `224 28% 8%` | |
 | `--ring` | `354 78% 58% / 0.40` | |
-| `--primary` (CTA casi-blanco) | `40 18% 92%` | **CTA neutral se invierte a hueso claro (estilo Linear)** |
+| `--primary` (CTA = TM Red) | `354 78% 58%` | **Accion principal = TM Red** (mas luminoso en oscuro) |
 | `--primary-foreground` | `224 28% 8%` | |
 | `--secondary` | `222 20% 14%` | |
 | `--secondary-foreground` | `40 18% 92%` | |
@@ -196,7 +196,7 @@ Donde haya cifras tabulares en mono o en KPI, reforzar con `font-variant-numeric
 4. El **dato critico unico** de una vista: KPI en riesgo, badge "vencida", `brand-wash` de fondo en pulso de criticidad. **Maximo un acento rojo dominante por pantalla.**
 
 **Donde el rojo NUNCA aparece:**
-- **NO** es el color del CTA primario (ese es `primary` ink en claro / casi-blanco en oscuro).
+- **NO** es el color de **estados** (vencido/error/exito = `destructive`/`success`/`warning`), ni de toggles on, ni del chip "Tu"/you-are-here. (El CTA primario SÍ es rojo desde 2026-05-31 — ver §1, principio 2.)
 - **NO** es color de estados (vencido/error/exito usan `destructive`/`success`/`warning`).
 - **NO** es toggle on, **NO** es chip "Tu" / you-are-here, **NO** es borde permanente de input activo (eso es `ring` rojo a 32% de opacidad, sutil).
 

@@ -52,10 +52,10 @@
   --surface-secondary: hsl(38 20% 95%);
   --surface-tertiary: hsl(36 16% 92%);
 
-  /* ── Acción primaria = TINTA neutra (NO rojo; ver DESIGN.md §3.3) ── */
-  --primary: hsl(222 24% 16%);
-  --primary-hover: hsl(222 24% 12%);
-  --primary-foreground: hsl(40 30% 99%);
+  /* ── Acción primaria = TM Red (decisión stakeholder 2026-05-31: CTAs rojos en producto) ── */
+  --primary: hsl(354 70% 47%);
+  --primary-hover: hsl(354 72% 41%);
+  --primary-foreground: hsl(0 0% 100%);
   --secondary: hsl(38 20% 95%);
   --secondary-foreground: hsl(222 22% 14%);
   --muted: hsl(38 20% 95%);
@@ -139,10 +139,10 @@
   --surface-secondary: hsl(222 20% 14%);
   --surface-tertiary: hsl(220 18% 18%);
 
-  /* ── Acción primaria = hueso claro (se invierte, estilo Linear) ── */
-  --primary: hsl(40 18% 92%);
-  --primary-hover: hsl(40 18% 86%);
-  --primary-foreground: hsl(224 28% 8%);
+  /* ── Acción primaria = TM Red (decisión stakeholder: CTAs rojos en producto) ── */
+  --primary: hsl(354 78% 58%);
+  --primary-hover: hsl(354 80% 64%);
+  --primary-foreground: hsl(0 0% 100%);
   --secondary: hsl(222 20% 14%);
   --secondary-foreground: hsl(40 18% 92%);
   --muted: hsl(222 20% 14%);
