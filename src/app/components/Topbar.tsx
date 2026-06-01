@@ -82,7 +82,7 @@ export function Topbar() {
   }
 
   return (
-    <header className="bg-card border-b border-border h-[var(--topbar-height)] flex items-center justify-between px-4 shrink-0">
+    <header className="bg-background border-b border-border h-[var(--topbar-height)] flex items-center justify-between px-4 shrink-0">
       {/* Left: Breadcrumbs + Search */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
         {/* Inline breadcrumbs */}
@@ -110,7 +110,7 @@ export function Topbar() {
         <button
           onClick={openCommandPalette}
           aria-label="Buscar (Ctrl+K)"
-          className="flex items-center gap-2 pl-2 pr-2 py-1 bg-background rounded-md border border-input text-[12px] text-muted-foreground hover:border-foreground/20 transition-colors cursor-pointer w-48 shrink-0"
+          className="flex items-center gap-2 pl-2 pr-2 py-1 bg-card rounded-md border border-border text-[12px] text-muted-foreground hover:border-foreground/20 transition-colors cursor-pointer w-48 shrink-0"
         >
           <Search className="w-3.5 h-3.5 shrink-0" />
           <span className="flex-1 text-left truncate">Buscar...</span>

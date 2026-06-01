@@ -117,7 +117,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`bg-sidebar border-r border-sidebar-border transition-[width] duration-200 ease-out flex flex-col shrink-0 ${
+      className={`bg-background border-r border-border transition-[width] duration-200 ease-out flex flex-col shrink-0 ${
         collapsed ? 'w-[48px]' : 'w-[220px]'
       }`}
     >
