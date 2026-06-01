@@ -118,7 +118,7 @@ export function Sidebar() {
   return (
     <aside
       className={`bg-background border-r border-border transition-[width] duration-200 ease-out flex flex-col shrink-0 ${
-        collapsed ? 'w-[48px]' : 'w-[220px]'
+        collapsed ? 'w-[48px]' : 'w-[200px]'
       }`}
     >
       {/* Logo / Brand */}
@@ -181,9 +181,9 @@ export function Sidebar() {
       </nav>
 
       {/* User info + collapse toggle */}
-      <div className="border-t border-sidebar-border shrink-0">
+      <div className="border-t border-sidebar-border shrink-0 p-2">
         {user && !collapsed && (
-          <div className="px-3 py-2.5 flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 px-1">
             <div className="w-7 h-7 rounded-full bg-primary/90 flex items-center justify-center shrink-0">
               <span className="text-[11px] font-semibold text-white">
                 {user.name.charAt(0).toUpperCase()}
@@ -195,46 +195,46 @@ export function Sidebar() {
                 {user.role.replace('_', ' ')}
               </p>
             </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={toggleCollapsed}
+                  aria-label="Colapsar sidebar"
+                  className="p-1 rounded-md hover:bg-sidebar-accent transition-colors text-sidebar-muted hover:text-sidebar-foreground shrink-0"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={8} className="text-xs">Colapsar</TooltipContent>
+            </Tooltip>
           </div>
         )}
         {user && collapsed && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex justify-center py-2.5">
+          <div className="flex flex-col items-center gap-2 py-0.5">
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <div className="w-7 h-7 rounded-full bg-primary/90 flex items-center justify-center cursor-default">
                   <span className="text-[11px] font-semibold text-white">
                     {user.name.charAt(0).toUpperCase()}
                   </span>
                 </div>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={8} className="text-xs">
-              {user.name}
-            </TooltipContent>
-          </Tooltip>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={8} className="text-xs">{user.name}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={toggleCollapsed}
+                  aria-label="Expandir sidebar"
+                  className="p-1 rounded-md hover:bg-sidebar-accent transition-colors text-sidebar-muted hover:text-sidebar-foreground"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={8} className="text-xs">Expandir</TooltipContent>
+            </Tooltip>
+          </div>
         )}
-
-        {/* Collapse toggle */}
-        <div className={`flex ${collapsed ? 'justify-center' : 'justify-end px-2'} pb-2`}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={toggleCollapsed}
-                aria-label={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
-                className="p-1.5 rounded-md hover:bg-sidebar-accent transition-colors text-sidebar-muted hover:text-sidebar-foreground"
-              >
-                {collapsed ? (
-                  <ChevronRight className="w-3.5 h-3.5" />
-                ) : (
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={8} className="text-xs">
-              {collapsed ? 'Expandir' : 'Colapsar'}
-            </TooltipContent>
-          </Tooltip>
-        </div>
       </div>
     </aside>
   );

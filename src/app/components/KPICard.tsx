@@ -59,7 +59,7 @@ export function KPICard({
             {title}
           </p>
           <div className="flex items-baseline gap-2 mt-0.5">
-            <span className="font-mono tabular-nums text-[22px] font-medium text-foreground tracking-tight leading-none">
+            <span className="tabular-nums text-[22px] font-semibold text-foreground tracking-tight leading-none">
               {value}
             </span>
             {trendValue && (

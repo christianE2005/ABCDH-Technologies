@@ -18,7 +18,7 @@
 2. **TM Red = marca + accion.** Por decision de stakeholder (2026-05-31), el TM Red es el color del **CTA primario en todo el producto** (no solo la marca). Sigue siendo disciplina: NO se usa para **estados** (eso es `destructive`/`success`/`warning`), ni para toggles, ni se satura como fondo de seccion; en charts es la serie protagonista (`chart-1`). En la **landing** es ademas protagonista de marca.
 3. **Premium por contencion medible.** Jerarquia con tipografia, peso y espacio — casi nunca con color. Hairline de 1px como lenguaje estructural primario; sombra solo donde separa de verdad.
 4. **Neutro calido, no clinico frio.** Los neutros llevan una pizca de temperatura (sustrato hueso en claro, grafito tibio azulado en oscuro) que vuelve humano y caro un tablero denso. (injerto Dir 3)
-5. **mono = dato medible / sans = prosa.** Invariante dura de todo el sistema: JetBrains Mono solo en cifras, IDs, SHAs, timestamps, rutas; Inter Tight en todo lo que se lee. (injerto Dir 3)
+5. **mono = dato tipo código / sans = todo lo demás.** JetBrains Mono solo en IDs, SHAs, timestamps, rutas y ramas; Inter Tight en todo lo que se lee, **incluyendo las cifras grandes de KPI** (decisión stakeholder 2026-05-31: las cifras KPI van en Inter Tight para ser consistentes con el resto del dashboard, NO en mono).
 6. **Motion al servicio de la jerarquia.** Solo transform/opacity, <300ms, easing custom sin bounce. El movimiento confirma una accion o revela jerarquia; jamas entretiene. Se respeta `prefers-reduced-motion` siempre.
 7. **Dual theme es contrato, no afterthought.** Cada primitivo se valida en claro y oscuro antes de mergear.
 
@@ -64,7 +64,7 @@ Donde haya cifras tabulares en mono o en KPI, reforzar con `font-variant-numeric
 | `body` | 14px | 400 | 1.5 | 0 | UI general, parrafos de tablero |
 | `body-sm` | 13px | 400 | 1.5 | 0 | Tablas densas, descripciones |
 | `label` | 11px | 500 | 1.4 | 0.06em (uppercase) | Labels de KPI, headers de columna |
-| `kpi-number` | 28–32px | 500 (JetBrains Mono) | 1.0 | 0 (`tnum`) | Cifra protagonista de KPI |
+| `kpi-number` | 22–28px | 600 (Inter Tight) | 1.0 | 0 (`tnum`) | Cifra protagonista de KPI (sans, NO mono — consistencia con el dashboard) |
 | `mono-data` | 12–13px | 400 (JetBrains Mono) | 1.4 | 0 (`tnum`) | SHA, ID, timestamp, ruta |
 
 ### Reglas de uso
@@ -390,7 +390,7 @@ Comprador: VP de Operaciones / jefe de PMO. Perfil ejecutivo, no developer. El l
 El sistema comparte tokens entre landing y producto; **solo cambia la densidad de espaciado** (landing usa `--space-section` alto; producto el ADO bajo de 2–16px).
 
 ### Dashboard (6+ KPIs)
-- Cada KPI = `KPICard` (primitivo unico): label mono uppercase 11px arriba, cifra JetBrains Mono 28–32px `tnum`, delta con flecha + **color semantico** (no brand red), **sparkline recharts 40px al pie con trazo `chart-1`** (la marca aparece dentro del dato).
+- Cada KPI = `KPICard` (primitivo unico): label uppercase 11px arriba, cifra **Inter Tight** 22px `tnum` (sans, consistente con el dashboard — NO mono), delta con flecha + **color semantico** (no brand red). Sparkline opcional con trazo `chart-1`.
 - Grid responsive 3×2 → 2×3 → 1col, todos con border hairline, **elevacion apagada** (border manda).
 - Pie "Salud Portafolio": paleta de chart fija, **riesgo usa `warning`/`destructive` semantico, NO `chart-1` rojo**.
 - Entran con stagger de 24–40ms (mismo motion que el landing).
