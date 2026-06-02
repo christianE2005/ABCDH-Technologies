@@ -3,14 +3,16 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import {
-  Download, FileDown, RefreshCw, Loader2, TrendingUp, TrendingDown,
+  Download, FileDown, RefreshCw, TrendingUp, TrendingDown,
   CheckCircle2, AlertTriangle, Clock, ListChecks, ArrowRight,
 } from 'lucide-react';
-import { CommandBar } from '../components/CommandBar';
+import { motion } from 'motion/react';
+import { Button } from '../components/ui/button';
 import { ReportExportDialog } from '../components/ReportExportDialog';
 import {
   useApiProjects, useApiTasks, useApiTaskWarnings, useApiBoards,
 } from '../hooks/useProjectData';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { computeProjectProgress, getProjectHealth, type ProjectHealth } from '../utils/projectHealth';
 
 const COMPLETION_TARGET = 80;
@@ -35,24 +37,24 @@ function statusFromHealthMix(reds: number, yellows: number): StatusLevel {
 function statusBadge(level: StatusLevel) {
   if (level === 'risk') {
     return {
-      dot: 'bg-red-500',
-      ring: 'ring-red-500/30',
-      pill: 'bg-red-500/10 text-red-600 border-red-500/30',
+      dot: 'bg-destructive',
+      bar: 'border-t-destructive',
+      pill: 'bg-destructive/10 text-destructive border-destructive/30',
       label: 'EN RIESGO',
     };
   }
   if (level === 'attention') {
     return {
-      dot: 'bg-amber-500',
-      ring: 'ring-amber-500/30',
-      pill: 'bg-amber-500/10 text-amber-600 border-amber-500/30',
+      dot: 'bg-warning',
+      bar: 'border-t-warning',
+      pill: 'bg-warning/10 text-warning border-warning/30',
       label: 'REQUIERE ATENCIÓN',
     };
   }
   return {
-    dot: 'bg-emerald-500',
-    ring: 'ring-emerald-500/30',
-    pill: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
+    dot: 'bg-success',
+    bar: 'border-t-success',
+    pill: 'bg-success/10 text-success border-success/30',
     label: 'SALUDABLE',
   };
 }
@@ -71,6 +73,7 @@ function pctDelta(curr: number, prev: number): string {
 }
 
 export default function Reports() {
+  const reduced = useReducedMotion();
   const { data: projects, loading: loadingProjects, refetch: refetchProjects } = useApiProjects();
   const { data: tasks, loading: loadingTasks, statuses, priorities, refetch: refetchTasks } = useApiTasks();
   const { data: warnings, refetch: refetchWarnings } = useApiTaskWarnings();
@@ -93,7 +96,7 @@ export default function Reports() {
     return m;
   }, [boardList]);
 
-  // Filter context (single project selection from CommandBar pills)
+  // Filter context (single project selection from header chips)
   const inScopeProjects = useMemo(
     () => (selectedProject ? projectList.filter((p) => p.id_project === selectedProject) : projectList),
     [projectList, selectedProject],
@@ -388,9 +391,18 @@ export default function Reports() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full gap-2 text-muted-foreground">
-        <Loader2 className="w-5 h-5 animate-spin" />
-        <span className="text-[13px]">Cargando reportes…</span>
+      <div className="px-4 pb-6 pt-3 max-w-[1600px] min-h-full flex flex-col gap-4">
+        <div className="h-7 w-40 rounded-sm bg-surface-secondary animate-pulse" />
+        <div className="h-28 rounded-lg border border-border bg-card animate-pulse" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-24 rounded-lg border border-border bg-card animate-pulse" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div className="lg:col-span-2 h-64 rounded-lg border border-border bg-card animate-pulse" />
+          <div className="h-64 rounded-lg border border-border bg-card animate-pulse" />
+        </div>
       </div>
     );
   }
@@ -398,21 +410,7 @@ export default function Reports() {
   const hero = statusBadge(portfolioStats.overallStatus);
 
   return (
-    <div className="flex flex-col h-full">
-      <CommandBar
-        actions={[
-          {
-            label: 'Descargar reporte',
-            icon: <FileDown className="w-3.5 h-3.5" />,
-            onClick: () => setExportDialogOpen(true),
-            variant: 'primary',
-          },
-          { label: 'Exportar CSV', icon: <Download className="w-3.5 h-3.5" />, onClick: exportCSV },
-          { label: 'Refrescar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: refetchAll },
-        ]}
-        filters={projectFilters}
-      />
-
+    <div className="px-4 pb-6 pt-3 max-w-[1600px] min-h-full flex flex-col gap-4">
       <ReportExportDialog
         open={exportDialogOpen}
         onOpenChange={setExportDialogOpen}
@@ -424,17 +422,67 @@ export default function Reports() {
         warnings={warningList}
       />
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      {/* Header sobre el lienzo (shell unificado) */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-semibold tracking-[-0.01em] text-foreground">Reportes</h1>
+            <p className="text-[12px] text-muted-foreground mt-0.5">Salud del portafolio, tendencia de completado y atención prioritaria.</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={exportCSV}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 h-9 text-[12px] font-medium text-foreground transition-all [transition-timing-function:var(--ease-out)] hover:bg-accent active:scale-[0.98]"
+            >
+              <Download className="w-3.5 h-3.5" /> Exportar CSV
+            </button>
+            <button
+              type="button"
+              onClick={refetchAll}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 h-9 text-[12px] font-medium text-foreground transition-all [transition-timing-function:var(--ease-out)] hover:bg-accent active:scale-[0.98]"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Refrescar
+            </button>
+            <Button type="button" variant="primary-brand" onClick={() => setExportDialogOpen(true)} className="shrink-0">
+              <FileDown className="w-4 h-4" /> Descargar reporte
+            </Button>
+          </div>
+        </div>
+
+        {/* Project filter chips */}
+        <div className="flex flex-wrap gap-2">
+          {projectFilters.map((f) => {
+            const count = 'count' in f ? f.count : undefined;
+            return (
+              <button
+                key={f.label}
+                type="button"
+                aria-pressed={f.active}
+                onClick={f.onClick}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${f.active ? 'bg-secondary text-foreground border border-border' : 'border border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'}`}
+              >
+                {f.label}
+                {count != null && (
+                  <span className={`tabular-nums text-[10px] ${f.active ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>{count}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4">
         {/* HERO STATUS CARD */}
-        <div className={`relative bg-card border border-border rounded-[6px] p-6 ring-1 ${hero.ring}`}>
+        <div className={`relative bg-card border border-border border-t-2 ${hero.bar} rounded-lg p-6`}>
           <div className="flex items-start justify-between gap-6 flex-wrap">
             <div className="flex-1 min-w-[260px]">
-              <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full border text-[10px] font-bold tracking-wider ${hero.pill}`}>
+              <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full border text-[10px] font-medium tracking-[0.06em] ${hero.pill}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${hero.dot}`} />
                 {hero.label}
               </div>
               <div className="mt-3 flex items-baseline gap-3">
-                <div className="text-[44px] leading-none font-bold text-foreground">
+                <div className="text-[44px] leading-none font-semibold text-foreground tabular-nums">
                   {portfolioStats.healthScore}%
                 </div>
                 <div className="text-[11px] text-muted-foreground uppercase tracking-wide">
@@ -450,10 +498,10 @@ export default function Reports() {
                   insights.map((ins, i) => {
                     const toneColor =
                       ins.tone === 'bad'
-                        ? 'text-red-600'
+                        ? 'text-destructive'
                         : ins.tone === 'warn'
-                        ? 'text-amber-600'
-                        : 'text-emerald-600';
+                        ? 'text-warning'
+                        : 'text-success';
                     const Icon =
                       ins.tone === 'bad' ? AlertTriangle : ins.tone === 'warn' ? TrendingDown : TrendingUp;
                     return (
@@ -470,7 +518,7 @@ export default function Reports() {
             {/* Right side stats */}
             <div className="flex flex-col items-end gap-3 text-right min-w-[180px]">
               <div>
-                <div className="text-[28px] leading-none font-semibold text-foreground">
+                <div className="text-[28px] leading-none font-semibold text-foreground tabular-nums">
                   {portfolioStats.count}
                 </div>
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
@@ -479,15 +527,15 @@ export default function Reports() {
               </div>
               <div className="flex items-center gap-3 text-[11px]">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span className="w-2 h-2 rounded-full bg-success" />
                   <span className="text-muted-foreground">{portfolioStats.greens} ok</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span className="w-2 h-2 rounded-full bg-warning" />
                   <span className="text-muted-foreground">{portfolioStats.yellows} atención</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                  <span className="w-2 h-2 rounded-full bg-destructive" />
                   <span className="text-muted-foreground">{portfolioStats.reds} riesgo</span>
                 </div>
               </div>
@@ -497,32 +545,38 @@ export default function Reports() {
 
         {/* KPI CATEGORY CARDS */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {kpiCards.map((c) => {
+          {kpiCards.map((c, i) => {
             const s = statusBadge(c.status);
             return (
-              <div key={c.label} className="bg-card border border-border rounded-[6px] p-4">
+              <motion.div
+                key={c.label}
+                initial={reduced ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: reduced ? 0 : 0.22, delay: reduced ? 0 : i * 0.04, ease: [0.16, 1, 0.3, 1] }}
+                className="bg-card border border-border rounded-lg p-4"
+              >
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold tracking-wider text-muted-foreground">
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
                     {c.icon}
                     {c.label}
                   </div>
                   <span className={`w-2 h-2 rounded-full ${s.dot}`} title={statusLabelByLevel(c.status)} />
                 </div>
-                <div className="text-[26px] font-bold text-foreground leading-tight">{c.value}</div>
+                <div className="text-[26px] font-semibold text-foreground leading-tight tabular-nums">{c.value}</div>
                 {c.delta && (
                   <div className="text-[11px] text-muted-foreground mt-1">{c.delta}</div>
                 )}
-              </div>
+              </motion.div>
             );
           })}
         </div>
 
         {/* TREND CHART + PROJECT RANKING */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-          <div className="lg:col-span-2 bg-card border border-border rounded-[6px] p-4">
+          <div className="lg:col-span-2 bg-card border border-border rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <div className="text-[10px] font-bold tracking-wider text-muted-foreground">
+                <div className="text-[10px] font-medium tracking-[0.06em] text-muted-foreground">
                   TENDENCIA · {trendData.length} {trendData.length === 1 ? 'SEMANA' : 'SEMANAS'}
                 </div>
                 <div className="text-[14px] font-semibold text-foreground mt-0.5">
@@ -530,11 +584,11 @@ export default function Reports() {
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-[20px] font-bold text-foreground leading-none">
+                <div className="text-[20px] font-semibold text-foreground leading-none tabular-nums">
                   {periodComparison.recent}
                 </div>
                 <div className={`text-[11px] font-medium ${
-                  periodComparison.recent >= periodComparison.prior ? 'text-emerald-600' : 'text-red-600'
+                  periodComparison.recent >= periodComparison.prior ? 'text-success' : 'text-destructive'
                 }`}>
                   {periodComparison.delta} vs anterior
                 </div>
@@ -545,8 +599,8 @@ export default function Reports() {
                 <AreaChart data={trendData} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
                   <defs>
                     <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#D4192C" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="#D4192C" stopOpacity={0} />
+                      <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -556,15 +610,16 @@ export default function Reports() {
                     contentStyle={{
                       backgroundColor: 'var(--card)',
                       border: '1px solid var(--border)',
-                      borderRadius: '4px',
+                      borderRadius: '8px',
                       fontSize: '11px',
+                      boxShadow: 'var(--elevation-2)',
                     }}
                   />
                   <Area
                     type="monotone"
                     dataKey="count"
                     name="Completadas"
-                    stroke="#D4192C"
+                    stroke="var(--chart-1)"
                     strokeWidth={2}
                     fill="url(#trendFill)"
                   />
@@ -578,8 +633,8 @@ export default function Reports() {
           </div>
 
           {/* Project ranking */}
-          <div className="bg-card border border-border rounded-[6px] p-4">
-            <div className="text-[10px] font-bold tracking-wider text-muted-foreground mb-3">
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="text-[10px] font-medium tracking-[0.06em] text-muted-foreground mb-3">
               ATENCIÓN PRIORITARIA
             </div>
             {projectRanking.length === 0 ? (
@@ -590,7 +645,7 @@ export default function Reports() {
               <div className="space-y-2">
                 {projectRanking.map(({ project, progress, health, overdue }) => {
                   const dotColor =
-                    health === 'red' ? 'bg-red-500' : health === 'yellow' ? 'bg-amber-500' : 'bg-emerald-500';
+                    health === 'red' ? 'bg-destructive' : health === 'yellow' ? 'bg-warning' : 'bg-success';
                   return (
                     <div
                       key={project.id_project}
