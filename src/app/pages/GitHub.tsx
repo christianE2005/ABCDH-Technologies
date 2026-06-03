@@ -2,6 +2,7 @@
 import { useNavigate } from "react-router";
 import { Github, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "../components/ui/button";
 import { githubService } from "../../services/github.service";
 
 type CallbackState = "processing" | "success" | "error" | "invalid";
@@ -56,14 +57,14 @@ export default function GitHubCallback() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="bg-card border border-border rounded-[4px] p-8 max-w-sm w-full text-center shadow-sm">
+      <div className="bg-card border border-border rounded-lg p-8 max-w-sm w-full text-center">
         <div className="flex justify-center mb-4">
           <Github className="w-8 h-8 text-foreground" />
         </div>
 
         {cbState === "processing" && (
           <>
-            <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto mb-3" />
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto mb-3" />
             <h1 className="text-[14px] font-semibold text-foreground mb-1">
               Conectando con GitHub...
             </h1>
@@ -96,13 +97,14 @@ export default function GitHubCallback() {
             {errorMessage && (
               <p className="text-[12px] text-muted-foreground mb-4">{errorMessage}</p>
             )}
-            <button
+            <Button
               type="button"
+              variant="primary-brand"
+              size="sm"
               onClick={() => navigate("/dashboard", { replace: true })}
-              className="h-7 px-4 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors"
             >
               Volver al dashboard
-            </button>
+            </Button>
           </>
         )}
 
@@ -115,13 +117,14 @@ export default function GitHubCallback() {
             <p className="text-[12px] text-muted-foreground mb-4">
               No se encontraron los parametros de autorizacion esperados.
             </p>
-            <button
+            <Button
               type="button"
+              variant="primary-brand"
+              size="sm"
               onClick={() => navigate("/dashboard", { replace: true })}
-              className="h-7 px-4 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors"
             >
               Volver al dashboard
-            </button>
+            </Button>
           </>
         )}
       </div>
