@@ -1,4 +1,4 @@
-import { Search, LogOut, Moon, Sun, ChevronDown } from 'lucide-react';
+import { Search, LogOut, Moon, Sun, ChevronDown, Menu } from 'lucide-react';
 import { Link, useLocation, useParams, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -21,7 +21,7 @@ const routeLabels: Record<string, string> = {
   users: 'Crear Usuarios',
 };
 
-export function Topbar() {
+export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -83,20 +83,31 @@ export function Topbar() {
 
   return (
     <header className="bg-background border-b border-border h-[var(--topbar-height)] flex items-center justify-between px-4 shrink-0">
-      {/* Left: Breadcrumbs + Search */}
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        {/* Inline breadcrumbs */}
+      {/* Left: Menu (mobile) + Breadcrumbs + Search */}
+      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+        {/* Mobile menu trigger */}
+        <button
+          type="button"
+          onClick={onMenuClick}
+          aria-label="Abrir menú de navegación"
+          aria-haspopup="dialog"
+          className="md:hidden p-1.5 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground shrink-0"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        {/* Inline breadcrumbs (ocultos en pantallas chicas) */}
         {crumbs.length > 0 && (
-          <nav className="flex items-center gap-1 text-[12px] shrink-0" aria-label="Breadcrumb">
+          <nav className="hidden sm:flex items-center gap-1 text-[12px] shrink-0 min-w-0" aria-label="Breadcrumb">
             {crumbs.map((crumb, i) => (
-              <span key={i} className="flex items-center gap-1">
+              <span key={i} className="flex items-center gap-1 min-w-0">
                 {i > 0 && <span className="text-muted-foreground/50">/</span>}
                 {crumb.path ? (
-                  <Link to={crumb.path} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <Link to={crumb.path} className="text-muted-foreground hover:text-foreground transition-colors truncate">
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span className="text-foreground font-medium">{crumb.label}</span>
+                  <span className="text-foreground font-medium truncate">{crumb.label}</span>
                 )}
               </span>
             ))}
@@ -104,16 +115,16 @@ export function Topbar() {
         )}
 
         {/* Separator */}
-        {crumbs.length > 0 && <div className="h-4 w-px bg-border shrink-0" />}
+        {crumbs.length > 0 && <div className="hidden sm:block h-4 w-px bg-border shrink-0" />}
 
-        {/* Search trigger */}
+        {/* Search trigger (ícono en mobile, barra completa en sm+) */}
         <button
           onClick={openCommandPalette}
           aria-label="Buscar (Ctrl+K)"
-          className="flex items-center gap-2 pl-2 pr-2 py-1 bg-card rounded-md border border-border text-[12px] text-muted-foreground hover:border-foreground/20 transition-colors cursor-pointer w-48 shrink-0"
+          className="flex items-center gap-2 py-1 bg-card rounded-md border border-border text-[12px] text-muted-foreground hover:border-foreground/20 transition-colors cursor-pointer shrink-0 w-9 justify-center px-0 sm:w-48 sm:justify-start sm:px-2"
         >
           <Search className="w-3.5 h-3.5 shrink-0" />
-          <span className="flex-1 text-left truncate">Buscar...</span>
+          <span className="hidden sm:block flex-1 text-left truncate">Buscar...</span>
           <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded-sm border border-border bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground shrink-0">
             Ctrl K
           </kbd>
@@ -156,7 +167,7 @@ export function Topbar() {
               aria-expanded={showUserMenu}
             >
               <div className="w-6 h-6 rounded-full bg-primary/90 flex items-center justify-center shrink-0">
-                <span className="text-[10px] font-semibold text-white">
+                <span className="text-[10px] font-semibold text-primary-foreground">
                   {user.name.charAt(0).toUpperCase()}
                 </span>
               </div>
@@ -167,7 +178,7 @@ export function Topbar() {
             </button>
 
             {showUserMenu && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-md shadow-lg z-50 overflow-hidden">
+              <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-md shadow-e2 z-50 overflow-hidden">
                 <div className="px-3 py-2.5 border-b border-border">
                   <p className="text-[12px] font-semibold text-foreground truncate">{user.name}</p>
                   <p className="text-[11px] text-muted-foreground capitalize truncate">{user.role.replace('_', ' ')}</p>

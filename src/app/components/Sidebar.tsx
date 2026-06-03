@@ -24,7 +24,7 @@ interface NavItem {
   group?: string;
 }
 
-const navItems: NavItem[] = [
+export const navItems: NavItem[] = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutGrid, group: 'main' },
   { name: 'Backlog', path: '/backlog', icon: ListChecks, group: 'main', roles: ['admin', 'user', 'project_manager'] },
   { name: 'Proyectos', path: '/projects', icon: Briefcase, group: 'main' },
@@ -36,19 +36,13 @@ const navItems: NavItem[] = [
   { name: 'Configuración', path: '/settings', icon: SlidersHorizontal, group: 'user', roles: ['admin', 'project_manager', 'user', 'stakeholder'] },
 ];
 
-export function Sidebar() {
+/**
+ * Lista de navegación compartida por el Sidebar de escritorio y el drawer móvil.
+ * `collapsed` solo aplica en escritorio; `onNavigate` cierra el drawer al navegar.
+ */
+export function SidebarNavList({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const location = useLocation();
   const { user } = useAuth();
-  const [collapsed, setCollapsed] = useState(() => {
-    return localStorage.getItem('sidebar-collapsed') === 'true';
-  });
-  const toggleCollapsed = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem('sidebar-collapsed', String(next));
-      return next;
-    });
-  };
 
   const filteredNavItems = navItems.filter((item) => {
     if (!item.roles) return true;
@@ -69,6 +63,7 @@ export function Sidebar() {
     const inner = (
       <Link
         to={item.path}
+        onClick={onNavigate}
         className={`relative flex items-center gap-2.5 transition-colors duration-100 select-none
           ${collapsed ? 'justify-center px-0 py-2 mx-1 rounded-md' : 'px-3 py-[6px] mx-1.5 rounded-md'}
           ${
@@ -116,76 +111,99 @@ export function Sidebar() {
   };
 
   return (
+    <nav className="flex-1 py-2 overflow-y-auto scrollbar-none" aria-label="Navegación principal">
+      <div className="space-y-0.5">
+        {mainItems.map((item) => (
+          <NavLink key={item.path} item={item} />
+        ))}
+      </div>
+
+      {analyticsItems.length > 0 && (
+        <>
+          <GroupDivider label="Análisis" />
+          <div className="space-y-0.5">
+            {analyticsItems.map((item) => (
+              <NavLink key={item.path} item={item} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {adminItems.length > 0 && (
+        <>
+          <GroupDivider label="Administración" />
+          <div className="space-y-0.5">
+            {adminItems.map((item) => (
+              <NavLink key={item.path} item={item} />
+            ))}
+          </div>
+        </>
+      )}
+
+      <GroupDivider label="Usuario" />
+      <div className="space-y-0.5">
+        {userItems.map((item) => (
+          <NavLink key={item.path} item={item} />
+        ))}
+      </div>
+    </nav>
+  );
+}
+
+/** Marca + wordmark Tech Mahindra (compartido por sidebar y drawer). */
+export function SidebarBrand({ collapsed = false }: { collapsed?: boolean }) {
+  return (
+    <div
+      className={`h-[var(--topbar-height)] flex items-center border-b border-sidebar-border shrink-0 ${
+        collapsed ? 'justify-center' : 'px-3 gap-2.5'
+      }`}
+    >
+      <div className="grid place-items-center w-7 h-7 rounded-md bg-brand shrink-0 font-mono text-[11px] font-semibold tracking-tight text-brand-foreground">
+        tm
+      </div>
+      {!collapsed && (
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-semibold text-sidebar-foreground leading-none tracking-tight truncate">
+            Tech Mahindra
+          </p>
+          <p className="text-[10px] text-sidebar-muted leading-none mt-0.5 truncate">
+            Project Intelligence
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function Sidebar() {
+  const { user } = useAuth();
+  const [collapsed, setCollapsed] = useState(() => {
+    return localStorage.getItem('sidebar-collapsed') === 'true';
+  });
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('sidebar-collapsed', String(next));
+      return next;
+    });
+  };
+
+  return (
     <aside
-      className={`bg-background border-r border-border transition-[width] duration-200 ease-out flex flex-col shrink-0 ${
+      className={`hidden md:flex bg-background border-r border-border transition-[width] duration-200 ease-out flex-col shrink-0 ${
         collapsed ? 'w-[48px]' : 'w-[200px]'
       }`}
     >
-      {/* Logo / Brand */}
-      <div
-        className={`h-[var(--topbar-height)] flex items-center border-b border-sidebar-border shrink-0 ${
-          collapsed ? 'justify-center' : 'px-3 gap-2.5'
-        }`}
-      >
-        <div className="grid place-items-center w-7 h-7 rounded-md bg-brand shrink-0 font-mono text-[11px] font-semibold tracking-tight text-brand-foreground">
-          tm
-        </div>
-        {!collapsed && (
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold text-sidebar-foreground leading-none tracking-tight truncate">
-              Tech Mahindra
-            </p>
-            <p className="text-[10px] text-sidebar-muted leading-none mt-0.5 truncate">
-              Project Intelligence
-            </p>
-          </div>
-        )}
-      </div>
+      <SidebarBrand collapsed={collapsed} />
 
-      {/* Navigation */}
-      <nav className="flex-1 py-2 overflow-y-auto scrollbar-none" aria-label="Navegación principal">
-        <div className="space-y-0.5">
-          {mainItems.map((item) => (
-            <NavLink key={item.path} item={item} />
-          ))}
-        </div>
-
-        {analyticsItems.length > 0 && (
-          <>
-            <GroupDivider label="Análisis" />
-            <div className="space-y-0.5">
-              {analyticsItems.map((item) => (
-                <NavLink key={item.path} item={item} />
-              ))}
-            </div>
-          </>
-        )}
-
-        {adminItems.length > 0 && (
-          <>
-            <GroupDivider label="Administración" />
-            <div className="space-y-0.5">
-              {adminItems.map((item) => (
-                <NavLink key={item.path} item={item} />
-              ))}
-            </div>
-          </>
-        )}
-
-        <GroupDivider label="Usuario" />
-        <div className="space-y-0.5">
-          {userItems.map((item) => (
-            <NavLink key={item.path} item={item} />
-          ))}
-        </div>
-      </nav>
+      <SidebarNavList collapsed={collapsed} />
 
       {/* User info + collapse toggle */}
       <div className="border-t border-sidebar-border shrink-0 p-2">
         {user && !collapsed && (
           <div className="flex items-center gap-2.5 px-1">
             <div className="w-7 h-7 rounded-full bg-primary/90 flex items-center justify-center shrink-0">
-              <span className="text-[11px] font-semibold text-white">
+              <span className="text-[11px] font-semibold text-primary-foreground">
                 {user.name.charAt(0).toUpperCase()}
               </span>
             </div>
@@ -214,7 +232,7 @@ export function Sidebar() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="w-7 h-7 rounded-full bg-primary/90 flex items-center justify-center cursor-default">
-                  <span className="text-[11px] font-semibold text-white">
+                  <span className="text-[11px] font-semibold text-primary-foreground">
                     {user.name.charAt(0).toUpperCase()}
                   </span>
                 </div>
