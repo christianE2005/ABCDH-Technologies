@@ -474,7 +474,7 @@ export default function Reports() {
 
       <div className="flex flex-col gap-4">
         {/* HERO STATUS CARD */}
-        <div className={`relative bg-card border border-border border-t-2 ${hero.bar} rounded-lg p-6`}>
+        <div className="relative bg-card border border-border rounded-lg p-6">
           <div className="flex items-start justify-between gap-6 flex-wrap">
             <div className="flex-1 min-w-[260px]">
               <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full border text-[10px] font-medium tracking-[0.06em] ${hero.pill}`}>
