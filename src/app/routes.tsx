@@ -56,10 +56,7 @@ export const router = createBrowserRouter([
       { path: 'alerts', element: withSuspense(Alerts) },
       { path: 'users', element: withSuspense(CreateUsers) },
       { path: 'github', element: withSuspense(GitHub) },
+      { path: '*', element: <NotFound /> },
     ],
-  },
-  {
-    path: '*',
-    element: <NotFound />,
   },
 ]);

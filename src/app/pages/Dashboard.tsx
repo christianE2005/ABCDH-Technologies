@@ -8,7 +8,7 @@ import {
   Briefcase, ArrowRight, RefreshCw, CheckCircle2, Timer, ListChecks,
   AlertTriangle, GitCommit, Calendar, TrendingUp,
 } from 'lucide-react';
-import { CommandBar } from '../components/CommandBar';
+import { KPICard } from '../components/KPICard';
 import {
   useApiBoards, useApiProjectMembers, useApiProjects, useApiTasks,
   useApiTaskAssignments, useApiTaskWarnings, useApiGithubPushes,
@@ -21,19 +21,19 @@ import { formatProjectDate } from '../utils/projectDates';
 import { computeProjectProgress, getProjectHealth, type ProjectHealth } from '../utils/projectHealth';
 
 const HEALTH_DOT: Record<ProjectHealth, string> = {
-  green: 'bg-emerald-500',
-  yellow: 'bg-amber-500',
-  red: 'bg-red-500',
+  green: 'bg-success',
+  yellow: 'bg-warning',
+  red: 'bg-destructive',
 };
 const HEALTH_BAR: Record<ProjectHealth, string> = {
-  green: 'bg-emerald-500',
-  yellow: 'bg-amber-500',
-  red: 'bg-red-500',
+  green: 'bg-success',
+  yellow: 'bg-warning',
+  red: 'bg-destructive',
 };
 const HEALTH_BORDER: Record<ProjectHealth, string> = {
-  green: 'border-l-emerald-500',
-  yellow: 'border-l-amber-500',
-  red: 'border-l-red-500',
+  green: 'border-l-success',
+  yellow: 'border-l-warning',
+  red: 'border-l-destructive',
 };
 const HEALTH_LABEL: Record<ProjectHealth, string> = {
   green: 'Saludable',
@@ -69,44 +69,17 @@ function taskStatusColor(name: string) {
   return '#14b8a6';
 }
 
+type KpiAccent = 'primary' | 'success' | 'warning' | 'destructive' | 'info' | 'ai';
+
 interface KpiDef {
   title: string;
   value: number | string;
   subtitle: string;
   icon: React.ReactNode;
-  accent: string;
-  iconBg: string;
-  iconColor: string;
+  accentColor?: KpiAccent;
 }
 
-function KpiCard({ kpi, index }: { kpi: KpiDef; index: number }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, delay: index * 0.04, ease: 'easeOut' }}
-      className={`relative bg-card border border-border rounded-[8px] p-3.5 overflow-hidden group hover:border-primary/30 hover:shadow-sm transition-all`}
-    >
-      <div className={`absolute top-0 left-0 right-0 h-[3px] ${kpi.accent}`} />
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase truncate">
-            {kpi.title}
-          </div>
-          <div className="text-[24px] font-bold text-foreground leading-tight mt-1 tabular-nums">
-            {kpi.value}
-          </div>
-          <div className="text-[10px] text-muted-foreground mt-0.5 truncate">
-            {kpi.subtitle}
-          </div>
-        </div>
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${kpi.iconBg} ${kpi.iconColor}`}>
-          {kpi.icon}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
+// Los KPI usan el primitivo KPICard (src/app/components/KPICard.tsx) — ver render abajo.
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -260,9 +233,9 @@ export default function Dashboard() {
       counts[health] += 1;
     }
     const meta: { key: ProjectHealth; name: string; color: string }[] = [
-      { key: 'green', name: 'Saludable', color: '#10b981' },
-      { key: 'yellow', name: 'En riesgo', color: '#f59e0b' },
-      { key: 'red', name: 'Crítico', color: '#ef4444' },
+      { key: 'green', name: 'Saludable', color: 'var(--success)' },
+      { key: 'yellow', name: 'En riesgo', color: 'var(--warning)' },
+      { key: 'red', name: 'Crítico', color: 'var(--destructive)' },
     ];
     return meta
       .filter((m) => counts[m.key] > 0)
@@ -327,56 +300,52 @@ export default function Dashboard() {
   const firstName = user?.name?.split(' ')[0] ?? '';
 
   const kpiList: KpiDef[] = [
-    {
-      title: 'Proyectos', value: kpis.totalProjects, subtitle: 'activos',
-      icon: <Briefcase className="w-4 h-4" />, accent: 'bg-primary',
-      iconBg: 'bg-primary/10', iconColor: 'text-primary',
-    },
-    {
-      title: 'Tareas', value: kpis.totalTasks, subtitle: 'en tus proyectos',
-      icon: <ListChecks className="w-4 h-4" />, accent: 'bg-sky-500',
-      iconBg: 'bg-sky-500/10', iconColor: 'text-sky-500',
-    },
-    {
-      title: 'Completadas', value: kpis.completed, subtitle: 'tareas terminadas',
-      icon: <CheckCircle2 className="w-4 h-4" />, accent: 'bg-emerald-500',
-      iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500',
-    },
-    {
-      title: 'Pendientes', value: kpis.open, subtitle: 'tareas abiertas',
-      icon: <Timer className="w-4 h-4" />, accent: 'bg-amber-500',
-      iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500',
-    },
-    {
-      title: 'Vencidas', value: kpis.overdue, subtitle: 'requieren atención',
-      icon: <AlertTriangle className="w-4 h-4" />, accent: 'bg-red-500',
-      iconBg: 'bg-red-500/10', iconColor: 'text-red-500',
-    },
-    {
-      title: 'Warnings', value: activeWarningsCount, subtitle: 'alertas activas',
-      icon: <TrendingUp className="w-4 h-4" />, accent: 'bg-violet-500',
-      iconBg: 'bg-violet-500/10', iconColor: 'text-violet-500',
-    },
+    { title: 'Proyectos', value: kpis.totalProjects, subtitle: 'activos', icon: <Briefcase className="w-4 h-4" /> },
+    { title: 'Tareas', value: kpis.totalTasks, subtitle: 'en tus proyectos', icon: <ListChecks className="w-4 h-4" /> },
+    { title: 'Completadas', value: kpis.completed, subtitle: 'tareas terminadas', icon: <CheckCircle2 className="w-4 h-4" /> },
+    { title: 'Pendientes', value: kpis.open, subtitle: 'tareas abiertas', icon: <Timer className="w-4 h-4" /> },
+    { title: 'Vencidas', value: kpis.overdue, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" /> },
+    { title: 'Warnings', value: activeWarningsCount, subtitle: 'alertas activas', icon: <TrendingUp className="w-4 h-4" /> },
   ];
 
   return (
     <div className="px-4 pb-6 pt-3 max-w-[1600px] min-h-full flex flex-col gap-4">
-      <CommandBar
-        actions={[{ label: 'Actualizar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: () => refetchAll() }]}
-        rightSlot={
-          <span className="text-xs text-muted-foreground">
-            Hola, <span className="font-medium text-foreground">{firstName}</span>
-          </span>
-        }
-      />
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-lg font-semibold tracking-[-0.01em] text-foreground">
+          Hola, {firstName}
+        </h1>
+        <button
+          type="button"
+          onClick={() => refetchAll()}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-[13px] font-medium text-foreground transition-all [transition-timing-function:var(--ease-out)] hover:bg-accent active:scale-[0.98]"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          Actualizar
+        </button>
+      </div>
 
       {/* ───────── KPI Row ───────── */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
         {loading
           ? Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-[8px] h-[90px] animate-pulse" />
+              <div key={i} className="bg-card border border-border rounded-lg h-[90px] animate-pulse" />
             ))
-          : kpiList.map((kpi, i) => <KpiCard key={kpi.title} kpi={kpi} index={i} />)
+          : kpiList.map((kpi, i) => (
+              <motion.div
+                key={kpi.title}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22, delay: i * 0.04, ease: 'easeOut' }}
+              >
+                <KPICard
+                  title={kpi.title}
+                  value={kpi.value}
+                  subtitle={kpi.subtitle}
+                  icon={kpi.icon}
+                  accentColor={kpi.accentColor}
+                />
+              </motion.div>
+            ))
         }
       </div>
 
@@ -387,7 +356,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, delay: 0.1, ease: 'easeOut' }}
-          className="bg-card border border-border rounded-[8px] p-4 flex flex-col"
+          className="bg-card border border-border rounded-lg p-4 flex flex-col"
         >
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[13px] font-semibold text-foreground">Salud del Portafolio</h2>
@@ -463,7 +432,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, delay: 0.15, ease: 'easeOut' }}
-          className="bg-card border border-border rounded-[8px] flex flex-col"
+          className="bg-card border border-border rounded-lg flex flex-col"
         >
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
             <div className="flex items-center gap-2">
@@ -477,7 +446,7 @@ export default function Dashboard() {
           {upcomingDueTasks.length === 0 ? (
             <div className="flex-1 flex items-center justify-center py-8">
               <div className="text-center">
-                <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-2" />
+                <CheckCircle2 className="w-6 h-6 text-success mx-auto mb-2" />
                 <p className="text-[12px] text-muted-foreground">
                   Sin tareas próximas a vencer.
                 </p>
@@ -496,15 +465,15 @@ export default function Dashboard() {
                     ? (projectById.get(projectId) ?? `Proyecto #${projectId}`)
                     : 'Sin proyecto';
                   const dotColor =
-                    rel.tone === 'overdue' ? 'bg-red-500'
-                    : rel.tone === 'today' ? 'bg-amber-500'
-                    : rel.tone === 'tomorrow' ? 'bg-sky-500'
-                    : 'bg-emerald-500';
+                    rel.tone === 'overdue' ? 'bg-destructive'
+                    : rel.tone === 'today' ? 'bg-warning'
+                    : rel.tone === 'tomorrow' ? 'bg-info'
+                    : 'bg-success';
                   const pillCls =
-                    rel.tone === 'overdue' ? 'text-red-600 bg-red-500/10 border-red-500/30'
-                    : rel.tone === 'today' ? 'text-amber-700 bg-amber-500/10 border-amber-500/30'
-                    : rel.tone === 'tomorrow' ? 'text-sky-700 bg-sky-500/10 border-sky-500/30'
-                    : 'text-emerald-700 bg-emerald-500/10 border-emerald-500/30';
+                    rel.tone === 'overdue' ? 'text-destructive bg-destructive/10 border-destructive/30'
+                    : rel.tone === 'today' ? 'text-warning bg-warning/10 border-warning/30'
+                    : rel.tone === 'tomorrow' ? 'text-info bg-info/10 border-info/30'
+                    : 'text-success bg-success/10 border-success/30';
                   return (
                     <button
                       key={task.id_task}
@@ -542,7 +511,7 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25, delay: 0.2, ease: 'easeOut' }}
-        className="bg-card border border-border rounded-[8px] p-4"
+        className="bg-card border border-border rounded-lg p-4"
       >
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-[13px] font-semibold text-foreground">Mis Proyectos</h2>
@@ -553,7 +522,7 @@ export default function Dashboard() {
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-secondary/40 border border-border rounded-[6px] h-[110px] animate-pulse" />
+              <div key={i} className="bg-secondary/40 border border-border rounded-md h-[110px] animate-pulse" />
             ))}
           </div>
         ) : projectCards.length === 0 ? (
@@ -567,7 +536,7 @@ export default function Dashboard() {
                 key={project.id_project}
                 type="button"
                 onClick={() => navigate(`/projects/${project.id_project}`)}
-                className={`bg-card border border-border border-l-[3px] ${HEALTH_BORDER[health]} rounded-[6px] p-3.5 hover:bg-accent/20 hover:border-primary/40 transition-colors text-left`}
+                className={`bg-card border border-border border-l-[3px] ${HEALTH_BORDER[health]} rounded-md p-3.5 hover:bg-accent/20 hover:border-primary/40 transition-colors text-left`}
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <h3 className="text-[13px] font-semibold text-foreground truncate flex-1">{project.name}</h3>
@@ -590,12 +559,12 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                   <span>{progress.completed} de {progress.total} tareas</span>
                   {overdue > 0 ? (
-                    <span className="text-red-600 font-medium inline-flex items-center gap-1">
+                    <span className="text-destructive font-medium inline-flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3" />
                       {overdue} {overdue === 1 ? 'vencida' : 'vencidas'}
                     </span>
                   ) : (
-                    <span className="text-emerald-600">Al día</span>
+                    <span className="text-success">Al día</span>
                   )}
                 </div>
               </button>
@@ -612,7 +581,7 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, delay: 0.25, ease: 'easeOut' }}
-            className="bg-card border border-border rounded-[8px] flex flex-col"
+            className="bg-card border border-border rounded-lg flex flex-col"
           >
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
               <div className="flex items-center gap-2">
@@ -668,7 +637,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                         {task.due_date && (
-                          <span className={`text-[10px] whitespace-nowrap ${isOverdue ? 'text-red-600 font-semibold' : 'text-muted-foreground'}`}>
+                          <span className={`text-[10px] whitespace-nowrap ${isOverdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
                             {formatProjectDate(task.due_date)}
                           </span>
                         )}
@@ -686,13 +655,13 @@ export default function Dashboard() {
                         type="button"
                         onClick={() => setMyTasksPage((p) => Math.max(0, p - 1))}
                         disabled={myTasksPage === 0}
-                        className="h-6 px-2 border border-border rounded-[3px] text-[10px] hover:bg-accent disabled:opacity-50"
+                        className="h-6 px-2 border border-border rounded-sm text-[10px] hover:bg-accent disabled:opacity-50"
                       >‹ Ant.</button>
                       <button
                         type="button"
                         onClick={() => setMyTasksPage((p) => Math.min(myTasksTotalPages - 1, p + 1))}
                         disabled={myTasksPage >= myTasksTotalPages - 1}
-                        className="h-6 px-2 border border-border rounded-[3px] text-[10px] hover:bg-accent disabled:opacity-50"
+                        className="h-6 px-2 border border-border rounded-sm text-[10px] hover:bg-accent disabled:opacity-50"
                       >Sig. ›</button>
                     </div>
                   </div>
@@ -706,7 +675,7 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, delay: 0.3, ease: 'easeOut' }}
-            className="bg-card border border-border rounded-[8px] flex flex-col"
+            className="bg-card border border-border rounded-lg flex flex-col"
           >
             <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border">
               <GitCommit className="w-3.5 h-3.5 text-muted-foreground" />
@@ -729,7 +698,7 @@ export default function Dashboard() {
                             <span className="text-[12px] font-medium text-foreground truncate">
                               {push.pusher ?? 'unknown'}
                             </span>
-                            <span className="text-[9px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded-[2px] shrink-0">
+                            <span className="text-[9px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded-sm shrink-0">
                               {push.ref?.replace('refs/heads/', '') ?? 'main'}
                             </span>
                           </div>
@@ -751,13 +720,13 @@ export default function Dashboard() {
                         type="button"
                         onClick={() => setPushesPage((p) => Math.max(0, p - 1))}
                         disabled={pushesPage === 0}
-                        className="h-6 px-2 border border-border rounded-[3px] text-[10px] hover:bg-accent disabled:opacity-50"
+                        className="h-6 px-2 border border-border rounded-sm text-[10px] hover:bg-accent disabled:opacity-50"
                       >‹ Ant.</button>
                       <button
                         type="button"
                         onClick={() => setPushesPage((p) => Math.min(pushesTotalPages - 1, p + 1))}
                         disabled={pushesPage >= pushesTotalPages - 1}
-                        className="h-6 px-2 border border-border rounded-[3px] text-[10px] hover:bg-accent disabled:opacity-50"
+                        className="h-6 px-2 border border-border rounded-sm text-[10px] hover:bg-accent disabled:opacity-50"
                       >Sig. ›</button>
                     </div>
                   </div>

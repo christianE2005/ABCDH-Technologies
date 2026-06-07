@@ -9,7 +9,6 @@ import { motion } from 'motion/react';
 import { StatusBadge } from '../components/StatusBadge';
 import { DatePickerField } from '../components/DatePickerField';
 import { KPICard } from '../components/KPICard';
-import { CommandBar } from '../components/CommandBar';
 import { ADOTabs } from '../components/ADOTabs';
 import { AvatarGroup } from '../components/AvatarGroup';
 import { ProgressBar } from '../components/ProgressBar';
@@ -21,6 +20,7 @@ import {
 import { projectsService, tasksService, usersService } from '../../services';
 import type { ApiProject, ApiTask, ApiTaskAssignment, ApiUserAccount } from '../../services';
 import { useAuth } from '../context/AuthContext';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { GitHubReposView } from '../components/GitHubReposView';
 import { CodeReviewPanel } from '../components/CodeReviewPanel';
 import { ProjectTasksWorkspace } from '../components/ProjectTasksWorkspace.tsx';
@@ -41,6 +41,7 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const reduced = useReducedMotion();
   const projectId = Number(id) || 0;
 
   // ── Project ──────────────────────────────────────────────────────────────
@@ -421,14 +422,14 @@ export default function ProjectDetail() {
 
   type ProjectWorkspaceTab = 'backlog' | 'sprints' | 'boards' | 'milestones';
 
-  const [activeTab, setActiveTab] = useState<'resumen' | ProjectWorkspaceTab | 'timeline' | 'code-review' | 'repositorios' | 'equipo' | 'configuracion'>(() => {
+  const [activeTab, setActiveTab] = useState<ProjectWorkspaceTab | 'timeline' | 'code-review' | 'repositorios' | 'equipo' | 'configuracion'>(() => {
     if (initialQueryTab === 'tareas' || initialQueryTab === 'backlog') return 'backlog';
     if (initialQueryTab === 'sprints') return 'sprints';
     if (initialQueryTab === 'boards') return 'boards';
     if (initialQueryTab === 'milestones') return 'milestones';
     if (initialQueryTab === 'timeline') return 'timeline';
     if (initialQueryTab === 'configuracion') return 'configuracion';
-    return 'resumen';
+    return 'backlog';
   });
   const [initialTaskId, setInitialTaskId] = useState<number | null>(
     initialQueryTab === 'tareas' || initialQueryTab === 'backlog' || initialQueryTab === 'sprints' || initialQueryTab === 'boards' || initialQueryTab === 'milestones' || initialQueryTab === 'timeline'
@@ -459,7 +460,7 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     if (!canManageProject && activeTab === 'configuracion') {
-      setActiveTab('resumen');
+      setActiveTab('backlog');
     }
   }, [canManageProject, activeTab]);
 
@@ -492,25 +493,50 @@ export default function ProjectDetail() {
 
   return (
     <div className="px-4 pb-6 pt-3 max-w-[1400px] min-h-full flex flex-col gap-3">
-      <section className="rounded-[6px] border border-border bg-card overflow-hidden">
-        <CommandBar
-          actions={[
-            { label: 'Volver', icon: <ArrowLeft className="w-3.5 h-3.5" />, onClick: () => navigate('/projects') },
-            { label: 'Actualizar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: () => { refetchTasks(); refetchMembers(); refetchBoards(); } },
-            ...(canManageProject ? [{ label: 'Asignar responsable', icon: <UserPlus className="w-3.5 h-3.5" />, onClick: () => setShowAssignModal(true) }] : []),
-          ]}
-          rightSlot={project ? <StatusBadge status={getProjectStatusBadge(project.status)} text={getProjectStatusLabel(project.status)} size="sm" /> : null}
-        />
+      {/* Header sobre el lienzo (sin caja/CommandBar) */}
+      <div className="flex flex-col gap-3">
+        {/* Acciones + estado */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => navigate('/projects')}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 h-8 text-[12px] font-medium text-foreground hover:bg-accent active:scale-[0.98] transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Volver
+            </button>
+            <button
+              type="button"
+              onClick={() => { refetchTasks(); refetchMembers(); refetchBoards(); }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 h-8 text-[12px] font-medium text-foreground hover:bg-accent active:scale-[0.98] transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Actualizar
+            </button>
+            {canManageProject && (
+              <button
+                type="button"
+                onClick={() => setShowAssignModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 h-8 text-[12px] font-medium text-foreground hover:bg-accent active:scale-[0.98] transition-colors"
+              >
+                <UserPlus className="w-3.5 h-3.5" /> Asignar responsable
+              </button>
+            )}
+          </div>
+          {project && (
+            <StatusBadge status={getProjectStatusBadge(project.status)} text={getProjectStatusLabel(project.status)} size="sm" />
+          )}
+        </div>
 
+        {/* Título + meta */}
         {loading ? (
-          <div className="mx-4 my-3 h-14 animate-pulse bg-surface-secondary/50 rounded-[4px]" />
+          <div className="h-14 animate-pulse bg-surface-secondary/50 rounded-md" />
         ) : project ? (
-          <div className="px-4 pb-3 pt-2 border-b border-border">
-            <h1 className="text-[16px] font-semibold text-foreground">{project.name}</h1>
+          <div>
+            <h1 className="text-lg font-semibold tracking-[-0.01em] text-foreground">{project.name}</h1>
             {project.description && (
               <p className="text-[12px] text-muted-foreground mt-0.5 line-clamp-2">{project.description}</p>
             )}
-            <div className="flex flex-wrap items-center gap-4 mt-2 text-[11px] text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-4 mt-1.5 text-[11px] text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />Inicio: {formatProjectDate(project.created_at)}
               </span>
@@ -526,108 +552,67 @@ export default function ProjectDetail() {
           </div>
         ) : null}
 
-        <div className="px-3">
-          <ADOTabs
-            tabs={[
-              { id: 'resumen', label: 'Overview' },
-              { id: 'backlog', label: 'Backlog' },
-              { id: 'timeline', label: 'Timeline' },
-              { id: 'sprints', label: 'Sprints' },
-              { id: 'boards', label: 'Boards' },
-              { id: 'milestones', label: 'Milestones' },
-              { id: 'code-review', label: 'Code Review' },
-              { id: 'repositorios', label: 'Repositorios' },
-              { id: 'equipo', label: 'Equipo', count: (members ?? []).length },
-              ...(canManageProject ? [{ id: 'configuracion', label: 'Configuración', icon: <Settings2 className="w-3.5 h-3.5" /> }] : []),
-            ]}
-            activeTab={activeTab}
-            onTabChange={(id) => setActiveTab(id as typeof activeTab)}
-          />
-        </div>
-      </section>
-
-      <motion.div
-        key={activeTab}
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
-        className={activeTab === 'backlog' || activeTab === 'sprints' || activeTab === 'boards' || activeTab === 'milestones' || activeTab === 'timeline' ? 'flex-1 min-h-0 flex flex-col' : undefined}
-      >
-        {/* RESUMEN */}
-        {activeTab === 'resumen' && (
-          <div className="space-y-3">
+        {/* Resumen del proyecto (KPIs sin barra de acento + avance) — antes era la pestaña Overview */}
+        {project && (
+          <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
               {[
-                { title: 'Tareas', value: kpis.total, subtitle: 'en todo el proyecto', icon: <List className="w-4 h-4" />, accentColor: 'info' as const },
-                { title: 'Completadas', value: kpis.completed, subtitle: 'finalizadas', icon: <CheckCircle2 className="w-4 h-4" />, accentColor: 'success' as const },
-                { title: 'Vencidas', value: kpis.overdue, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" />, accentColor: 'destructive' as const },
-                {
-                  title: 'Tiempo Restante',
-                  value: timeRemainingLabel,
-                  subtitle: formatProjectDate(project?.end_date),
-                  icon: <Clock className="w-4 h-4" />,
-                  accentColor: 'warning' as const,
-                },
+                { title: 'Tareas', value: kpis.total, subtitle: 'en todo el proyecto', icon: <List className="w-4 h-4" /> },
+                { title: 'Completadas', value: kpis.completed, subtitle: 'finalizadas', icon: <CheckCircle2 className="w-4 h-4" /> },
+                { title: 'Vencidas', value: kpis.overdue, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" /> },
+                { title: 'Tiempo Restante', value: timeRemainingLabel, subtitle: formatProjectDate(project?.end_date), icon: <Clock className="w-4 h-4" /> },
               ].map((card, i) => (
                 <motion.div
                   key={card.title}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={reduced ? false : { opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.22, delay: i * 0.05, ease: 'easeOut' }}
+                  transition={{ duration: reduced ? 0 : 0.22, delay: reduced ? 0 : i * 0.04, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  <KPICard title={card.title} value={card.value} subtitle={card.subtitle} icon={card.icon} accentColor={card.accentColor} />
+                  <KPICard title={card.title} value={card.value} subtitle={card.subtitle} icon={card.icon} />
                 </motion.div>
               ))}
             </div>
 
-            <div className="grid lg:grid-cols-1 gap-3">
-              <div className="space-y-3">
-              <div className="bg-card border border-border rounded-[4px] p-4">
-                <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-2.5">
-                  Información General
-                </h2>
-                {project ? (
-                  <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-                    {[
-                      { label: 'Estado', value: getProjectStatusLabel(project.status) },
-                      { label: 'Creado', value: formatProjectDate(project.created_at) },
-                      { label: 'Fecha fin', value: formatProjectDate(project.end_date) },
-                      { label: 'Tiempo restante', value: timeRemainingLabel },
-                      { label: 'Miembros', value: `${kpis.memberCount} personas` },
-                    ].map((item) => (
-                      <div key={item.label}>
-                        <dt className="text-[10px] text-muted-foreground">{item.label}</dt>
-                        <dd className="text-[13px] font-medium text-foreground mt-0.5">{item.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                ) : (
-                  <div className="h-20 animate-pulse bg-secondary rounded" />
-                )}
+            {kpis.total > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] shrink-0">Avance</span>
+                <ProgressBar value={Math.round((kpis.completed / kpis.total) * 100)} height={6} className="flex-1" />
+                <span className="text-[12px] font-semibold text-foreground tabular-nums shrink-0">
+                  {Math.round((kpis.completed / kpis.total) * 100)}%
+                </span>
+                <span className="hidden sm:inline text-[11px] text-muted-foreground shrink-0">
+                  {kpis.completed} de {kpis.total} tareas
+                </span>
               </div>
-
-              {/* Completion progress bar */}
-              {kpis.total > 0 && (
-                <div className="bg-card border border-border rounded-[4px] p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">
-                      Avance
-                    </h2>
-                    <span className="text-[12px] font-semibold text-foreground">
-                      {Math.round((kpis.completed / kpis.total) * 100)}%
-                    </span>
-                  </div>
-                  <ProgressBar value={Math.round((kpis.completed / kpis.total) * 100)} height={6} />
-                  <p className="text-[10px] text-muted-foreground mt-1.5">
-                    {kpis.completed} de {kpis.total} tareas completadas
-                  </p>
-                </div>
-              )}
-              </div>
-            </div>
-          </div>
+            )}
+          </>
         )}
 
+        {/* Tabs (sin Overview) */}
+        <ADOTabs
+          tabs={[
+            { id: 'backlog', label: 'Backlog' },
+            { id: 'timeline', label: 'Timeline' },
+            { id: 'sprints', label: 'Sprints' },
+            { id: 'boards', label: 'Boards' },
+            { id: 'milestones', label: 'Milestones' },
+            { id: 'code-review', label: 'Code Review' },
+            { id: 'repositorios', label: 'Repositorios' },
+            { id: 'equipo', label: 'Equipo', count: (members ?? []).length },
+            ...(canManageProject ? [{ id: 'configuracion', label: 'Configuración', icon: <Settings2 className="w-3.5 h-3.5" /> }] : []),
+          ]}
+          activeTab={activeTab}
+          onTabChange={(id) => setActiveTab(id as typeof activeTab)}
+        />
+      </div>
+
+      <motion.div
+        key={activeTab}
+        initial={reduced ? false : { opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: reduced ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] }}
+        className={activeTab === 'backlog' || activeTab === 'sprints' || activeTab === 'boards' || activeTab === 'milestones' || activeTab === 'timeline' ? 'flex-1 min-h-0 flex flex-col' : undefined}
+      >
         {/* WORKSPACE TABS */}
         {(activeTab === 'backlog' || activeTab === 'sprints' || activeTab === 'boards' || activeTab === 'milestones') && (
           <div className="flex-1 min-h-0 flex flex-col">
@@ -676,7 +661,7 @@ export default function ProjectDetail() {
 
         {/* EQUIPO */}
         {activeTab === 'equipo' && (
-          <div className="bg-card border border-border rounded-[4px] p-4">
+          <div className="bg-card border border-border rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">
@@ -695,7 +680,7 @@ export default function ProjectDetail() {
               {canManageMembers && (
                 <button
                   onClick={() => setShowAddMemberModal(true)}
-                  className="flex items-center gap-1.5 text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-[3px] transition-colors"
+                  className="flex items-center gap-1.5 text-[11px] font-medium text-foreground border border-border bg-card hover:bg-accent px-2.5 py-1 rounded-sm transition-colors"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   Agregar Miembro
@@ -720,10 +705,10 @@ export default function ProjectDetail() {
                   return (
                     <div
                       key={member.id}
-                      className="flex items-center justify-between py-2.5 px-3 rounded-[6px] border border-border/60 bg-surface-secondary/20 hover:bg-accent/30 transition-colors"
+                      className="flex items-center justify-between py-2.5 px-3 rounded-md border border-border/60 bg-surface-secondary/20 hover:bg-accent/30 transition-colors"
                     >
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[11px] font-medium">
+                        <div className="w-7 h-7 rounded-full bg-secondary text-foreground flex items-center justify-center text-[11px] font-medium">
                           {name.charAt(0).toUpperCase()}
                         </div>
                         <div>
@@ -737,13 +722,13 @@ export default function ProjectDetail() {
                                   setEditingMemberId(member.id);
                                   setEditingRoleId(member.role ?? null);
                                 }}
-                                className="h-6 px-2.5 text-[10px] font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-[3px] transition-colors"
+                                className="h-6 px-2.5 text-[10px] font-medium text-foreground border border-border bg-card hover:bg-accent rounded-sm transition-colors"
                               >
                                 Editar
                               </button>
                             )}
                             {member.role === projectRoleIds.projectManagerId && (
-                              <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                              <span className="inline-flex items-center rounded-full border border-border bg-secondary px-2 py-0.5 text-[10px] font-semibold text-foreground">
                                 PM
                               </span>
                             )}
@@ -764,7 +749,7 @@ export default function ProjectDetail() {
                             type="button"
                             onClick={() => handleRemoveMember(member.id)}
                             disabled={removingMemberId === member.id}
-                            className="h-7 px-2 text-[10px] font-medium text-destructive border border-destructive/30 rounded-[3px] hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                            className="h-7 px-2 text-[10px] font-medium text-destructive border border-destructive/30 rounded-sm hover:bg-destructive/10 transition-colors disabled:opacity-50"
                           >
                             {removingMemberId === member.id ? 'Eliminando…' : 'Eliminar'}
                           </button>
@@ -780,7 +765,7 @@ export default function ProjectDetail() {
 
         {activeTab === 'configuracion' && (
           <div className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-3">
-            <div className="bg-card border border-border rounded-[4px] p-4">
+            <div className="bg-card border border-border rounded-lg p-4">
               <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-3">
                 Configuración del Proyecto
               </h2>
@@ -792,7 +777,7 @@ export default function ProjectDetail() {
                     value={projectStatus}
                     onChange={(e) => setProjectStatus(e.target.value)}
                     disabled={!canManageProject || savingProjectConfig}
-                    className="w-full h-8 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:opacity-60"
+                    className="w-full h-8 bg-surface-secondary border border-border rounded-sm px-2.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand disabled:opacity-60"
                   >
                     {PROJECT_STATUS_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
@@ -820,7 +805,7 @@ export default function ProjectDetail() {
                   type="button"
                   onClick={handleProjectStatusSave}
                   disabled={!canManageProject || savingProjectConfig || !hasProjectConfigChanges}
-                  className="h-8 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50"
+                  className="h-8 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-md text-[11px] font-medium transition-colors disabled:opacity-50"
                 >
                   {savingProjectConfig ? 'Guardando…' : 'Guardar cambios'}
                 </button>
@@ -832,14 +817,14 @@ export default function ProjectDetail() {
             </div>
 
             <div className="space-y-3">
-              <div className="bg-card border border-border rounded-[4px] p-4">
+              <div className="bg-card border border-border rounded-lg p-4">
                 <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-1">Restricciones de equipo</h2>
                 <p className="text-[11px] text-muted-foreground mb-3">Por defecto solo se pueden agregar miembros con cuenta de GitHub conectada. Puedes desactivar esto temporalmente.</p>
                 <button
                   type="button"
                   disabled={!canManageProject}
                   onClick={() => setBypassGithubCheck((prev) => !prev)}
-                  className={`inline-flex items-center gap-2 h-8 px-3 rounded-[3px] text-[11px] font-medium border transition-colors disabled:opacity-50 ${
+                  className={`inline-flex items-center gap-2 h-8 px-3 rounded-sm text-[11px] font-medium border transition-colors disabled:opacity-50 ${
                     bypassGithubCheck
                       ? 'bg-warning/10 border-warning/40 text-warning hover:bg-warning/20'
                       : 'bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent'
@@ -850,7 +835,7 @@ export default function ProjectDetail() {
                 </button>
               </div>
 
-              <div className="bg-card border border-destructive/20 rounded-[4px] p-4 h-fit">
+              <div className="bg-card border border-destructive/20 rounded-lg p-4 h-fit">
               <h2 className="text-[10px] font-medium text-destructive uppercase tracking-[0.06em] mb-2">
                 Zona Peligrosa
               </h2>
@@ -861,7 +846,7 @@ export default function ProjectDetail() {
                 type="button"
                 onClick={handleDeleteProject}
                 disabled={!canManageProject || deletingProject}
-                className="h-8 px-3 bg-destructive hover:bg-destructive/90 text-white rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+                className="h-8 px-3 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-md text-[11px] font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 {deletingProject ? 'Eliminando…' : 'Eliminar proyecto'}
@@ -894,7 +879,7 @@ export default function ProjectDetail() {
 
       {editingMemberId != null && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
-          <div className="bg-card border border-border rounded-[6px] p-5 max-w-sm w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card border border-border rounded-xl shadow-e3 p-5 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-[13px] font-semibold text-foreground mb-4">Cambiar rol del miembro</h2>
             {(() => {
               const member = (members ?? []).find((m) => m.id === editingMemberId);
@@ -908,7 +893,7 @@ export default function ProjectDetail() {
                     <select
                       value={editingRoleId ?? ''}
                       onChange={(e) => setEditingRoleId(e.target.value ? Number(e.target.value) : null)}
-                      className="w-full h-9 bg-surface-secondary border border-border rounded-[4px] px-3 text-[12px] text-foreground"
+                      className="w-full h-9 bg-surface-secondary border border-border rounded-sm px-3 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand"
                     >
                       {allowedRoleIds.map((roleId) => (
                         <option key={roleId} value={roleId}>{roleMap.get(roleId) ?? `Rol #${roleId}`}</option>
@@ -919,7 +904,7 @@ export default function ProjectDetail() {
                     <button
                       type="button"
                       onClick={() => setEditingMemberId(null)}
-                      className="flex-1 h-8 border border-border rounded-[3px] text-[11px] font-medium text-foreground hover:bg-accent/30 transition-colors"
+                      className="flex-1 h-8 border border-border rounded-sm text-[11px] font-medium text-foreground hover:bg-accent/30 transition-colors"
                     >
                       Cancelar
                     </button>
@@ -932,7 +917,7 @@ export default function ProjectDetail() {
                         }
                       }}
                       disabled={updatingMemberRoleId === editingMemberId}
-                      className="flex-1 h-8 bg-primary text-primary-foreground rounded-[3px] text-[11px] font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+                      className="flex-1 h-8 bg-primary text-primary-foreground rounded-md text-[11px] font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
                     >
                       {updatingMemberRoleId === editingMemberId ? 'Actualizando…' : 'Guardar'}
                     </button>
