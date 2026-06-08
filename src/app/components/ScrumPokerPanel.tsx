@@ -1,10 +1,26 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Pencil, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { tasksService } from '../../services';
+import { tasksService, ApiRequestError } from '../../services';
 import type { ApiTask, ApiSprint } from '../../services';
 
 const FIBONACCI = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
+
+// Turn a DRF error body ({ detail } or per-field arrays) into a readable line.
+function formatApiError(err: unknown, fallback: string): string {
+  if (!(err instanceof ApiRequestError)) return fallback;
+  const body = err.body as Record<string, unknown> | undefined;
+  if (body?.detail) return String(body.detail);
+  if (body && typeof body === 'object') {
+    const parts: string[] = [];
+    for (const [field, value] of Object.entries(body)) {
+      const text = Array.isArray(value) ? value.join(' ') : String(value);
+      parts.push(field === 'non_field_errors' ? text : `${field}: ${text}`);
+    }
+    if (parts.length > 0) return parts.join(' · ');
+  }
+  return err.message || fallback;
+}
 
 interface ScrumPokerPanelProps {
   tasks: ApiTask[] | null;
@@ -41,17 +57,20 @@ export function ScrumPokerPanel({ tasks, sprints, userMap, canEdit }: ScrumPoker
   };
 
   const saveEdit = async (taskId: number) => {
+    const nextValue = selectedValue || null;
     setSaving(true);
     try {
-      const updated = await tasksService.update(taskId, {
-        scrum_number: selectedValue || null,
-      });
-      setLocalTasks((prev) => prev?.map((t) => (t.id_task === taskId ? updated : t)) ?? null);
+      const updated = await tasksService.update(taskId, { scrum_number: nextValue });
+      // Merge over the previous task so the new value always reflects, even if the
+      // backend response omits scrum_number for some tasks.
+      setLocalTasks((prev) => prev?.map((t) => (t.id_task === taskId ? { ...t, ...updated, scrum_number: nextValue } : t)) ?? null);
       setEditingTaskId(null);
       setSelectedValue('');
       toast.success('Story points actualizados');
-    } catch {
-      toast.error('No se pudo actualizar los story points');
+    } catch (err) {
+      // Surface the real reason — the backend often rejects updates to tasks in a
+      // sprint or already completed (e.g. date validation), which we can't see otherwise.
+      toast.error(formatApiError(err, 'No se pudo actualizar los story points'));
     } finally {
       setSaving(false);
     }

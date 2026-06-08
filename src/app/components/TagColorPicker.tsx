@@ -154,7 +154,7 @@ export function TagColorPicker({ value, onChange }: TagColorPickerProps) {
     <div className="space-y-4">
       {/* Preview + hex */}
       <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-[6px] border border-border shrink-0" style={{ backgroundColor: value }} />
+        <div className="h-10 w-10 rounded-md border border-border shrink-0" style={{ backgroundColor: value }} />
         <div className="flex-1">
           {editingHex ? (
             <input
@@ -167,7 +167,7 @@ export function TagColorPicker({ value, onChange }: TagColorPickerProps) {
                 setEditingHex(false);
               }}
               onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-              className="w-full h-7 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px] font-mono"
+              className="w-full h-7 rounded-sm border border-border bg-surface-secondary px-2 text-[11px] font-mono"
               placeholder="#000000"
             />
           ) : (

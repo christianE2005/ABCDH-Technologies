@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   X, Calendar, User, MessageSquare, AlertTriangle,
-  GitCommit, Send, Loader2, Pencil, Trash2, Plus,
+  GitCommit, Send, Loader2, Pencil, Trash2, Plus, Check, ListChecks, Square, CheckSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { tasksService } from '../../services';
-import type { ApiTask, ApiTaskStatus, ApiTaskPriority, ApiTaskComment, ApiTaskWarning, ApiTaskAssignment, ApiTag } from '../../services';
+import type { ApiTask, ApiTaskStatus, ApiTaskPriority, ApiTaskComment, ApiTaskWarning, ApiTaskAssignment, ApiTag, ApiSubtask } from '../../services';
 import { WarningBadge } from './WarningBadge';
 import { TaskAssigneePicker } from './TaskAssigneePicker';
 import { DatePickerField } from './DatePickerField';
@@ -16,8 +16,6 @@ import { useAuth } from '../context/AuthContext';
 const DONE_STATUS_NAMES = new Set(['done', 'completada', 'completado']);
 const EMPTY_ASSIGNABLE_USERS: Array<{ id: number; name: string }> = [];
 const EMPTY_TASK_ASSIGNMENTS: ApiTaskAssignment[] = [];
-export const TASK_REOPEN_ID_STORAGE_KEY = 'pip_reopen_task_id';
-export const TASK_REOPEN_PATH_STORAGE_KEY = 'pip_reopen_task_path';
 
 function formatCommentTimestamp(value: string) {
   const parsed = new Date(value);
@@ -74,10 +72,19 @@ export function TaskDetailPanel({
     return Number.isNaN(parsed) ? null : parsed;
   }, [user]);
 
+  // Lead roles (PM / Scrum Master / PO) can moderate warnings & comments.
+  const canModerate = canDeleteTask;
+
   const [comments, setComments] = useState<ApiTaskComment[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [warnings, setWarnings] = useState<ApiTaskWarning[]>([]);
   const [loadingWarnings, setLoadingWarnings] = useState(false);
+  const [subtasks, setSubtasks] = useState<ApiSubtask[]>([]);
+  const [loadingSubtasks, setLoadingSubtasks] = useState(false);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [addingSubtask, setAddingSubtask] = useState(false);
+  const [togglingSubtaskId, setTogglingSubtaskId] = useState<number | null>(null);
+  const [deletingSubtaskId, setDeletingSubtaskId] = useState<number | null>(null);
   const [newComment, setNewComment] = useState('');
   const [sendingComment, setSendingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
@@ -141,8 +148,22 @@ export function TaskDetailPanel({
     setNewComment('');
     setComments([]);
     setWarnings([]);
+    setSubtasks([]);
+    setNewSubtaskTitle('');
     setLoadingComments(true);
     setLoadingWarnings(true);
+    setLoadingSubtasks(true);
+
+    tasksService.listSubtasks(targetTaskId)
+      .then((nextSubtasks) => {
+        if (!cancelled) setSubtasks(nextSubtasks.slice().sort((a, b) => a.order - b.order || a.id_subtask - b.id_subtask));
+      })
+      .catch(() => {
+        if (!cancelled) setSubtasks([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSubtasks(false);
+      });
 
     tasksService.listComments(targetTaskId)
       .then((nextComments) => {
@@ -282,26 +303,66 @@ export function TaskDetailPanel({
     }
   };
 
-  const handleDeleteWarning = async (warningId: number) => {
-    if (!canEditTask) {
-      toast.error('Tu rol no puede eliminar warnings.');
+  const handleResolveWarning = async (warningId: number) => {
+    if (!canModerate) {
+      toast.error('Solo PM o Scrum Master pueden resolver warnings.');
       return;
     }
-    if (!window.confirm('¿Eliminar este warning?')) return;
+    if (!window.confirm('¿Marcar este warning como resuelto?')) return;
 
     setDeletingWarningId(warningId);
     try {
-      await tasksService.deleteWarning(warningId);
-      if (task) {
-        sessionStorage.setItem(TASK_REOPEN_ID_STORAGE_KEY, String(task.id_task));
-        sessionStorage.setItem(TASK_REOPEN_PATH_STORAGE_KEY, window.location.pathname);
-      }
-      toast.success('Warning eliminado.');
-      window.location.reload();
+      await tasksService.updateWarning(warningId, { status: 'resolved' });
+      // Update in place — no full reload, so the user stays on the same task/page.
+      setWarnings((prev) => prev.filter((w) => w.id_warning !== warningId));
+      toast.success('Warning resuelto.');
     } catch {
-      toast.error('No se pudo eliminar el warning.');
+      toast.error('No se pudo resolver el warning.');
     } finally {
       setDeletingWarningId(null);
+    }
+  };
+
+  // ── Subtasks ──────────────────────────────────────────────────────────────
+  const handleAddSubtask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!task || !newSubtaskTitle.trim()) return;
+    setAddingSubtask(true);
+    try {
+      const nextOrder = subtasks.reduce((max, s) => Math.max(max, s.order), 0) + 1;
+      const created = await tasksService.createSubtask({ parent_task: task.id_task, title: newSubtaskTitle.trim(), order: nextOrder });
+      setSubtasks((prev) => [...prev, created]);
+      setNewSubtaskTitle('');
+    } catch {
+      toast.error('No se pudo agregar la subtarea.');
+    } finally {
+      setAddingSubtask(false);
+    }
+  };
+
+  const handleToggleSubtask = async (subtask: ApiSubtask) => {
+    if (!canEditTask) return;
+    setTogglingSubtaskId(subtask.id_subtask);
+    try {
+      const updated = await tasksService.updateSubtask(subtask.id_subtask, { is_completed: !subtask.is_completed });
+      setSubtasks((prev) => prev.map((s) => (s.id_subtask === subtask.id_subtask ? { ...s, ...updated, is_completed: !subtask.is_completed } : s)));
+    } catch {
+      toast.error('No se pudo actualizar la subtarea.');
+    } finally {
+      setTogglingSubtaskId(null);
+    }
+  };
+
+  const handleDeleteSubtask = async (subtaskId: number) => {
+    if (!canEditTask) return;
+    setDeletingSubtaskId(subtaskId);
+    try {
+      await tasksService.deleteSubtask(subtaskId);
+      setSubtasks((prev) => prev.filter((s) => s.id_subtask !== subtaskId));
+    } catch {
+      toast.error('No se pudo eliminar la subtarea.');
+    } finally {
+      setDeletingSubtaskId(null);
     }
   };
 
@@ -415,12 +476,12 @@ export function TaskDetailPanel({
                 {!isEditingTask && canEditTask && (
                   <button
                     onClick={() => setIsEditingTask(true)}
-                    className="inline-flex items-center gap-1 h-6 px-2 border border-border rounded-[3px] text-[10px] text-muted-foreground hover:text-foreground"
+                    className="inline-flex items-center gap-1 h-6 px-2 border border-border rounded-sm text-[10px] text-muted-foreground hover:text-foreground"
                   >
                     <Pencil className="w-3 h-3" /> Editar
                   </button>
                 )}
-                <button onClick={onClose} className="p-1 rounded-[3px] hover:bg-surface-secondary transition-colors">
+                <button onClick={onClose} className="p-1 rounded-sm hover:bg-surface-secondary transition-colors">
                   <X className="w-3.5 h-3.5 text-muted-foreground" />
                 </button>
               </div>
@@ -438,17 +499,18 @@ export function TaskDetailPanel({
                       required
                       value={taskForm.title}
                       onChange={(e) => setTaskForm((prev) => ({ ...prev, title: e.target.value }))}
-                      className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                      className="w-full h-7 bg-surface-secondary border border-border rounded-sm px-2.5 text-[11px]"
                     />
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-medium text-foreground mb-1">Descripcion</label>
                     <textarea
-                      rows={3}
+                      rows={6}
                       value={taskForm.description}
                       onChange={(e) => setTaskForm((prev) => ({ ...prev, description: e.target.value }))}
-                      className="w-full bg-surface-secondary border border-border rounded-[3px] px-2.5 py-1.5 text-[11px] resize-none"
+                      placeholder="Puedes usar varias líneas; se conservan los saltos de línea."
+                      className="w-full bg-surface-secondary border border-border rounded-sm px-2.5 py-1.5 text-[11px] resize-y leading-relaxed whitespace-pre-wrap placeholder:text-muted-foreground/50"
                     />
                   </div>
 
@@ -457,7 +519,7 @@ export function TaskDetailPanel({
                     <select
                       value={taskForm.priority}
                       onChange={(e) => setTaskForm((prev) => ({ ...prev, priority: e.target.value }))}
-                      className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                      className="w-full h-7 bg-surface-secondary border border-border rounded-sm px-2.5 text-[11px]"
                     >
                       <option value="">Sin prioridad</option>
                       {priorities.map((p) => (
@@ -514,21 +576,21 @@ export function TaskDetailPanel({
                         type="button"
                         onClick={handleDeleteTask}
                         disabled={deletingTask}
-                        className="h-7 px-3 border border-destructive/30 rounded-[3px] text-[11px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                        className="h-7 px-3 border border-destructive/30 rounded-sm text-[11px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
                       >
                         {deletingTask ? 'Eliminando…' : 'Eliminar'}
                       </button>
                     )}                    <button
                       type="button"
                       onClick={() => setIsEditingTask(false)}
-                      className="h-7 px-3 border border-border rounded-[3px] text-[11px]"
+                      className="h-7 px-3 border border-border rounded-sm text-[11px]"
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
                       disabled={savingTask}
-                      className="h-7 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px] disabled:opacity-50"
+                      className="h-7 px-3 bg-primary text-primary-foreground rounded-sm text-[11px] disabled:opacity-50"
                     >
                       {savingTask ? 'Guardando...' : 'Guardar cambios'}
                     </button>
@@ -540,13 +602,13 @@ export function TaskDetailPanel({
                     <h2 className="text-[14px] font-semibold text-foreground leading-snug">{task.title}</h2>
                   </div>
                   {task.description && (
-                    <p className="text-[12px] text-muted-foreground mt-1.5 leading-relaxed">{task.description}</p>
+                    <p className="text-[12px] text-muted-foreground mt-1.5 leading-relaxed whitespace-pre-wrap break-words">{task.description}</p>
                   )}
                 </div>
               )}
 
               {/* Metadata */}
-              <div className="bg-surface-secondary/50 rounded-[4px] p-3 space-y-2">
+              <div className="bg-surface-secondary/50 rounded-md p-3 space-y-2">
                 {assignedNames.length > 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-[0.06em]">Asignado</span>
@@ -595,7 +657,7 @@ export function TaskDetailPanel({
                     value={tagSearch}
                     onChange={(e) => setTagSearch(e.target.value)}
                     placeholder="Buscar tags..."
-                    className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                    className="w-full h-7 bg-surface-secondary border border-border rounded-sm px-2.5 text-[11px]"
                     disabled={!canEditTask}
                   />
                   <div className="flex flex-wrap gap-1.5">
@@ -627,7 +689,7 @@ export function TaskDetailPanel({
                           type="button"
                           onClick={() => void handleAddTaskTag(tag.id_tag)}
                           disabled={savingTagId === tag.id_tag}
-                          className="inline-flex items-center gap-1 rounded-[3px] border border-border bg-card px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-50"
                         >
                           {savingTagId === tag.id_tag ? <Loader2 className="w-3 h-3 animate-spin" /> : <span className="h-2 w-2 rounded-full" style={{ backgroundColor: tag.color || '#56697f' }} />}
                           {tag.name}
@@ -639,12 +701,83 @@ export function TaskDetailPanel({
                     <button
                       type="button"
                       onClick={() => setShowNewTagForm(true)}
-                      className="inline-flex items-center gap-1 rounded-[3px] border border-dashed border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors mt-0.5"
+                      className="inline-flex items-center gap-1 rounded-sm border border-dashed border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors mt-0.5"
                     >
                       <Plus className="w-3 h-3" /> Nuevo tag
                     </button>
                   )}
                 </div>
+              </div>
+
+              {/* Subtasks */}
+              <div>
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-2 flex items-center gap-1.5">
+                  <ListChecks className="w-3 h-3" /> Subtareas
+                  {subtasks.length > 0 && (
+                    <span className="text-muted-foreground/70 normal-case tracking-normal">
+                      ({subtasks.filter((s) => s.is_completed).length}/{subtasks.length})
+                    </span>
+                  )}
+                </p>
+                {loadingSubtasks ? (
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Cargando…
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {subtasks.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground">Sin subtareas.</p>
+                    ) : (
+                      subtasks.map((s) => (
+                        <div key={s.id_subtask} className="flex items-center gap-2 rounded-sm border border-border bg-surface-secondary/40 px-2 py-1.5">
+                          <button
+                            type="button"
+                            onClick={() => void handleToggleSubtask(s)}
+                            disabled={!canEditTask || togglingSubtaskId === s.id_subtask}
+                            className="shrink-0 text-muted-foreground hover:text-primary disabled:opacity-50 transition-colors"
+                            title={s.is_completed ? 'Marcar pendiente' : 'Marcar completada'}
+                          >
+                            {togglingSubtaskId === s.id_subtask
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : s.is_completed
+                                ? <CheckSquare className="w-3.5 h-3.5 text-success" />
+                                : <Square className="w-3.5 h-3.5" />}
+                          </button>
+                          <span className={`flex-1 text-[11px] break-words ${s.is_completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{s.title}</span>
+                          {canEditTask && (
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteSubtask(s.id_subtask)}
+                              disabled={deletingSubtaskId === s.id_subtask}
+                              className="shrink-0 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                              title="Eliminar subtarea"
+                            >
+                              {deletingSubtaskId === s.id_subtask ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    )}
+                    {canEditTask && (
+                      <form onSubmit={handleAddSubtask} className="flex gap-1.5 pt-1">
+                        <input
+                          type="text"
+                          value={newSubtaskTitle}
+                          onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                          placeholder="Nueva subtarea…"
+                          className="flex-1 h-7 bg-surface-secondary border border-border rounded-sm px-2.5 text-[11px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                        />
+                        <button
+                          type="submit"
+                          disabled={addingSubtask || !newSubtaskTitle.trim()}
+                          className="h-7 px-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-sm text-[11px] font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+                        >
+                          {addingSubtask ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Comments */}
@@ -661,30 +794,31 @@ export function TaskDetailPanel({
                   ) : (
                     <div className="space-y-2">
                       {comments.map((c) => (
-                        <div key={c.id_comment} className="p-2.5 bg-surface-secondary/50 rounded-[4px]">
+                        <div key={c.id_comment} className="p-2.5 bg-surface-secondary/50 rounded-md">
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-[10px] font-medium text-foreground">
                               {c.user ? (userMap.get(c.user) ?? `User #${c.user}`) : 'Sistema'}
                             </span>
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] text-muted-foreground">{formatCommentTimestamp(c.created_at)}</span>
+                              {/* Authors can edit their own comment; lead roles (PM/SM/PO) can delete any. */}
                               {currentUserId != null && c.user === currentUserId && (
-                                <>
-                                  <button
-                                    onClick={() => handleStartEditComment(c)}
-                                    className="text-muted-foreground hover:text-foreground"
-                                    title="Editar comentario"
-                                  >
-                                    <Pencil className="w-3 h-3" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteComment(c.id_comment)}
-                                    className="text-muted-foreground hover:text-destructive"
-                                    title="Eliminar comentario"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                </>
+                                <button
+                                  onClick={() => handleStartEditComment(c)}
+                                  className="text-muted-foreground hover:text-foreground"
+                                  title="Editar comentario"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                              )}
+                              {((currentUserId != null && c.user === currentUserId) || canModerate) && (
+                                <button
+                                  onClick={() => handleDeleteComment(c.id_comment)}
+                                  className="text-muted-foreground hover:text-destructive"
+                                  title="Eliminar comentario"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
                               )}
                             </div>
                           </div>
@@ -695,12 +829,12 @@ export function TaskDetailPanel({
                                 type="text"
                                 value={editingCommentContent}
                                 onChange={(e) => setEditingCommentContent(e.target.value)}
-                                className="w-full h-7 bg-card border border-border rounded-[3px] px-2 text-[11px]"
+                                className="w-full h-7 bg-card border border-border rounded-sm px-2 text-[11px]"
                               />
                               <div className="flex items-center gap-1.5">
                                 <button
                                   onClick={() => handleUpdateComment(c.id_comment)}
-                                  className="h-6 px-2 bg-primary text-primary-foreground rounded-[3px] text-[10px]"
+                                  className="h-6 px-2 bg-primary text-primary-foreground rounded-sm text-[10px]"
                                 >
                                   Guardar
                                 </button>
@@ -709,7 +843,7 @@ export function TaskDetailPanel({
                                     setEditingCommentId(null);
                                     setEditingCommentContent('');
                                   }}
-                                  className="h-6 px-2 border border-border rounded-[3px] text-[10px]"
+                                  className="h-6 px-2 border border-border rounded-sm text-[10px]"
                                 >
                                   Cancelar
                                 </button>
@@ -730,12 +864,12 @@ export function TaskDetailPanel({
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       placeholder="Agregar comentario…"
-                      className="flex-1 h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                      className="flex-1 h-7 bg-surface-secondary border border-border rounded-sm px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
                     />
                     <button
                       type="submit"
                       disabled={sendingComment || !newComment.trim()}
-                      className="h-7 px-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50"
+                      className="h-7 px-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-sm text-[11px] font-medium transition-colors disabled:opacity-50"
                     >
                       <Send className="w-3 h-3" />
                     </button>
@@ -751,7 +885,7 @@ export function TaskDetailPanel({
                   </span>
                   <button
                     onClick={onClose}
-                    className="px-3 py-1 bg-surface-secondary hover:bg-accent text-foreground text-[11px] font-medium rounded-[3px] transition-colors"
+                    className="px-3 py-1 bg-surface-secondary hover:bg-accent text-foreground text-[11px] font-medium rounded-sm transition-colors"
                   >
                     Cerrar
                   </button>
@@ -760,45 +894,45 @@ export function TaskDetailPanel({
               </div>
 
               {showWarningsSidePanel && (
-                <div className="flex-1 min-w-0 border-l border-border bg-surface-secondary/20 flex flex-col">
-                  <div className="px-4 py-3 border-b border-border bg-warning/5 shrink-0">
+                <div className="flex-1 min-w-0 border-l border-border bg-card flex flex-col">
+                  <div className="px-4 py-3 border-b border-border bg-warning/10 shrink-0">
                     <p className="text-[11px] font-medium text-foreground flex items-center gap-1.5">
-                      <AlertTriangle className="w-3.5 h-3.5 text-warning" /> Warnings y Conexiones
+                      <AlertTriangle className="w-3.5 h-3.5 text-warning" /> Warnings
+                      {activeWarnings.length > 0 && (
+                        <span className="ml-1 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-warning/20 text-warning text-[10px] font-bold">
+                          {activeWarnings.length}
+                        </span>
+                      )}
                     </p>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {loadingWarnings ? (
                       <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                         <Loader2 className="w-3 h-3 animate-spin" /> Cargando warnings…
                       </div>
                     ) : activeWarnings.length > 0 ? (
-                      <div className="space-y-2">
-                        {activeWarnings.map((w) => (
-                          <div key={w.id_warning} className="p-2.5 bg-warning/5 border border-warning/20 rounded-[4px]">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="text-[11px] text-foreground leading-relaxed">{w.message}</p>
+                      activeWarnings.map((w) => (
+                        <div key={w.id_warning} className="p-3 bg-warning/5 border border-warning/30 rounded-md">
+                          <p className="text-[11px] text-foreground leading-relaxed whitespace-pre-wrap break-words">{w.message}</p>
+                          <div className="flex items-center justify-between gap-2 mt-2">
+                            <span className="text-[10px] text-muted-foreground">{w.created_at.slice(0, 10)}</span>
+                            {canModerate && (
                               <button
                                 type="button"
-                                onClick={() => void handleDeleteWarning(w.id_warning)}
-                                disabled={!canEditTask || deletingWarningId === w.id_warning}
-                                className="inline-flex items-center gap-1 rounded-[3px] border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-[10px] text-destructive hover:bg-destructive/20 disabled:opacity-50"
+                                onClick={() => void handleResolveWarning(w.id_warning)}
+                                disabled={deletingWarningId === w.id_warning}
+                                className="inline-flex items-center gap-1 rounded-sm border border-success/40 bg-success/10 px-2 py-0.5 text-[10px] text-success hover:bg-success/20 disabled:opacity-50 transition-colors"
                               >
-                                {deletingWarningId === w.id_warning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                                Eliminar
+                                {deletingWarningId === w.id_warning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                Marcar resuelto
                               </button>
-                            </div>
-                            <p className="text-[10px] text-muted-foreground mt-1">{w.created_at.slice(0, 10)}</p>
+                            )}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))
                     ) : (
                       <p className="text-[11px] text-muted-foreground">Sin warnings activos.</p>
                     )}
-
-                    <div className="rounded-[4px] border border-dashed border-border p-3">
-                      <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground mb-1">Conexiones de codigo</p>
-                      <p className="text-[11px] text-muted-foreground">Proximamente aqui apareceran referencias de commits, diffs y archivos relacionados a esta tarea.</p>
-                    </div>
                   </div>
                 </div>
               )}
@@ -811,7 +945,7 @@ export function TaskDetailPanel({
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
           <form
             onSubmit={(e) => { e.preventDefault(); void handleCreateAndAddTag(); }}
-            className="w-full max-w-sm rounded-[8px] border border-border bg-card overflow-hidden shadow-lg"
+            className="w-full max-w-sm rounded-lg border border-border bg-card overflow-hidden shadow-lg"
           >
             <div className="px-4 py-3 border-b border-border">
               <h2 className="text-[13px] font-semibold text-foreground">Nuevo tag</h2>
@@ -824,7 +958,7 @@ export function TaskDetailPanel({
                   value={newTagName}
                   onChange={(e) => setNewTagName(e.target.value)}
                   placeholder="ej. Bug, Feature, Urgente…"
-                  className="w-full h-9 rounded-[4px] border border-border bg-surface-secondary px-3 text-[12px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  className="w-full h-9 rounded-md border border-border bg-surface-secondary px-3 text-[12px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50"
                   autoFocus
                 />
               </div>
@@ -838,14 +972,14 @@ export function TaskDetailPanel({
               <button
                 type="button"
                 onClick={() => { setShowNewTagForm(false); setNewTagName(''); setNewTagColor('#56697f'); }}
-                className="h-8 px-3 border border-border rounded-[4px] text-[11px] hover:bg-accent transition-colors"
+                className="h-8 px-3 border border-border rounded-md text-[11px] hover:bg-accent transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={!newTagName.trim() || creatingTag}
-                className="h-8 px-3 bg-primary text-primary-foreground rounded-[4px] text-[11px] disabled:opacity-40 transition-opacity inline-flex items-center gap-1"
+                className="h-8 px-3 bg-primary text-primary-foreground rounded-md text-[11px] disabled:opacity-40 transition-opacity inline-flex items-center gap-1"
               >
                 {creatingTag ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                 Crear tag

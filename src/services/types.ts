@@ -154,6 +154,16 @@ export interface ApiTaskComment {
   created_at: string;
 }
 
+export interface ApiSubtask {
+  id_subtask: number;
+  title: string;
+  description: string | null;
+  order: number;
+  is_completed: boolean;
+  created_at: string;
+  parent_task: number;
+}
+
 export interface ApiActivityLog {
   id_activity: number;
   user: number | null;

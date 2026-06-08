@@ -4,6 +4,8 @@ import { useAuth, UserRole } from '../context/AuthContext';
 import { usersService } from '../../services';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
+import { Button } from '../components/ui/button';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import type { ApiUserAccount } from '../../services';
 import {
   SYSTEM_ROLE_OPTIONS,
@@ -30,6 +32,7 @@ const BATCH_SIZE = 10;
 
 export default function CreateUsers() {
   const { user: currentUser } = useAuth();
+  const reduced = useReducedMotion();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [formData, setFormData] = useState<NewUser>({
     username: '',
@@ -252,9 +255,9 @@ export default function CreateUsers() {
       case 3:
         return 'bg-warning/15 text-warning';
       case 4:
-        return 'bg-primary/15 text-primary';
+        return 'bg-secondary text-foreground';
       default:
-        return 'bg-secondary';
+        return 'bg-secondary text-foreground';
     }
   };
 
@@ -275,24 +278,21 @@ export default function CreateUsers() {
   return (
     <div className="flex flex-col px-4 pb-6 pt-3 max-w-[1600px] gap-4 h-full">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-[13px] font-semibold text-foreground">Gestión de Usuarios</h1>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
+          <h1 className="text-lg font-semibold tracking-[-0.01em] text-foreground">Gestión de Usuarios</h1>
+          <p className="text-[12px] text-muted-foreground mt-0.5">
             Crea y administra usuarios de la plataforma ({filteredUsers.length} total)
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-3 py-2 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[12px] font-semibold transition-colors"
-        >
+        <Button type="button" variant="primary-brand" className="shrink-0" onClick={() => setShowCreateModal(true)}>
           <Plus className="w-3.5 h-3.5" />
           Nuevo Usuario
-        </button>
+        </Button>
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-card border border-border rounded-[3px] p-3">
+      <div className="bg-card border border-border rounded-lg p-3">
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center relative">
           {/* Search bar */}
           <div className="flex-1 relative">
@@ -305,7 +305,8 @@ export default function CreateUsers() {
                 setSearchTerm(e.target.value);
                 setCurrentPage(0);
               }}
-              className="w-full bg-input-background border border-input rounded-[3px] pl-8 pr-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
+              aria-label="Buscar usuarios"
+              className="w-full bg-input-background border border-input rounded-sm pl-8 pr-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand"
             />
           </div>
 
@@ -313,7 +314,9 @@ export default function CreateUsers() {
           <div className="relative">
             <button
               onClick={() => setShowFilterPopup(!showFilterPopup)}
-              className="bg-input-background border border-input rounded-[3px] px-3 py-2 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20 hover:bg-secondary/30 transition-colors w-24"
+              aria-expanded={showFilterPopup}
+              aria-haspopup="true"
+              className="bg-input-background border border-input rounded-sm px-3 py-2 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand hover:bg-secondary/30 transition-colors w-24"
             >
               Filtrar
             </button>
@@ -323,13 +326,13 @@ export default function CreateUsers() {
               <motion.div
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="absolute top-full mt-2 right-0 bg-card border border-border rounded-[3px] shadow-lg z-50 p-3 min-w-[280px]"
+                className="absolute top-full mt-2 right-0 bg-card border border-border rounded-sm shadow-e2 z-50 p-3 min-w-[280px]"
                 onClick={(e) => e.stopPropagation()}
               >
                 <style>{`
                   .filter-popup input[type="checkbox"],
                   .filter-popup input[type="radio"] {
-                    accent-color: var(--primary);
+                    accent-color: var(--muted-foreground);
                     cursor: pointer;
                   }
                 `}</style>
@@ -338,7 +341,7 @@ export default function CreateUsers() {
                   <div>
                     <p className="text-[11px] font-semibold text-foreground/70 mb-2">FILTRAR POR ROL</p>
                     <div className="space-y-2">
-                      <label className="flex items-center gap-2.5 px-2 py-1.5 rounded-[2px] hover:bg-secondary/50 transition-colors cursor-pointer">
+                      <label className="flex items-center gap-2.5 px-2 py-1.5 rounded-sm hover:bg-secondary/50 transition-colors cursor-pointer">
                         <input
                           type="checkbox"
                           checked={roleFilter.length === 0}
@@ -346,12 +349,12 @@ export default function CreateUsers() {
                             setRoleFilter([]);
                             setCurrentPage(0);
                           }}
-                          className="w-4 h-4 rounded-[2px] cursor-pointer"
+                          className="w-4 h-4 rounded-sm cursor-pointer"
                         />
                         <span className="text-[12px] text-foreground">Todos los roles</span>
                       </label>
                       {SYSTEM_ROLE_OPTIONS.map((role) => (
-                        <label key={role.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-[2px] hover:bg-secondary/50 transition-colors cursor-pointer">
+                        <label key={role.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-sm hover:bg-secondary/50 transition-colors cursor-pointer">
                           <input
                             type="checkbox"
                             checked={roleFilter.includes(role.id)}
@@ -365,7 +368,7 @@ export default function CreateUsers() {
                               });
                               setCurrentPage(0);
                             }}
-                            className="w-4 h-4 rounded-[2px] cursor-pointer"
+                            className="w-4 h-4 rounded-sm cursor-pointer"
                           />
                           <span className="text-[12px] text-foreground">{role.label}</span>
                         </label>
@@ -381,7 +384,7 @@ export default function CreateUsers() {
                         { id: 'role', label: 'Rol' },
                         { id: 'name', label: 'Nombre' },
                       ].map((sort) => (
-                        <label key={sort.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-[2px] hover:bg-secondary/50 transition-colors cursor-pointer">
+                        <label key={sort.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-sm hover:bg-secondary/50 transition-colors cursor-pointer">
                           <input
                             type="radio"
                             name="sort"
@@ -410,7 +413,7 @@ export default function CreateUsers() {
       )}
 
       {/* Users List */}
-      <div className="bg-card border border-border rounded-[3px] p-5 flex flex-col flex-1 min-h-0">
+      <div className="bg-card border border-border rounded-lg p-5 flex flex-col flex-1 min-h-0">
         <div className="flex items-center justify-between mb-3.5">
           <h2 className="text-[13px] font-semibold text-foreground">
             Usuarios {filteredUsers.length > 0 && `(${filteredUsers.length})`}
@@ -430,8 +433,8 @@ export default function CreateUsers() {
           </div>
         ) : filteredUsers.length === 0 ? (
           <div className="flex flex-col items-center justify-center flex-1 text-center">
-            <div className="w-12 h-12 rounded-[3px] bg-primary/10 flex items-center justify-center mb-2.5">
-              <User className="w-5 h-5 text-primary/40" />
+            <div className="w-12 h-12 rounded-md bg-secondary flex items-center justify-center mb-2.5">
+              <User className="w-5 h-5 text-muted-foreground" />
             </div>
             <p className="text-[13px] text-muted-foreground">
               {searchTerm || roleFilter.length > 0 ? 'No hay usuarios que coincidan' : 'No hay usuarios en el sistema'}
@@ -440,7 +443,7 @@ export default function CreateUsers() {
         ) : (
           <div className="flex-1 overflow-y-auto pr-2 min-h-0" style={{
             scrollbarWidth: 'thin',
-            scrollbarColor: 'var(--primary) var(--input-background)',
+            scrollbarColor: 'var(--muted-foreground) var(--input-background)',
           }}>
             <style>{`
               .users-scroll::-webkit-scrollbar {
@@ -451,15 +454,15 @@ export default function CreateUsers() {
                 border-radius: 3px;
               }
               .users-scroll::-webkit-scrollbar-thumb {
-                background: var(--primary);
+                background: var(--muted-foreground);
                 border-radius: 3px;
               }
               .users-scroll::-webkit-scrollbar-thumb:hover {
-                background: var(--primary-hover);
+                background: var(--foreground);
               }
             `}</style>
             <div className="users-scroll space-y-2 pr-1">
-              {paginatedUsers.map((user) => {
+              {paginatedUsers.map((user, idx) => {
                 const isCurrentUser = currentUser?.id === String(user.id_user);
               const isTargetAdmin = user.system_role === 1;
               const isEditing = editingUser?.id === user.id_user;
@@ -467,9 +470,10 @@ export default function CreateUsers() {
               return (
                 <motion.div
                   key={user.id_user}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="p-3 rounded-[3px] border border-border hover:border-primary/40 hover:bg-accent/20 transition-colors"
+                  initial={reduced ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: reduced ? 0 : 0.2, delay: reduced ? 0 : Math.min(idx, 10) * 0.03, ease: [0.16, 1, 0.3, 1] }}
+                  className="p-3 rounded-md border border-border hover:bg-surface-secondary transition-colors"
                 >
                   {isEditing && editingUser ? (
                     <div className="space-y-2">
@@ -479,7 +483,7 @@ export default function CreateUsers() {
                           value={editingUser.username}
                           onChange={(e) => setEditingUser({ ...editingUser, username: e.target.value })}
                           placeholder="Usuario"
-                          className="flex-1 bg-input-background border border-input rounded-[3px] px-2.5 py-1.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          className="flex-1 bg-input-background border border-input rounded-sm px-2.5 py-1.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand"
                         />
                       </div>
                       <div className="flex items-center gap-2">
@@ -488,14 +492,14 @@ export default function CreateUsers() {
                           value={editingUser.email}
                           onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
                           placeholder="Correo"
-                          className="flex-1 bg-input-background border border-input rounded-[3px] px-2.5 py-1.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          className="flex-1 bg-input-background border border-input rounded-sm px-2.5 py-1.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand"
                         />
                       </div>
                       <div className="flex items-center gap-2">
                         <select
                           value={editingUser.role}
                           onChange={(e) => setEditingUser({ ...editingUser, role: Number(e.target.value) })}
-                          className="flex-1 bg-input-background border border-input rounded-[3px] px-2.5 py-1.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
+                          className="flex-1 bg-input-background border border-input rounded-sm px-2.5 py-1.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand appearance-none"
                         >
                           {SYSTEM_ROLE_OPTIONS.map((role) => (
                             <option key={role.id} value={role.id}>{role.label}</option>
@@ -508,21 +512,21 @@ export default function CreateUsers() {
                           value={editingUser.password ?? ''}
                           onChange={(e) => setEditingUser({ ...editingUser, password: e.target.value })}
                           placeholder="Nueva contraseña. Dejar vacío si no requiere cambios."
-                          className="flex-1 bg-input-background border border-input rounded-[3px] px-2.5 py-1.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          className="flex-1 bg-input-background border border-input rounded-sm px-2.5 py-1.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand"
                         />
                       </div>
                       <div className="flex items-center gap-2 pt-2 justify-end">
                         <button
                           onClick={() => setEditingUser(null)}
                           disabled={editSaving}
-                          className="px-2.5 py-1 rounded-[3px] text-xs font-medium bg-secondary hover:bg-secondary/80 text-foreground transition-colors disabled:opacity-50"
+                          className="px-2.5 py-1 rounded-sm text-xs font-medium bg-secondary hover:bg-secondary/80 text-foreground transition-colors disabled:opacity-50"
                         >
                           Cancelar
                         </button>
                         <button
                           onClick={handleEditSave}
                           disabled={editSaving}
-                          className="px-2.5 py-1 rounded-[3px] text-xs font-medium bg-primary hover:bg-primary-hover text-primary-foreground transition-colors disabled:opacity-50 flex items-center gap-1"
+                          className="px-2.5 py-1 rounded-sm text-xs font-medium bg-primary hover:bg-primary-hover text-primary-foreground transition-colors disabled:opacity-50 flex items-center gap-1"
                         >
                           {editSaving && <Loader2 className="w-3 h-3 animate-spin" />}
                           Guardar
@@ -537,7 +541,7 @@ export default function CreateUsers() {
                             {user.username}
                           </p>
                           {isCurrentUser && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-medium shrink-0">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-secondary text-foreground font-medium shrink-0">
                               Tú
                             </span>
                           )}
@@ -546,7 +550,7 @@ export default function CreateUsers() {
                           {user.email}
                         </p>
                         <div className="flex items-center gap-2">
-                          <span className={`inline-block px-2 py-0.5 rounded-[2px] text-[11px] font-medium ${getRoleColor(user.system_role)}`}>
+                          <span className={`inline-block px-2 py-0.5 rounded-sm text-[11px] font-medium ${getRoleColor(user.system_role)}`}>
                             {getSystemRoleLabel(user.system_role, user.system_role_name)}
                           </span>
                         </div>
@@ -561,14 +565,14 @@ export default function CreateUsers() {
                                 email: user.email,
                                 role: user.system_role,
                               })}
-                              className="p-1.5 rounded-[3px] hover:bg-primary/10 text-primary/60 hover:text-primary transition-colors"
+                              className="p-1.5 rounded-sm hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
                               title="Editar"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => handleDelete(user.id_user)}
-                              className="p-1.5 rounded-[3px] hover:bg-destructive/10 text-destructive/60 hover:text-destructive transition-colors"
+                              className="p-1.5 rounded-sm hover:bg-destructive/10 text-destructive/60 hover:text-destructive transition-colors"
                               title="Eliminar"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -590,7 +594,7 @@ export default function CreateUsers() {
           <button
             onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
             disabled={currentPage === 0 || totalPages <= 1}
-            className="px-3 py-1.5 rounded-[3px] text-[12px] font-medium bg-secondary hover:bg-secondary/80 text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 rounded-sm text-[12px] font-medium bg-secondary hover:bg-secondary/80 text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Anterior
           </button>
@@ -598,9 +602,9 @@ export default function CreateUsers() {
             <button
               key={i}
               onClick={() => setCurrentPage(i)}
-              className={`px-2.5 py-1.5 rounded-[3px] text-[12px] font-medium transition-colors ${
+              className={`px-2.5 py-1.5 rounded-sm text-[12px] font-medium transition-colors ${
                 currentPage === i
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-foreground text-background'
                   : 'bg-secondary hover:bg-secondary/80 text-foreground'
               }`}
             >
@@ -610,7 +614,7 @@ export default function CreateUsers() {
           <button
             onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
             disabled={currentPage === totalPages - 1 || totalPages <= 1}
-            className="px-3 py-1.5 rounded-[3px] text-[12px] font-medium bg-secondary hover:bg-secondary/80 text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 rounded-sm text-[12px] font-medium bg-secondary hover:bg-secondary/80 text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Siguiente
           </button>
@@ -623,14 +627,14 @@ export default function CreateUsers() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-card border border-border rounded-[4px] p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            className="bg-card border border-border rounded-xl shadow-e3 p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-[15px] font-semibold text-foreground">Crear Nuevo Usuario</h2>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="inline-flex h-8 items-center justify-center rounded-[4px] border border-border bg-card px-3 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-surface-secondary"
+                className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-card px-3 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-secondary"
               >
                 <X className="mr-1 w-4 h-4" /> Cerrar
               </button>
@@ -650,7 +654,7 @@ export default function CreateUsers() {
                     value={formData.username}
                     onChange={handleInputChange}
                     placeholder="juan.perez"
-                    className="w-full bg-input-background border border-input rounded-[3px] pl-8 pr-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                    className="w-full bg-input-background border border-input rounded-sm pl-8 pr-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand transition-colors"
                     autoFocus
                   />
                 </div>
@@ -669,7 +673,7 @@ export default function CreateUsers() {
                     value={formData.email}
                     onChange={handleInputChange}
                     placeholder="juan@techmahindra.com"
-                    className="w-full bg-input-background border border-input rounded-[3px] pl-8 pr-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                    className="w-full bg-input-background border border-input rounded-sm pl-8 pr-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand transition-colors"
                   />
                 </div>
               </div>
@@ -687,7 +691,7 @@ export default function CreateUsers() {
                     value={formData.password}
                     onChange={handleInputChange}
                     placeholder="••••••••"
-                    className="w-full bg-input-background border border-input rounded-[3px] pl-8 pr-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                    className="w-full bg-input-background border border-input rounded-sm pl-8 pr-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand transition-colors"
                   />
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1">
@@ -705,7 +709,7 @@ export default function CreateUsers() {
                   <select
                     value={formData.role}
                     onChange={handleRoleChange}
-                    className="w-full bg-input-background border border-input rounded-[3px] pl-8 pr-3 py-2 text-[13px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors appearance-none"
+                    className="w-full bg-input-background border border-input rounded-sm pl-8 pr-3 py-2 text-[13px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand transition-colors appearance-none"
                   >
                     {SYSTEM_ROLE_OPTIONS.map((role) => (
                       <option key={role.id} value={role.role}>{role.label}</option>
@@ -719,14 +723,14 @@ export default function CreateUsers() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-3 py-2 rounded-[3px] border border-border text-[12px] font-medium text-foreground hover:bg-surface-secondary transition-colors"
+                  className="flex-1 px-3 py-2 rounded-sm border border-border text-[12px] font-medium text-foreground hover:bg-surface-secondary transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-3 py-2 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground rounded-[3px] text-[12px] font-semibold transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-3 py-2 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground rounded-sm text-[12px] font-semibold transition-colors flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>

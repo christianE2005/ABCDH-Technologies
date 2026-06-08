@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Navigate, Outlet } from 'react-router';
 import { Sidebar } from './Sidebar';
+import { MobileNav } from './MobileNav';
 import { Topbar } from './Topbar';
 import { CommandPalette } from './CommandPalette';
 import { PageTransition } from './PageTransition';
@@ -10,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 
 export function AppLayout() {
   const { loading, isAuthenticated } = useAuth();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   useGlobalShortcuts();
 
   if (loading) {
@@ -24,8 +27,9 @@ export function AppLayout() {
     <div className="flex h-screen overflow-hidden bg-background">
       <ScrollToTop />
       <Sidebar />
+      <MobileNav open={mobileNavOpen} onOpenChange={setMobileNavOpen} />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <Topbar />
+        <Topbar onMenuClick={() => setMobileNavOpen(true)} />
         <div className="flex-1 flex overflow-hidden">
           <main className="flex-1 overflow-y-auto min-w-0 scrollbar-app">
             <ErrorBoundary>

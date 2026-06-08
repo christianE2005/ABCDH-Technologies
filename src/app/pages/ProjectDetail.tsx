@@ -1,11 +1,20 @@
-﻿import { useState, useEffect, useMemo } from 'react';
+﻿import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Calendar, Users, Clock, CheckCircle2,
   AlertTriangle, UserPlus, RefreshCw, List, Trash2, Settings2, Pencil, Flag, Check, X as XIcon, Plus,
+  GripVertical, TrendingDown, Gauge,
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import {
+  DndContext, closestCenter, type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, arrayMove, useSortable, verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { StatusBadge } from '../components/StatusBadge';
 import { DatePickerField } from '../components/DatePickerField';
 import { KPICard } from '../components/KPICard';
@@ -16,10 +25,12 @@ import { ProgressBar } from '../components/ProgressBar';
 import { AssignResponsibleModal, type AssignCandidate } from '../components/AssignResponsibleModal';
 import { AddMemberModal } from '../components/AddMemberModal';
 import {
-  useApiBoards, useApiProjectMembers, useApiUsers, useApiTasks, useApiRoles, useApiSprints, useApiMilestones,
+  useApiBoards, useApiBoardColumns, useApiProjectMembers, useApiUsers, useApiTasks, useApiRoles, useApiSprints, useApiMilestones,
 } from '../hooks/useProjectData';
 import { projectsService, tasksService, usersService } from '../../services';
 import type { ApiProject, ApiTask, ApiTaskAssignment, ApiUserAccount } from '../../services';
+import { getProjectHealth, type ProjectHealth } from '../utils/projectHealth';
+import { buildBurndownSeries, parseStoryPoints } from '../utils/burndown';
 import { useAuth } from '../context/AuthContext';
 import { GitHubReposView } from '../components/GitHubReposView';
 import { CodeReviewPanel } from '../components/CodeReviewPanel';
@@ -36,6 +47,29 @@ import {
   getUserGithubConnectionState,
   isStakeholderSystemUser,
 } from '../utils/projectPermissions';
+
+// Sortable wrapper for a milestone row (drag-and-drop reordering in edit mode).
+function SortableMilestone({
+  id,
+  disabled,
+  children,
+}: {
+  id: number;
+  disabled: boolean;
+  // dnd-kit's attribute/listener types aren't index-signature compatible, so keep this loose.
+  children: (handle: { attributes: Record<string, unknown>; listeners: Record<string, unknown> | undefined }) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+  const handle = { attributes: attributes as unknown as Record<string, unknown>, listeners: listeners as unknown as Record<string, unknown> | undefined };
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1, position: 'relative', zIndex: isDragging ? 10 : undefined }}
+    >
+      {children(handle)}
+    </div>
+  );
+}
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -82,6 +116,14 @@ export default function ProjectDetail() {
   // ── Sprints (for project end date validation) ─────────────────────────────
   const { data: sprints } = useApiSprints(projectId);
 
+  // ── Board columns (to detect "done" tasks sitting in a final column) ───────
+  const { data: boardColumns } = useApiBoardColumns();
+  const projectBoardIds = useMemo(() => new Set((boards ?? []).map((b) => b.id_board)), [boards]);
+  const finalColumnIds = useMemo(
+    () => new Set((boardColumns ?? []).filter((c) => projectBoardIds.has(c.board) && c.is_final).map((c) => c.id_column)),
+    [boardColumns, projectBoardIds],
+  );
+
   // ── Milestones (for overview) ─────────────────────────────────────────────
   const { data: overviewMilestones, refetch: refetchMilestones } = useApiMilestones(projectId);
   const [milestonesEditing, setMilestonesEditing] = useState(false);
@@ -92,11 +134,41 @@ export default function ProjectDetail() {
   const [editingMilestoneId, setEditingMilestoneId] = useState<number | null>(null);
   const [editMilestoneDraft, setEditMilestoneDraft] = useState<{ name: string; description: string; due_date: string } | null>(null);
   const [deletingMilestone, setDeletingMilestone] = useState<number | null>(null);
-  // Always sort by id_milestone (creation order) so marking complete never reorders the list
-  const sortedMilestones = useMemo(
-    () => [...(overviewMilestones ?? [])].sort((a, b) => a.id_milestone - b.id_milestone),
-    [overviewMilestones],
-  );
+  // Custom milestone ordering (drag-and-drop). Persisted locally per project since the
+  // API has no order field; falls back to creation order for any unseen milestone.
+  const milestoneOrderKey = `pip_milestone_order_${projectId}`;
+  const [milestoneOrder, setMilestoneOrder] = useState<number[]>(() => {
+    try {
+      const raw = localStorage.getItem(`pip_milestone_order_${projectId}`);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((n) => typeof n === 'number') : [];
+    } catch {
+      return [];
+    }
+  });
+  const sortedMilestones = useMemo(() => {
+    const list = overviewMilestones ?? [];
+    const orderIndex = new Map(milestoneOrder.map((id, i) => [id, i] as const));
+    return [...list].sort((a, b) => {
+      const ai = orderIndex.get(a.id_milestone) ?? Number.POSITIVE_INFINITY;
+      const bi = orderIndex.get(b.id_milestone) ?? Number.POSITIVE_INFINITY;
+      if (ai !== bi) return ai - bi;
+      return a.id_milestone - b.id_milestone;
+    });
+  }, [overviewMilestones, milestoneOrder]);
+  const handleMilestoneDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = sortedMilestones.map((m) => m.id_milestone);
+    const oldIndex = ids.indexOf(Number(active.id));
+    const newIndex = ids.indexOf(Number(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const next = arrayMove(ids, oldIndex, newIndex);
+    setMilestoneOrder(next);
+    try {
+      localStorage.setItem(milestoneOrderKey, JSON.stringify(next));
+    } catch { /* ignore storage failures */ }
+  };
   const latestSprintEndDate = useMemo(() => {
     const dates = (sprints ?? [])
       .map((s) => s.end_date)
@@ -205,18 +277,86 @@ export default function ProjectDetail() {
     );
   }, [statuses]);
 
+  // A task counts as done if it's explicitly completed, sits in a board's final
+  // column, or has a "done" status — so the progress matches what the board shows.
+  const isTaskDone = useCallback(
+    (t: ApiTask) =>
+      t.completed_at != null
+      || finalColumnIds.has(t.board_column)
+      || (t.status != null && doneStatusIds.has(t.status)),
+    [finalColumnIds, doneStatusIds],
+  );
+
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
     const tList = allProjectTasks ?? [];
     const now = new Date();
     const total = tList.length;
-    const completed = tList.filter((t) => t.completed_at != null || (t.status != null && doneStatusIds.has(t.status))).length;
+    const completed = tList.filter(isTaskDone).length;
     const overdue = tList.filter(
-      (t) => !t.completed_at && (t.status == null || !doneStatusIds.has(t.status)) && t.due_date && new Date(t.due_date) < now,
+      (t) => !isTaskDone(t) && t.due_date && new Date(t.due_date) < now,
     ).length;
     const memberCount = (members ?? []).length;
     return { total, completed, overdue, memberCount };
-  }, [allProjectTasks, members, doneStatusIds]);
+  }, [allProjectTasks, members, isTaskDone]);
+
+  // ── Project health, story-point risk & burndown (overview) ─────────────────
+  const projectAnalytics = useMemo(() => {
+    const tList = allProjectTasks ?? [];
+    const progress = {
+      completed: kpis.completed,
+      total: kpis.total,
+      percentage: kpis.total > 0 ? Math.round((kpis.completed / kpis.total) * 100) : 0,
+    };
+    const health: ProjectHealth = project
+      ? getProjectHealth({ created_at: project.created_at, end_date: project.end_date, status: project.status }, progress)
+      : 'yellow';
+
+    // Story points (scrum poker)
+    const totalPoints = tList.reduce((s, t) => s + parseStoryPoints(t.scrum_number), 0);
+    const donePoints = tList.filter(isTaskDone).reduce((s, t) => s + parseStoryPoints(t.scrum_number), 0);
+    const pointsPct = totalPoints > 0 ? Math.round((donePoints / totalPoints) * 100) : 0;
+
+    // Schedule elapsed (time-based expectation)
+    const startTime = project?.start_date ? new Date(project.start_date).getTime() : (project?.created_at ? new Date(project.created_at).getTime() : null);
+    const endTime = project?.end_date ? new Date(project.end_date).getTime() : null;
+    const nowTime = Date.now();
+    let elapsedPct: number | null = null;
+    if (startTime != null && endTime != null && endTime > startTime) {
+      elapsedPct = Math.round(Math.min(1, Math.max(0, (nowTime - startTime) / (endTime - startTime))) * 100);
+    }
+    // Risk: how far the (points) progress lags the schedule.
+    const completionBasis = totalPoints > 0 ? pointsPct : progress.percentage;
+    const shortfall = elapsedPct != null ? elapsedPct - completionBasis : 0;
+    const riskLevel: 'low' | 'medium' | 'high' =
+      elapsedPct == null ? 'low' : shortfall >= 35 ? 'high' : shortfall >= 15 ? 'medium' : 'low';
+
+    return { progress, health, totalPoints, donePoints, pointsPct, elapsedPct, shortfall, riskLevel, completionBasis };
+  }, [allProjectTasks, kpis.completed, kpis.total, isTaskDone, project]);
+
+  // Burndown of the selected sprint (story points if available, else task count).
+  const [overviewSprintId, setOverviewSprintId] = useState<number | null>(null);
+  const burndownSprintOptions = useMemo(() => {
+    const rank = (s: { status: string }) => (s.status === 'active' ? 0 : s.status === 'planned' ? 1 : 2);
+    return [...(sprints ?? [])].sort((a, b) => {
+      if (rank(a) !== rank(b)) return rank(a) - rank(b);
+      return (b.start_date ?? '').localeCompare(a.start_date ?? '');
+    });
+  }, [sprints]);
+  const effectiveOverviewSprintId = overviewSprintId ?? burndownSprintOptions[0]?.id_sprint ?? null;
+  const overviewSprint = useMemo(
+    () => burndownSprintOptions.find((s) => s.id_sprint === effectiveOverviewSprintId) ?? null,
+    [burndownSprintOptions, effectiveOverviewSprintId],
+  );
+  const burndownUsesPoints = useMemo(() => {
+    if (!overviewSprint) return false;
+    return (allProjectTasks ?? []).some((t) => t.sprint === overviewSprint.id_sprint && parseStoryPoints(t.scrum_number) > 0);
+  }, [allProjectTasks, overviewSprint]);
+  const burndownData = useMemo(() => {
+    if (!overviewSprint) return [];
+    const sprintTasks = (allProjectTasks ?? []).filter((t) => t.sprint === overviewSprint.id_sprint);
+    return buildBurndownSeries(overviewSprint, sprintTasks, new Date(), burndownUsesPoints ? (t) => parseStoryPoints(t.scrum_number) : () => 1);
+  }, [allProjectTasks, overviewSprint, burndownUsesPoints]);
 
   // ── Days remaining ───────────────────────────────────────────────────────
   const timeRemainingLabel = getProjectTimeRemainingLabel(project?.end_date ?? null, project?.status).label;
@@ -652,6 +792,130 @@ export default function ProjectDetail() {
                 </div>
               )}
 
+              {/* Health / Risk + Burndown */}
+              <div className="grid lg:grid-cols-2 gap-3">
+                {/* Salud y Riesgo */}
+                <div className="bg-card border border-border rounded-[4px] p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Gauge className="w-3.5 h-3.5 text-primary" />
+                      <h2 className="text-[12px] font-semibold text-foreground">Salud y Riesgo</h2>
+                    </div>
+                    {(() => {
+                      const h = projectAnalytics.health;
+                      const cls = h === 'green' ? 'bg-success/15 text-success' : h === 'yellow' ? 'bg-warning/15 text-warning' : 'bg-destructive/15 text-destructive';
+                      const label = h === 'green' ? 'Saludable' : h === 'yellow' ? 'En riesgo' : 'Crítico';
+                      return <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>{label}</span>;
+                    })()}
+                  </div>
+
+                  {/* Story points */}
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {[
+                      { label: 'Puntos totales', value: projectAnalytics.totalPoints },
+                      { label: 'Completados', value: projectAnalytics.donePoints },
+                      { label: 'Restantes', value: Math.max(0, projectAnalytics.totalPoints - projectAnalytics.donePoints) },
+                    ].map((s) => (
+                      <div key={s.label} className="rounded-[3px] border border-border bg-surface-secondary/30 px-2 py-1.5">
+                        <p className="text-[14px] font-bold text-foreground tabular-nums leading-none">{s.value}</p>
+                        <p className="text-[9px] text-muted-foreground mt-1">{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {projectAnalytics.totalPoints > 0 && (
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between text-[10px] mb-1">
+                        <span className="text-muted-foreground uppercase tracking-[0.06em]">Avance por puntos</span>
+                        <span className="font-semibold text-foreground">{projectAnalytics.pointsPct}%</span>
+                      </div>
+                      <ProgressBar value={projectAnalytics.pointsPct} height={6} />
+                    </div>
+                  )}
+
+                  {/* Risk assessment vs schedule */}
+                  {projectAnalytics.elapsedPct != null ? (
+                    <div className="rounded-[3px] border border-border bg-surface-secondary/20 px-2.5 py-2">
+                      <div className="flex items-center justify-between text-[10px] mb-1.5">
+                        <span className="text-muted-foreground">Tiempo transcurrido</span>
+                        <span className="font-medium text-foreground">{projectAnalytics.elapsedPct}%</span>
+                      </div>
+                      {(() => {
+                        const r = projectAnalytics.riskLevel;
+                        const cls = r === 'low' ? 'text-success' : r === 'medium' ? 'text-warning' : 'text-destructive';
+                        const label = r === 'low' ? 'Bajo riesgo — al ritmo esperado' : r === 'medium' ? 'Riesgo medio — algo por detrás' : 'Alto riesgo — muy por detrás del calendario';
+                        return (
+                          <p className={`text-[11px] font-medium inline-flex items-center gap-1.5 ${cls}`}>
+                            <AlertTriangle className="w-3 h-3" /> {label}
+                            {projectAnalytics.shortfall > 0 && <span className="text-muted-foreground font-normal">(−{projectAnalytics.shortfall} pts vs esperado)</span>}
+                          </p>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground">Define fechas de inicio y fin para evaluar el riesgo de calendario.</p>
+                  )}
+                </div>
+
+                {/* Burndown */}
+                <div className="bg-card border border-border rounded-[4px] p-4 flex flex-col">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <TrendingDown className="w-3.5 h-3.5 text-primary shrink-0" />
+                      <h2 className="text-[12px] font-semibold text-foreground">Burndown</h2>
+                      {overviewSprint && (
+                        <span className="text-[9px] text-muted-foreground">({burndownUsesPoints ? 'puntos' : 'tareas'})</span>
+                      )}
+                    </div>
+                    {burndownSprintOptions.length > 0 && (
+                      <select
+                        value={effectiveOverviewSprintId ?? ''}
+                        onChange={(e) => setOverviewSprintId(e.target.value ? Number(e.target.value) : null)}
+                        className="h-7 max-w-[160px] rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px] text-foreground"
+                      >
+                        {burndownSprintOptions.map((s) => (
+                          <option key={s.id_sprint} value={s.id_sprint}>{s.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                  {burndownData.length > 0 ? (
+                    <div className="flex-1 min-h-[180px]">
+                      <ResponsiveContainer width="100%" height={190}>
+                        <LineChart data={burndownData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                          <XAxis dataKey="label" tick={{ fontSize: 9, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={{ stroke: 'var(--border)' }} interval="preserveStartEnd" minTickGap={16} />
+                          <YAxis tick={{ fontSize: 9, fill: 'var(--muted-foreground)' }} tickLine={false} axisLine={false} allowDecimals={false} width={28} />
+                          <Tooltip
+                            cursor={{ stroke: 'var(--border)' }}
+                            content={({ active, payload, label }) => {
+                              if (!active || !payload || payload.length === 0) return null;
+                              const ideal = payload.find((p) => p.dataKey === 'ideal')?.value;
+                              const real = payload.find((p) => p.dataKey === 'real')?.value;
+                              return (
+                                <div className="rounded-[4px] border border-border bg-card px-2.5 py-1.5 shadow-md">
+                                  <p className="text-[10px] font-medium text-foreground">Día {label}</p>
+                                  {real != null && <p className="text-[10px] text-primary mt-0.5">Restante: {real}</p>}
+                                  {ideal != null && <p className="text-[10px] text-muted-foreground">Ideal: {ideal}</p>}
+                                </div>
+                              );
+                            }}
+                          />
+                          <Line type="monotone" dataKey="ideal" stroke="var(--muted-foreground)" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+                          <Line type="monotone" dataKey="real" stroke="var(--primary)" strokeWidth={2} dot={false} connectNulls />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center py-6 text-center">
+                      <p className="text-[11px] text-muted-foreground">
+                        {burndownSprintOptions.length === 0 ? 'No hay sprints con fechas para graficar.' : 'Este sprint no tiene tareas o fechas válidas.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Milestones Roadmap */}
               <div className="bg-card border border-border rounded-[4px] p-4">
                 <div className="flex items-center justify-between mb-4">
@@ -804,9 +1068,18 @@ export default function ProjectDetail() {
                       const lastCompletedIdx = firstUnfinishedIdx === -1
                         ? sortedMilestones.length - 1
                         : firstUnfinishedIdx - 1;
+                      // Reordering is disabled entirely once any milestone is completed.
+                      const anyCompleted = sortedMilestones.some((m) => m.is_completed);
+                      const canReorder = milestonesEditing && !anyCompleted;
 
                       return (
-                        <div className="flex flex-col">
+                        <>
+                        {milestonesEditing && anyCompleted && (
+                          <p className="text-[10px] text-muted-foreground mb-2">El reordenamiento se bloquea cuando hay milestones completados.</p>
+                        )}
+                        <DndContext collisionDetection={closestCenter} onDragEnd={handleMilestoneDragEnd}>
+                          <SortableContext items={sortedMilestones.map((m) => m.id_milestone)} strategy={verticalListSortingStrategy}>
+                          <div className="flex flex-col">
                           {sortedMilestones.map((ms, idx) => {
                             const isInlineEditing = milestonesEditing && editingMilestoneId === ms.id_milestone;
                             const isLast = idx === sortedMilestones.length - 1;
@@ -815,7 +1088,20 @@ export default function ProjectDetail() {
                             const showToggle = milestonesEditing && (canComplete || canUncomplete);
 
                             return (
-                              <div key={ms.id_milestone} className="flex gap-3">
+                              <SortableMilestone key={ms.id_milestone} id={ms.id_milestone} disabled={!canReorder || isInlineEditing}>
+                                {({ attributes, listeners }) => (
+                              <div className="flex gap-3">
+                                {canReorder && !isInlineEditing && (
+                                  <button
+                                    type="button"
+                                    {...attributes}
+                                    {...listeners}
+                                    className="cursor-grab touch-none text-muted-foreground hover:text-foreground mt-0.5 shrink-0"
+                                    title="Arrastrar para reordenar"
+                                  >
+                                    <GripVertical className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                                 {/* Node column: circle + connector line */}
                                 <div className="flex flex-col items-center w-4 shrink-0">
                                   <div className={`w-4 h-4 rounded-full border-2 shrink-0 mt-0.5 flex items-center justify-center transition-all duration-300 ${
@@ -1012,9 +1298,14 @@ export default function ProjectDetail() {
                                   )}
                                 </div>
                               </div>
+                                )}
+                              </SortableMilestone>
                             );
                           })}
-                        </div>
+                          </div>
+                          </SortableContext>
+                        </DndContext>
+                        </>
                       );
                     })()}
                   </>
@@ -1040,6 +1331,7 @@ export default function ProjectDetail() {
               canEditTasks={canManageTasks}
               canDeleteTasks={canManageTasks}
               projectEndDate={project?.end_date ?? null}
+              projectStartDate={project?.start_date ?? null}
               forcedTab={activeTab}
               initialTaskId={initialTaskId}
               onInitialTaskHandled={(taskId: number) => {

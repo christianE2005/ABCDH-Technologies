@@ -111,7 +111,7 @@ export function GitHubConnectSection() {
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-3">
-        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="w-4 h-4 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
         <span className="text-[11px] text-muted-foreground">Verificando GitHub...</span>
       </div>
     );
@@ -119,7 +119,7 @@ export function GitHubConnectSection() {
 
   if (isStakeholder) {
     return (
-      <div className="rounded-[4px] border border-border bg-surface-secondary/30 px-3 py-3">
+      <div className="rounded-md border border-border bg-surface-secondary/30 px-3 py-3">
         <p className="text-[12px] font-medium text-foreground">GitHub no disponible para Stakeholders</p>
         <p className="text-[10px] text-muted-foreground mt-1">
           Este rol solo tiene acceso de consulta dentro de la plataforma y no puede conectar una cuenta de GitHub.
@@ -130,13 +130,13 @@ export function GitHubConnectSection() {
 
   if (connected) {
     return (
-      <div className="flex items-center gap-3 py-2 px-3 border border-border rounded-[4px] bg-accent/20">
-        <div className="w-8 h-8 bg-[#24292e] rounded-full flex items-center justify-center">
-          <Github className="w-4 h-4 text-white" />
+      <div className="flex items-center gap-3 py-2 px-3 border border-border rounded-md bg-accent/20">
+        <div className="w-8 h-8 bg-foreground rounded-full flex items-center justify-center">
+          <Github className="w-4 h-4 text-background" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+            <CheckCircle2 className="w-3.5 h-3.5 text-success" />
             <span className="text-[12px] font-medium text-foreground">Ya estas conectado con GitHub</span>
           </div>
           {githubLogin && (
@@ -150,7 +150,7 @@ export function GitHubConnectSection() {
         <button
           onClick={handleDisconnect}
           disabled={busy}
-          className="px-3 py-1.5 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+          className="px-3 py-1.5 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-sm text-[11px] font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
         >
           {busy ? 'Desconectando...' : 'Desconectar'}
         </button>
@@ -160,7 +160,7 @@ export function GitHubConnectSection() {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-3 py-2 px-3 border border-border rounded-[4px]">
+      <div className="flex items-center gap-3 py-2 px-3 border border-border rounded-md">
         <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
           <Github className="w-4 h-4 text-muted-foreground" />
         </div>
@@ -174,7 +174,7 @@ export function GitHubConnectSection() {
         <button
           onClick={handleConnect}
           disabled={busy}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#24292e] hover:bg-[#1b1f23] text-white rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-60"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-foreground hover:bg-foreground/90 text-background rounded-sm text-[11px] font-medium transition-colors disabled:opacity-60"
         >
           <Github className="w-3.5 h-3.5" />
           {busy ? 'Redirigiendo...' : 'Iniciar sesion con GitHub'}
@@ -185,7 +185,7 @@ export function GitHubConnectSection() {
         <button
           onClick={handleInstallApp}
           disabled={busy}
-          className="flex items-center gap-2 px-3 py-1.5 border border-border hover:bg-accent/30 text-foreground rounded-[4px] text-[11px] font-medium transition-colors disabled:opacity-60"
+          className="flex items-center gap-2 px-3 py-1.5 border border-border hover:bg-accent/30 text-foreground rounded-md text-[11px] font-medium transition-colors disabled:opacity-60"
         >
           <Shield className="w-3.5 h-3.5" />
           Instalar App en organizacion

@@ -1,7 +1,9 @@
 ﻿import { useState, useEffect } from 'react';
 import { Bell, Lock, Database, Mail, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import { CommandBar } from '../components/CommandBar';
+import { motion } from 'motion/react';
+import { Button } from '../components/ui/button';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 interface ToggleItem {
   label: string;
@@ -14,18 +16,18 @@ function ToggleRow({ item, onChange }: { item: ToggleItem; onChange: (v: boolean
     <button
       type="button"
       onClick={() => onChange(!item.enabled)}
-      className="flex items-center justify-between w-full py-2.5 px-3 -mx-3 rounded-[3px] hover:bg-accent/30 transition-colors border-b border-border last:border-0 cursor-pointer"
+      className="flex items-center justify-between w-full py-2.5 px-3 -mx-3 rounded-sm hover:bg-surface-secondary transition-colors border-b border-border last:border-0 cursor-pointer"
     >
       <div className="text-left">
         <p className="text-[12px] text-foreground">{item.label}</p>
-        {item.description && <p className="text-[10px] text-muted-foreground mt-0.5">{item.description}</p>}
+        {item.description && <p className="text-[11px] text-muted-foreground mt-0.5">{item.description}</p>}
       </div>
       <div
         role="switch"
         aria-checked={item.enabled}
-        className={`relative w-9 h-5 rounded-full transition-colors shadow-inner shrink-0 ml-4 ${item.enabled ? 'bg-primary' : 'bg-muted'}`}
+        className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ml-4 ${item.enabled ? 'bg-foreground' : 'bg-muted'}`}
       >
-        <span className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow transition-all ${item.enabled ? 'left-4.5' : 'left-0.5'}`} />
+        <span className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-card rounded-full transition-all ${item.enabled ? 'left-4.5' : 'left-0.5'}`} />
       </div>
     </button>
   );
@@ -34,7 +36,7 @@ function ToggleRow({ item, onChange }: { item: ToggleItem; onChange: (v: boolean
 function SectionHeader({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
   return (
     <div className="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-border">
-      <div className="w-6 h-6 bg-primary/10 rounded-[3px] flex items-center justify-center text-primary">
+      <div className="w-6 h-6 bg-secondary rounded-sm flex items-center justify-center text-foreground">
         {icon}
       </div>
       <div>
@@ -46,6 +48,7 @@ function SectionHeader({ icon, title, description }: { icon: React.ReactNode; ti
 }
 
 export default function Settings() {
+  const reduced = useReducedMotion();
   const [notifToggles, setNotifToggles] = useState<ToggleItem[]>(() => {
     try {
       const saved = localStorage.getItem('pip_settings');
@@ -93,24 +96,34 @@ export default function Settings() {
   };
 
   return (
-    <div className="px-4 pb-6 pt-3 space-y-3 max-w-[1600px]">
-      <CommandBar
-        actions={[
-          {
-            label: saved ? 'Guardado ✓' : 'Guardar cambios',
-            variant: 'primary',
-            onClick: () => {
-              localStorage.setItem('pip_settings', JSON.stringify({ notifToggles, emailToggles }));
-              setSaved(true);
-              toast.success('Configuración guardada');
-            },
-          },
-        ]}
-      />
+    <div className="px-4 pb-6 pt-3 max-w-[1600px] min-h-full flex flex-col gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold tracking-[-0.01em] text-foreground">Configuración</h1>
+          <p className="text-[12px] text-muted-foreground mt-0.5">Notificaciones, seguridad y datos de tu cuenta.</p>
+        </div>
+        <Button
+          type="button"
+          variant="primary-brand"
+          className="shrink-0"
+          onClick={() => {
+            localStorage.setItem('pip_settings', JSON.stringify({ notifToggles, emailToggles }));
+            setSaved(true);
+            toast.success('Configuración guardada');
+          }}
+        >
+          {saved ? 'Guardado ✓' : 'Guardar cambios'}
+        </Button>
+      </div>
 
-      <div className="grid gap-3">
+      <motion.div
+        initial={reduced ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: reduced ? 0 : 0.22, ease: [0.16, 1, 0.3, 1] }}
+        className="grid gap-3"
+      >
         {/* Notifications (HU-14) */}
-        <div className="bg-card border border-border rounded-[4px] p-4">
+        <div className="bg-card border border-border rounded-lg p-4">
           <SectionHeader
             icon={<Bell className="w-3.5 h-3.5" />}
             title="Notificaciones"
@@ -122,7 +135,7 @@ export default function Settings() {
         </div>
 
         {/* Email notifications with test (HU-14) */}
-        <div className="bg-card border border-border rounded-[4px] p-4">
+        <div className="bg-card border border-border rounded-lg p-4">
           <SectionHeader
             icon={<Mail className="w-3.5 h-3.5" />}
             title="Notificaciones por Email"
@@ -140,11 +153,12 @@ export default function Settings() {
                 placeholder="tu@correo.com"
                 value={testEmail}
                 onChange={(e) => setTestEmail(e.target.value)}
-                className="flex-1 h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                aria-label="Correo para enviar prueba"
+                className="flex-1 h-9 bg-surface-secondary border border-border rounded-sm px-2.5 text-[12px] text-foreground placeholder:text-muted-foreground/60 transition-[box-shadow,border-color] focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand"
               />
               <button
                 onClick={handleSendTest}
-                className="h-7 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium flex items-center gap-1.5 transition-colors"
+                className="h-9 px-3 border border-border bg-card hover:bg-accent text-foreground rounded-sm text-[12px] font-medium flex items-center gap-1.5 transition-colors active:scale-[0.97]"
               >
                 <Send className="w-3 h-3" />
                 Enviar prueba
@@ -157,7 +171,7 @@ export default function Settings() {
         </div>
 
         {/* Security */}
-        <div className="bg-card border border-border rounded-[4px] p-4">
+        <div className="bg-card border border-border rounded-lg p-4">
           <SectionHeader
             icon={<Lock className="w-3.5 h-3.5" />}
             title="Seguridad"
@@ -172,7 +186,7 @@ export default function Settings() {
               <button
                 key={index}
                 onClick={() => toast.info(item.title)}
-                className="w-full text-left py-2 px-3 border border-border rounded-[4px] hover:border-primary/40 hover:bg-accent/30 transition-colors"
+                className="w-full text-left py-2 px-3 border border-border rounded-md hover:bg-surface-secondary transition-colors"
               >
                 <p className="text-[12px] font-medium text-foreground">{item.title}</p>
                 <p className="text-[10px] text-muted-foreground">{item.desc}</p>
@@ -182,7 +196,7 @@ export default function Settings() {
         </div>
 
         {/* Data & Privacy */}
-        <div className="bg-card border border-border rounded-[4px] p-4">
+        <div className="bg-card border border-border rounded-lg p-4">
           <SectionHeader
             icon={<Database className="w-3.5 h-3.5" />}
             title="Datos"
@@ -191,28 +205,28 @@ export default function Settings() {
           <div className="space-y-1">
             <button
               onClick={() => toast.success('Exportacion iniciada', { description: 'Descargando datos en JSON' })}
-              className="w-full text-left py-2 px-3 border border-border rounded-[4px] hover:border-primary/40 transition-colors"
+              className="w-full text-left py-2 px-3 border border-border rounded-md hover:bg-surface-secondary transition-colors"
             >
               <p className="text-[12px] font-medium text-foreground">Exportar datos</p>
               <p className="text-[10px] text-muted-foreground">Descarga completa en JSON</p>
             </button>
             <button
               onClick={() => toast.info('Selecciona un archivo CSV o Excel')}
-              className="w-full text-left py-2 px-3 border border-border rounded-[4px] hover:border-primary/40 transition-colors"
+              className="w-full text-left py-2 px-3 border border-border rounded-md hover:bg-surface-secondary transition-colors"
             >
               <p className="text-[12px] font-medium text-foreground">Importar proyectos</p>
               <p className="text-[10px] text-muted-foreground">Desde CSV o Excel</p>
             </button>
             <button
               onClick={() => toast.error('Accion no disponible en modo demo')}
-              className="w-full text-left py-2 px-3 bg-destructive/5 border border-destructive/20 rounded-[4px] hover:bg-destructive/10 transition-colors"
+              className="w-full text-left py-2 px-3 bg-destructive/5 border border-destructive/20 rounded-md hover:bg-destructive/10 transition-colors"
             >
               <p className="text-[12px] font-medium text-destructive">Eliminar todos los datos</p>
               <p className="text-[10px] text-destructive/70">Accion irreversible</p>
             </button>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

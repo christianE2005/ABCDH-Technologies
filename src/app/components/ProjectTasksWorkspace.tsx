@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState, useCallback } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -31,7 +31,26 @@ import { TaskDetailPanel } from './TaskDetailPanel';
 import { DatePickerField } from './DatePickerField';
 import { TaskAssigneePicker } from './TaskAssigneePicker';
 import { TagColorPicker } from './TagColorPicker';
-import { useAuth } from '../context/AuthContext';
+
+type SprintStatus = 'planned' | 'active' | 'closed';
+
+// Sprint status is derived purely from its dates: before start = planned,
+// between start and end = active, after end = finished (closed).
+function deriveSprintStatus(startDate: string | null, endDate: string | null, now: Date = new Date()): SprintStatus {
+  const today = now.toISOString().slice(0, 10);
+  if (startDate && today < startDate) return 'planned';
+  if (endDate && today > endDate) return 'closed';
+  if (startDate && endDate) return 'active';
+  // Missing dates: best-effort fallbacks.
+  if (startDate && today >= startDate) return 'active';
+  return 'planned';
+}
+
+const SPRINT_STATUS_LABEL: Record<SprintStatus, string> = {
+  planned: 'Planeado',
+  active: 'Activo',
+  closed: 'Finalizado',
+};
 
 interface SortableColumnItemProps {
   column: ApiBoardColumn;
@@ -45,10 +64,11 @@ interface SortableColumnItemProps {
   onEditSave: () => void;
   onEditCancel: () => void;
   onDelete: () => void;
+  locked?: boolean;
 }
 
-function SortableColumnItem({ column, index, totalCount, isEditing, editName, savingEdit, onEditStart, onEditChange, onEditSave, onEditCancel, onDelete }: SortableColumnItemProps) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: column.id_column });
+function SortableColumnItem({ column, index, totalCount, isEditing, editName, savingEdit, onEditStart, onEditChange, onEditSave, onEditCancel, onDelete, locked = false }: SortableColumnItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: column.id_column, disabled: locked });
   const isLast = index === totalCount - 1;
   const isRevision = totalCount > 1 && index === totalCount - 2;
   return (
@@ -57,9 +77,13 @@ function SortableColumnItem({ column, index, totalCount, isEditing, editName, sa
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className="flex items-center gap-1.5 rounded-[3px] border border-border bg-surface-secondary/40 px-2 py-1.5 text-[11px]"
     >
-      <button type="button" {...attributes} {...listeners} className="cursor-grab touch-none text-muted-foreground hover:text-foreground shrink-0">
-        <GripVertical className="w-3.5 h-3.5" />
-      </button>
+      {locked ? (
+        <span className="w-3.5 shrink-0" />
+      ) : (
+        <button type="button" {...attributes} {...listeners} className="cursor-grab touch-none text-muted-foreground hover:text-foreground shrink-0">
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
+      )}
       <span className="text-[10px] text-muted-foreground w-5 shrink-0 text-right">{index + 1}.</span>
       {isEditing ? (
         <input
@@ -85,7 +109,7 @@ function SortableColumnItem({ column, index, totalCount, isEditing, editName, sa
             </button>
             <button type="button" onClick={onEditCancel} className="h-5 px-2 rounded-[3px] border border-border text-muted-foreground text-[10px]">Cancelar</button>
           </>
-        ) : (
+        ) : locked ? null : (
           <>
             <button type="button" onClick={onEditStart} className="h-5 w-5 rounded-[3px] border border-border text-muted-foreground hover:text-foreground inline-flex items-center justify-center transition-colors" title="Editar columna">
               <Pencil className="w-2.5 h-2.5" />
@@ -93,9 +117,9 @@ function SortableColumnItem({ column, index, totalCount, isEditing, editName, sa
             <button
               type="button"
               onClick={onDelete}
-              disabled={totalCount <= 2}
+              disabled={totalCount <= 3}
               className="h-5 w-5 rounded-[3px] border border-destructive/30 text-destructive hover:bg-destructive/10 inline-flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              title={totalCount <= 2 ? 'El board debe tener al menos 2 columnas' : 'Eliminar columna'}
+              title={totalCount <= 3 ? 'El board debe tener al menos 3 columnas' : 'Eliminar columna'}
             >
               <Trash2 className="w-2.5 h-2.5" />
             </button>
@@ -115,6 +139,7 @@ interface ProjectTasksWorkspaceProps {
   canEditTasks: boolean;
   canDeleteTasks: boolean;
   projectEndDate?: string | null;
+  projectStartDate?: string | null;
   forcedTab?: WorkspaceTab;
   initialTaskId?: number | null;
   onInitialTaskHandled?: (taskId: number) => void;
@@ -209,11 +234,11 @@ export function ProjectTasksWorkspace({
   canEditTasks,
   canDeleteTasks,
   projectEndDate = null,
+  projectStartDate = null,
   forcedTab,
   initialTaskId = null,
   onInitialTaskHandled,
 }: ProjectTasksWorkspaceProps) {
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<WorkspaceTab>(forcedTab ?? 'backlog');
   const [selectedTask, setSelectedTask] = useState<ApiTask | null>(null);
   const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
@@ -252,8 +277,9 @@ export function ProjectTasksWorkspace({
     naming_convention: 'default', response_language: 'es', custom_instructions: '',
   });
   const [newBoardColumns, setNewBoardColumns] = useState<Array<{ name: string; tempId: number }>>([
-    { name: 'Revisión', tempId: 1 },
-    { name: 'Done', tempId: 2 },
+    { name: 'To Do', tempId: 1 },
+    { name: 'In Progress', tempId: 2 },
+    { name: 'Done', tempId: 3 },
   ]);
   const [newBoardColumnInput, setNewBoardColumnInput] = useState('');
   const [editingBoardId, setEditingBoardId] = useState<number | null>(null);
@@ -262,6 +288,7 @@ export function ProjectTasksWorkspace({
     tech_stack: string; naming_convention: string; response_language: string; custom_instructions: string;
   } | null>(null);
   const [savingBoardEdit, setSavingBoardEdit] = useState(false);
+  const [deletingBoard, setDeletingBoard] = useState(false);
   const [editingColumnId, setEditingColumnId] = useState<number | null>(null);
   const [editingColumnName, setEditingColumnName] = useState('');
   const [savingColumnEdit, setSavingColumnEdit] = useState(false);
@@ -350,6 +377,26 @@ export function ProjectTasksWorkspace({
     [sprints],
   );
 
+  // Date bounds for the sprint being edited: start ≥ project start; end ≤ project end
+  // and strictly before the next sprint's start (no overlap).
+  const editingSprintBounds = useMemo(() => {
+    const addDays = (iso: string, days: number) => {
+      const d = new Date(iso);
+      d.setDate(d.getDate() + days);
+      return d.toISOString().slice(0, 10);
+    };
+    if (!editingSprint) return { minStart: undefined as string | undefined, maxEnd: undefined as string | undefined, nextStart: null as string | null };
+    const idx = sortedSprints.findIndex((s) => s.id_sprint === editingSprint.id);
+    const next = idx >= 0 && idx < sortedSprints.length - 1 ? sortedSprints[idx + 1] : null;
+    const minStart = projectStartDate ?? undefined;
+    let maxEnd = projectEndDate ?? undefined;
+    if (next?.start_date) {
+      const dayBeforeNext = addDays(next.start_date, -1);
+      maxEnd = maxEnd ? (dayBeforeNext < maxEnd ? dayBeforeNext : maxEnd) : dayBeforeNext;
+    }
+    return { minStart, maxEnd, nextStart: next?.start_date ?? null };
+  }, [editingSprint, sortedSprints, projectStartDate, projectEndDate]);
+
   const priorityById = useMemo(() => {
     const map = new Map<number, ApiTaskPriority>();
     priorities.forEach((priority) => map.set(priority.id_priority, priority));
@@ -375,15 +422,17 @@ export function ProjectTasksWorkspace({
   }, [columns]);
 
   const sprintTasks = useMemo(() => {
+    const query = backlogSearch.trim().toLowerCase();
     const source = (tasks ?? []).filter((task) => selectedSprintId != null && task.sprint === selectedSprintId);
-    const withTagFilter = selectedTagIds.length > 0
+    let withFilters = selectedTagIds.length > 0
       ? source.filter((task) => selectedTagIds.every((tagId) => task.tags.includes(tagId)))
       : source;
+    if (query) withFilters = withFilters.filter((task) => task.title.toLowerCase().includes(query));
 
-    if (!selectedBoardId) return withTagFilter;
+    if (!selectedBoardId) return withFilters;
     const boardColumnIds = new Set((boardColumnsByBoard.get(selectedBoardId) ?? []).map((col) => col.id_column));
-    return withTagFilter.filter((task) => boardColumnIds.has(task.board_column));
-  }, [tasks, selectedSprintId, selectedTagIds, selectedBoardId, boardColumnsByBoard]);
+    return withFilters.filter((task) => boardColumnIds.has(task.board_column));
+  }, [tasks, selectedSprintId, selectedTagIds, backlogSearch, selectedBoardId, boardColumnsByBoard]);
 
   const backlogTagFilteredTasks = useMemo(() => {
     let result = backlogTasks;
@@ -554,7 +603,7 @@ export function ProjectTasksWorkspace({
       if (newBoardColumns.length > 0) refetchColumns();
       setSelectedBoardId(created.id_board);
       setNewBoard({ name: '', description: '', coding_style: 'standard', review_focus: 'strict', tech_stack: 'mixed', naming_convention: 'default', response_language: 'es', custom_instructions: '' });
-      setNewBoardColumns([{ name: 'Revisión', tempId: 1 }, { name: 'Done', tempId: 2 }]);
+      setNewBoardColumns([{ name: 'To Do', tempId: 1 }, { name: 'In Progress', tempId: 2 }, { name: 'Done', tempId: 3 }]);
       setNewBoardColumnInput('');
       setShowBoardModal(false);
       refetchBoards();
@@ -593,24 +642,15 @@ export function ProjectTasksWorkspace({
     e.preventDefault();
     if (!selectedBoardId || !newColumn.name.trim()) return;
     const existingCols = [...(boardColumnsByBoard.get(selectedBoardId) ?? [])].sort((a, b) => a.order - b.order);
-    const finalCol = existingCols.find((c) => c.is_final);
     try {
-      if (finalCol) {
-        await tasksService.updateBoardColumn(finalCol.id_column, { order: finalCol.order + 1 });
-        await tasksService.createBoardColumn({
-          board: selectedBoardId,
-          name: newColumn.name.trim(),
-          order: finalCol.order,
-          is_final: false,
-        });
-      } else {
-        await tasksService.createBoardColumn({
-          board: selectedBoardId,
-          name: newColumn.name.trim(),
-          order: existingCols.length + 1,
-          is_final: true,
-        });
-      }
+      // New columns go to the TOP: shift existing ones down, then insert at order 1.
+      await Promise.all(existingCols.map((c) => tasksService.updateBoardColumn(c.id_column, { order: c.order + 1 })));
+      await tasksService.createBoardColumn({
+        board: selectedBoardId,
+        name: newColumn.name.trim(),
+        order: 1,
+        is_final: existingCols.length === 0,
+      });
       setNewColumn({ name: '', is_final: false });
       setShowColumnModal(false);
       refetchColumns();
@@ -627,8 +667,16 @@ export function ProjectTasksWorkspace({
       toast.error('La fecha de inicio no puede ser posterior a la fecha de fin.');
       return;
     }
+    if (projectStartDate && editingSprint.start_date && editingSprint.start_date < projectStartDate) {
+      toast.error(`El sprint no puede iniciar antes del inicio del proyecto (${projectStartDate}).`);
+      return;
+    }
     if (projectEndDate && editingSprint.end_date && editingSprint.end_date > projectEndDate) {
       toast.error(`El sprint no puede terminar después del fin del proyecto (${projectEndDate}).`);
+      return;
+    }
+    if (editingSprintBounds.nextStart && editingSprint.end_date && editingSprint.end_date >= editingSprintBounds.nextStart) {
+      toast.error(`El sprint debe terminar antes del inicio del siguiente sprint (${editingSprintBounds.nextStart}).`);
       return;
     }
     setSavingSprintEdit(true);
@@ -636,7 +684,7 @@ export function ProjectTasksWorkspace({
       await tasksService.updateSprint(editingSprint.id, {
         start_date: editingSprint.start_date || null,
         end_date: editingSprint.end_date || null,
-        status: editingSprint.status,
+        status: deriveSprintStatus(editingSprint.start_date || null, editingSprint.end_date || null),
       });
       // Sync board associations
       const currentBoardAssocs = (allSprintBoards ?? []).filter((sb) => sb.sprint === editingSprint.id);
@@ -714,7 +762,7 @@ export function ProjectTasksWorkspace({
         name: autoName,
         start_date: newSprint.start_date || undefined,
         end_date: newSprint.end_date || undefined,
-        status: newSprint.status,
+        status: deriveSprintStatus(newSprint.start_date || null, newSprint.end_date || null),
       });
       if (newSprintBoardIds.length > 0) {
         await Promise.all(
@@ -756,6 +804,22 @@ export function ProjectTasksWorkspace({
     setDeletingSprintId(sprintId);
     try {
       await tasksService.deleteSprint(sprintId);
+      // Renumber remaining sprints so the "Sprint N" sequence stays contiguous
+      // (delete Sprint 3 of 1-4 → old Sprint 4 becomes Sprint 3).
+      const remaining = (sprints ?? [])
+        .filter((s) => s.id_sprint !== sprintId)
+        .sort((a, b) => {
+          if (!a.start_date && !b.start_date) return a.id_sprint - b.id_sprint;
+          if (!a.start_date) return -1;
+          if (!b.start_date) return 1;
+          return a.start_date.localeCompare(b.start_date);
+        });
+      const renames = remaining
+        .map((s, i) => ({ s, desired: `Sprint ${i + 1}` }))
+        .filter(({ s, desired }) => s.name !== desired)
+        .map(({ s, desired }) => tasksService.updateSprint(s.id_sprint, { name: desired }));
+      if (renames.length > 0) await Promise.all(renames);
+
       if (selectedSprintId === sprintId) setSelectedSprintId(null);
       setEditingSprint(null);
       refetchSprints();
@@ -792,6 +856,41 @@ export function ProjectTasksWorkspace({
   );
 
   const selectedBoard = (boards ?? []).find((board) => board.id_board === selectedBoardId) ?? null;
+
+  // Structural board editing (settings, add/delete/rename columns) is locked once the
+  // board has tasks, to avoid orphaning them. Reordering columns stays allowed.
+  const boardHasTasks = (boardId: number) => {
+    const colIds = new Set((boardColumnsByBoard.get(boardId) ?? []).map((c) => c.id_column));
+    return (tasks ?? []).some((t) => colIds.has(t.board_column));
+  };
+  const selectedBoardLocked = selectedBoardId != null && boardHasTasks(selectedBoardId);
+
+  // A board can only be deleted if no sprint references it.
+  const boardInSprint = (boardId: number) => (allSprintBoards ?? []).some((sb) => sb.board === boardId);
+  const selectedBoardInSprint = selectedBoardId != null && boardInSprint(selectedBoardId);
+
+  const handleDeleteBoard = async () => {
+    if (!selectedBoard) return;
+    if (boardInSprint(selectedBoard.id_board)) {
+      toast.error('No se puede eliminar: el board está asignado a un sprint.');
+      return;
+    }
+    if (!confirm(`¿Eliminar el board "${selectedBoard.name}"? Se eliminarán sus columnas.`)) return;
+    setDeletingBoard(true);
+    try {
+      await tasksService.deleteBoard(selectedBoard.id_board);
+      setSelectedBoardId(null);
+      setEditingBoardId(null);
+      setEditingBoardDraft(null);
+      refetchBoards();
+      refetchColumns();
+      toast.success('Board eliminado.');
+    } catch {
+      toast.error('No se pudo eliminar el board.');
+    } finally {
+      setDeletingBoard(false);
+    }
+  };
 
   const pushingTask = pushingTaskId != null ? (tasks ?? []).find((task) => task.id_task === pushingTaskId) ?? null : null;
   // When moving a task that already belongs to a sprint, don't offer its current sprint as a destination.
@@ -834,6 +933,8 @@ export function ProjectTasksWorkspace({
   const handleColumnDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || String(active.id) === String(over.id) || !selectedBoardId) return;
+    // A board with tasks is locked — no column reordering.
+    if (boardHasTasks(selectedBoardId)) return;
     const cols = [...(boardColumnsByBoard.get(selectedBoardId) ?? [])].sort((a, b) => a.order - b.order);
     const oldIndex = cols.findIndex((c) => c.id_column === Number(active.id));
     const newIndex = cols.findIndex((c) => c.id_column === Number(over.id));
@@ -853,8 +954,8 @@ export function ProjectTasksWorkspace({
 
   const handleDeleteColumn = async (columnId: number, boardId: number) => {
     const cols = boardColumnsByBoard.get(boardId) ?? [];
-    if (cols.length <= 2) {
-      toast.error('El board debe tener al menos 2 columnas.');
+    if (cols.length <= 3) {
+      toast.error('El board debe tener al menos 3 columnas.');
       return;
     }
     if (!confirm('¿Eliminar esta columna? Las tareas que estén aquí quedarán sin columna asignada.')) return;
@@ -885,8 +986,10 @@ export function ProjectTasksWorkspace({
         naming_convention: 'default',
         response_language: 'es',
       });
-      await tasksService.createBoardColumn({ board: created.id_board, name: 'Revisión', order: 1, is_final: false });
-      await tasksService.createBoardColumn({ board: created.id_board, name: 'Done', order: 2, is_final: true });
+      await tasksService.createBoardColumn({ board: created.id_board, name: 'To Do', order: 1, is_final: false });
+      await tasksService.createBoardColumn({ board: created.id_board, name: 'In Progress', order: 2, is_final: false });
+      await tasksService.createBoardColumn({ board: created.id_board, name: 'Review', order: 3, is_final: false });
+      await tasksService.createBoardColumn({ board: created.id_board, name: 'Done', order: 4, is_final: true });
       setNewSprintBoardIds((prev) => [...prev, created.id_board]);
       setNewBoardInSprintName('');
       setShowCreateBoardInSprint(false);
@@ -921,8 +1024,8 @@ export function ProjectTasksWorkspace({
           </div>
         )}
 
-        {/* Left: search + filter (backlog only) */}
-        {activeTab === 'backlog' && (
+        {/* Left: search + tag filter (backlog & sprints) */}
+        {(activeTab === 'backlog' || activeTab === 'sprints') && (
           <>
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
@@ -1023,12 +1126,18 @@ export function ProjectTasksWorkspace({
               <button
                 type="button"
                 onClick={() => handleShowColumnModal()}
-                disabled={!selectedBoardId}
+                disabled={!selectedBoardId || selectedBoardLocked}
+                title={selectedBoardLocked ? 'El board tiene tareas; edición bloqueada' : undefined}
                 className="h-8 px-3 rounded-[3px] border border-border text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40 hover:bg-accent/30 transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" /> Nueva columna
               </button>
             </>
+          )}
+          {canCreateTasks && (activeTab === 'backlog' || activeTab === 'sprints') && (
+            <button type="button" onClick={() => setShowTagModal(true)} className="h-8 px-3 rounded-[3px] border border-border text-[11px] inline-flex items-center gap-1 hover:bg-accent/30 transition-colors">
+              <Plus className="w-3.5 h-3.5" /> Nuevo tag
+            </button>
           )}
           {canCreateTasks && activeTab === 'backlog' && (
             <button type="button" onClick={() => handleShowTaskModal()} className="h-8 px-3 rounded-[3px] bg-primary text-primary-foreground text-[11px] font-medium inline-flex items-center gap-1">
@@ -1180,13 +1289,18 @@ export function ProjectTasksWorkspace({
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${
-                        sprint.status === 'active' ? 'bg-success/20 text-success' :
-                        sprint.status === 'closed' ? 'bg-muted text-muted-foreground' :
-                        'bg-amber-500/20 text-amber-600 dark:text-amber-400'
-                      }`}>
-                        {sprint.status === 'active' ? 'Activo' : sprint.status === 'closed' ? 'Cerrado' : 'Planeado'}
-                      </span>
+                      {(() => {
+                        const derived = deriveSprintStatus(sprint.start_date, sprint.end_date);
+                        return (
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${
+                            derived === 'active' ? 'bg-success/20 text-success' :
+                            derived === 'closed' ? 'bg-muted text-muted-foreground' :
+                            'bg-amber-500/20 text-amber-600 dark:text-amber-400'
+                          }`}>
+                            {SPRINT_STATUS_LABEL[derived]}
+                          </span>
+                        );
+                      })()}
                       {sprint.end_date && (
                         <span className="text-[9px] text-muted-foreground truncate">{sprint.end_date}</span>
                       )}
@@ -1392,7 +1506,7 @@ export function ProjectTasksWorkspace({
                   >
                     <div className="flex items-center justify-between gap-1">
                       <p className="font-medium truncate flex-1">{board.name}</p>
-                      {canCreateBoards && (
+                      {canCreateBoards && !boardHasTasks(board.id_board) && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -1446,7 +1560,12 @@ export function ProjectTasksWorkspace({
               ) : (
                 <h3 className="flex-1 text-[12px] font-medium text-foreground">{selectedBoard ? selectedBoard.name : 'Selecciona un board'}</h3>
               )}
-              {selectedBoard && canCreateBoards && (
+              {selectedBoard && canCreateBoards && selectedBoardLocked && editingBoardId !== selectedBoard.id_board && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-surface-secondary/60 px-2 py-1 rounded-[3px] shrink-0">
+                  <Lock className="w-3 h-3" /> Con tareas — edición bloqueada
+                </span>
+              )}
+              {selectedBoard && canCreateBoards && (!selectedBoardLocked || editingBoardId === selectedBoard.id_board) && (
                 <div className="flex items-center gap-1 shrink-0">
                   {editingBoardId === selectedBoard.id_board ? (
                     <>
@@ -1486,6 +1605,17 @@ export function ProjectTasksWorkspace({
                       className="h-7 px-2.5 rounded-[3px] border border-border text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
                     >
                       <Pencil className="w-3 h-3" /> Editar
+                    </button>
+                  )}
+                  {editingBoardId !== selectedBoard.id_board && (
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteBoard()}
+                      disabled={selectedBoardInSprint || deletingBoard}
+                      title={selectedBoardInSprint ? 'No se puede eliminar: asignado a un sprint' : 'Eliminar board'}
+                      className="h-7 px-2.5 rounded-[3px] border border-destructive/30 text-[11px] text-destructive hover:bg-destructive/10 inline-flex items-center gap-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {deletingBoard ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />} Eliminar
                     </button>
                   )}
                 </div>
@@ -1613,6 +1743,7 @@ export function ProjectTasksWorkspace({
                               })()}
                               onEditCancel={() => setEditingColumnId(null)}
                               onDelete={() => void handleDeleteColumn(column.id_column, selectedBoard.id_board)}
+                              locked={selectedBoardLocked}
                             />
                           );
                         })}
@@ -1782,25 +1913,21 @@ export function ProjectTasksWorkspace({
                 value={editingSprint.start_date}
                 onChange={(v) => setEditingSprint((prev) => prev ? { ...prev, start_date: v } : null)}
                 placeholder="Fecha inicio"
-                maxDate={projectEndDate ?? undefined}
+                minDate={editingSprintBounds.minStart}
+                maxDate={editingSprint.end_date || editingSprintBounds.maxEnd}
               />
               <DatePickerField
                 value={editingSprint.end_date}
                 onChange={(v) => setEditingSprint((prev) => prev ? { ...prev, end_date: v } : null)}
                 placeholder="Fecha fin"
-                minDate={editingSprint.start_date || undefined}
-                maxDate={projectEndDate ?? undefined}
+                minDate={editingSprint.start_date || editingSprintBounds.minStart}
+                maxDate={editingSprintBounds.maxEnd}
               />
             </div>
-            <select
-              value={editingSprint.status}
-              onChange={(e) => setEditingSprint((prev) => prev ? { ...prev, status: e.target.value as 'planned' | 'active' | 'closed' } : null)}
-              className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]"
-            >
-              <option value="planned">Planeado</option>
-              <option value="active">Activo</option>
-              <option value="closed">Cerrado</option>
-            </select>
+            <p className="text-[10px] text-muted-foreground bg-surface-secondary/60 rounded-[3px] px-2.5 py-1.5">
+              Estado actual: <span className="font-medium text-foreground">{SPRINT_STATUS_LABEL[deriveSprintStatus(editingSprint.start_date || null, editingSprint.end_date || null)]}</span>
+              <span className="text-muted-foreground/70"> — se determina automáticamente según las fechas.</span>
+            </p>
             {/* Board management */}
             <div>
               <label className="block text-[11px] font-medium text-foreground mb-1.5">
@@ -1949,19 +2076,17 @@ export function ProjectTasksWorkspace({
               <div className="space-y-1 mb-2">
                 {newBoardColumns.map((col, i) => {
                   const isLast = i === newBoardColumns.length - 1;
-                  const isRevision = newBoardColumns.length > 1 && i === newBoardColumns.length - 2;
                   return (
                     <div key={col.tempId} className="flex items-center gap-1.5 rounded-[3px] border border-border bg-surface-secondary/40 px-2 py-1.5 text-[11px]">
                       <span className="text-[10px] text-muted-foreground w-5 shrink-0 text-right">{i + 1}.</span>
                       <span className="flex-1 text-foreground">{col.name}</span>
-                      {isRevision && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-medium">Revisión</span>}
                       {isLast && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-success/20 text-success font-medium">Final</span>}
                       <button
                         type="button"
                         onClick={() => setNewBoardColumns((prev) => prev.filter((_, idx) => idx !== i))}
-                        disabled={newBoardColumns.length <= 2}
+                        disabled={newBoardColumns.length <= 3}
                         className="h-5 w-5 rounded-[3px] border border-destructive/30 text-destructive hover:bg-destructive/10 inline-flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
-                        title={newBoardColumns.length <= 2 ? 'Mínimo 2 columnas' : 'Eliminar'}
+                        title={newBoardColumns.length <= 3 ? 'Mínimo 3 columnas' : 'Eliminar'}
                       >
                         <X className="w-2.5 h-2.5" />
                       </button>
@@ -1998,7 +2123,7 @@ export function ProjectTasksWorkspace({
                   <Plus className="w-3 h-3" /> Agregar
                 </button>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1">La última columna es siempre la final. La penúltima se marca como Revisión.</p>
+              <p className="text-[10px] text-muted-foreground mt-1">La última columna es siempre la final (done). Mínimo 3 columnas; las nuevas se agregan arriba.</p>
             </div>
             <div className="flex justify-end gap-2 pt-1">
               <button type="button" onClick={() => { setShowBoardModal(false); setNewBoardColumnInput(''); }} className="h-8 px-3 border border-border rounded-[3px] text-[11px]">Cancelar</button>
@@ -2013,7 +2138,7 @@ export function ProjectTasksWorkspace({
           <form onSubmit={createColumn} className="w-full max-w-sm rounded-[6px] border border-border bg-card p-5 space-y-3">
             <div>
               <h2 className="text-[13px] font-semibold">Nueva columna</h2>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Se insertará antes de la columna final.</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Se agregará al inicio del tablero. Puedes reordenar las columnas arrastrándolas.</p>
             </div>
             <input value={newColumn.name} onChange={(e) => setNewColumn((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre de la columna" className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]" autoFocus />
             <div className="flex justify-end gap-2">
@@ -2052,11 +2177,12 @@ export function ProjectTasksWorkspace({
                 maxDate={projectEndDate ?? undefined}
               />
             </div>
-            <select value={newSprint.status} onChange={(e) => setNewSprint((prev) => ({ ...prev, status: e.target.value as 'planned' | 'active' | 'closed' }))} className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]">
-              <option value="planned">Planeado</option>
-              <option value="active">Activo</option>
-              <option value="closed">Cerrado</option>
-            </select>
+            {(newSprint.start_date || newSprint.end_date) && (
+              <p className="text-[10px] text-muted-foreground bg-surface-secondary/60 rounded-[3px] px-2.5 py-1.5">
+                Estado inicial: <span className="font-medium text-foreground">{SPRINT_STATUS_LABEL[deriveSprintStatus(newSprint.start_date || null, newSprint.end_date || null)]}</span>
+                <span className="text-muted-foreground/70"> — se determina por las fechas.</span>
+              </p>
+            )}
             {/* Board selection */}
             <div>
               <label className="block text-[11px] font-medium text-foreground mb-1.5">
@@ -2130,7 +2256,7 @@ export function ProjectTasksWorkspace({
                       <X className="w-3 h-3" />
                     </button>
                   </div>
-                  <p className="text-[9px] text-muted-foreground">Se crearán columnas por defecto: Revisión, Done.</p>
+                  <p className="text-[9px] text-muted-foreground">Se crearán 4 columnas: To Do, In Progress, Review, Done.</p>
                 </div>
               ) : (
                 <button

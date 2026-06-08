@@ -12,6 +12,7 @@ import type {
   ApiSprintBoard,
   ApiMilestone,
   ApiTag,
+  ApiSubtask,
 } from './types';
 
 export interface CreateTaskPayload {
@@ -312,8 +313,34 @@ export const tasksService = {
     return api.get<ApiTaskWarning[]>(`/task-warnings/${qs ? `?${qs}` : ''}`);
   },
 
+  /** PATCH /api/task-warnings/:id — e.g. mark resolved */
+  updateWarning(id: number, payload: { status?: 'active' | 'resolved'; resolved_at?: string | null }): Promise<ApiTaskWarning> {
+    return api.patch<ApiTaskWarning>(`/task-warnings/${id}/`, payload);
+  },
+
   /** DELETE /api/task-warnings/:id */
   deleteWarning(id: number): Promise<void> {
     return api.delete<void>(`/task-warnings/${id}/`);
+  },
+
+  // ── Subtasks ───────────────────────────────────────────────────
+  /** GET /api/subtasks/ — optionally filter by parent task */
+  listSubtasks(parentTaskId?: number): Promise<ApiSubtask[]> {
+    const url = parentTaskId ? `/subtasks/?parent_task=${parentTaskId}` : '/subtasks/';
+    return api.get<ApiSubtask[] | { results: ApiSubtask[] }>(url).then(
+      (res) => Array.isArray(res) ? res : ((res as { results?: ApiSubtask[] }).results ?? []),
+    );
+  },
+
+  createSubtask(payload: { parent_task: number; title: string; description?: string; order?: number; is_completed?: boolean }): Promise<ApiSubtask> {
+    return api.post<ApiSubtask>('/subtasks/', payload);
+  },
+
+  updateSubtask(id: number, payload: { title?: string; description?: string | null; order?: number; is_completed?: boolean }): Promise<ApiSubtask> {
+    return api.patch<ApiSubtask>(`/subtasks/${id}/`, payload);
+  },
+
+  deleteSubtask(id: number): Promise<void> {
+    return api.delete<void>(`/subtasks/${id}/`);
   },
 };
