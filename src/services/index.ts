@@ -2,6 +2,7 @@
 export { api, tokenStore, ApiRequestError, AUTH_SESSION_EXPIRED_EVENT } from './api';
 export { authService } from './auth.service';
 export { githubService } from './github.service';
+export { gamificationService } from './gamification.service';
 export { projectsService } from './projects.service';
 export { tasksService } from './tasks.service';
 export { usersService } from './users.service';

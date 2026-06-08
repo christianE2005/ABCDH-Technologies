@@ -6,7 +6,7 @@ import {
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { StatusBadge } from '../components/StatusBadge';
-import { useApiBoards, useApiProjectMembers, useApiRoles, useApiTaskWarnings, useApiTasks } from '../hooks/useProjectData';
+import { useApiBoards, useApiProjectMembers, useApiProjects, useApiRoles, useApiTaskWarnings, useApiTasks } from '../hooks/useProjectData';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useAuth } from '../context/AuthContext';
 import { getProjectCapabilities, getProjectRoleIds } from '../utils/projectPermissions';
@@ -20,6 +20,7 @@ export default function Alerts() {
   const { data: warnings, loading, refetch } = useApiTaskWarnings();
   const { data: tasks } = useApiTasks();
   const { data: boards } = useApiBoards();
+  const { data: projects } = useApiProjects();
   const currentUserId = useMemo(() => {
     const parsed = Number(user?.id ?? 0);
     return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
@@ -28,6 +29,7 @@ export default function Alerts() {
   const { data: roles } = useApiRoles();
 
   const [severity, setSeverity] = useState<SeverityFilter>('all');
+  const [projectFilter, setProjectFilter] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWarning, setSelectedWarning] = useState<number | null>(null);
   const [deletingWarningId, setDeletingWarningId] = useState<number | null>(null);
@@ -91,11 +93,32 @@ export default function Alerts() {
     }
   };
 
+  const projectNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    (projects ?? []).forEach((p) => map.set(p.id_project, p.name));
+    return map;
+  }, [projects]);
+
+  // Only offer projects that actually have alerts, so the filter stays relevant.
+  const projectOptions = useMemo(() => {
+    const ids = new Set<number>();
+    (warnings ?? []).forEach((wr) => {
+      const pid = taskMap.get(wr.task)?.project;
+      if (pid != null) ids.add(pid);
+    });
+    return [...ids]
+      .map((id) => ({ id, name: projectNameById.get(id) ?? `Proyecto #${id}` }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [warnings, taskMap, projectNameById]);
+
   // Filtered warnings
   const filtered = useMemo(() => {
     let w = warnings ?? [];
     if (severity !== 'all') {
       w = w.filter((wr) => wr.status === severity);
+    }
+    if (projectFilter != null) {
+      w = w.filter((wr) => (taskMap.get(wr.task)?.project ?? null) === projectFilter);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -105,7 +128,7 @@ export default function Alerts() {
       });
     }
     return w.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [warnings, severity, searchQuery, taskMap]);
+  }, [warnings, severity, projectFilter, searchQuery, taskMap]);
 
   // KPI counts
   const counts = useMemo(() => {
@@ -170,6 +193,17 @@ export default function Alerts() {
           </div>
 
           <div className="flex items-center gap-2">
+            <select
+              value={projectFilter ?? ''}
+              onChange={(e) => setProjectFilter(e.target.value ? Number(e.target.value) : null)}
+              aria-label="Filtrar por proyecto"
+              className="h-9 min-w-[160px] bg-surface-secondary border border-border rounded-sm px-2.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand"
+            >
+              <option value="">Todos los proyectos</option>
+              {projectOptions.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
             <div className="relative min-w-[220px]">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <input

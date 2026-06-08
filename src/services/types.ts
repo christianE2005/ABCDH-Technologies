@@ -164,6 +164,48 @@ export interface ApiSubtask {
   parent_task: number;
 }
 
+// ─── Gamification ────────────────────────────────────────────────────────────
+
+export interface ApiBadge {
+  id_badge: number;
+  code: string;
+  name: string;
+  description: string;
+  category: string;          // 'delivery' | 'quality' | 'teamwork' | 'milestone'
+  tier: number;              // 1–3 (bronze/silver/gold)
+  icon: string;
+  xp_reward: number;
+  is_active: boolean;
+}
+
+export interface ApiUserBadge {
+  id_user_badge: number;
+  badge: ApiBadge;
+  project: number | null;
+  unlocked_at: string;
+  progress: number | null;
+}
+
+export interface ApiGamificationProfile {
+  user: number;
+  username: string;
+  total_xp: number;
+  level: number;
+  xp_into_level: number;
+  xp_for_next_level: number;
+  current_streak: number;
+  longest_streak: number;
+  is_eligible: boolean;
+}
+
+export interface ApiLeaderboardEntry {
+  user: number;
+  username: string;
+  total_xp: number;
+  level: number;
+  rank: number;
+}
+
 export interface ApiActivityLog {
   id_activity: number;
   user: number | null;

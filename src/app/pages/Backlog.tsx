@@ -209,7 +209,9 @@ export default function Backlog() {
     setSelectedTagIds([]);
   };
 
-  const openTask = (task: ApiTask) => navigate(`/projects/${task.project}?task=${task.id_task}`);
+  // Deep-link into the project AND open the task: ProjectDetail only honors `task`
+  // when a workspace tab is present, so pick the tab matching where the task lives.
+  const openTask = (task: ApiTask) => navigate(`/projects/${task.project}?tab=${task.sprint == null ? 'backlog' : 'sprints'}&task=${task.id_task}`);
 
   const TagChips = ({ task }: { task: ApiTask }) => {
     if (task.tags.length === 0) return null;
@@ -487,7 +489,17 @@ export default function Backlog() {
             </p>
           </div>
         ) : (
-          <TaskTable tasks={productBacklogTasks} projectById={projectById} priorityById={priorityById} TagChips={TagChips} onOpen={openTask} />
+          <section className="rounded-md border border-border bg-card overflow-hidden">
+            <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-surface-secondary/40">
+              <div className="flex items-center gap-2 min-w-0">
+                <ListChecks className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span className="text-[12px] font-semibold text-foreground truncate">Product Backlog</span>
+                <span className="text-[10px] text-muted-foreground truncate">· tareas sin sprint</span>
+              </div>
+              <span className="text-[10px] text-muted-foreground shrink-0">{productBacklogTasks.length} tarea{productBacklogTasks.length === 1 ? '' : 's'}</span>
+            </div>
+            <TaskTable tasks={productBacklogTasks} projectById={projectById} priorityById={priorityById} TagChips={TagChips} onOpen={openTask} />
+          </section>
         )
       ) : (
         /* ───── EN SPRINTS: tasks assigned to a sprint, grouped ───── */

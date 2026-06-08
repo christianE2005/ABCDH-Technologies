@@ -1,9 +1,10 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
-import { projectsService, tasksService, usersService, githubService, ApiRequestError } from '../../services';
+import { projectsService, tasksService, usersService, githubService, gamificationService, ApiRequestError } from '../../services';
 import type {
   ApiProject, ApiTask, ApiUserAccount, ApiTaskStatus, ApiTaskPriority,
   ApiBoard, ApiProjectMember, ApiActivityLog, ApiRole, ApiTaskWarning, ApiGithubPushEvent, ApiTaskAssignment,
   ApiBoardColumn, ApiSprint, ApiSprintBoard, ApiMilestone, ApiTag,
+  ApiBadge, ApiUserBadge, ApiGamificationProfile, ApiLeaderboardEntry,
 } from '../../services';
 
 // â”€â”€â”€ Real API hooks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -450,6 +451,115 @@ export function useApiGithubPushes(filters?: { project_id?: number; repo?: strin
       .then((pushes) => { if (!cancelled) setData(pushes); })
       .catch((err) => {
         if (!cancelled) setError(err instanceof ApiRequestError ? err.message : 'Error cargando pushes.');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey, tick]);
+
+  const refetch = useCallback(() => setTick((t) => t + 1), []);
+  return { data, loading, error, refetch };
+}
+
+// ─── Gamification hooks ──────────────────────────────────────────────────────
+
+/** Fetches a user's gamification profile (XP, level, streaks). Defaults to current user. */
+export function useApiGamificationProfile(userId?: number): UseApiState<ApiGamificationProfile> {
+  const [data, setData]       = useState<ApiGamificationProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [tick, setTick]       = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    gamificationService.getProfile(userId)
+      .then((profile) => { if (!cancelled) setData(profile); })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof ApiRequestError ? err.message : 'Error cargando el perfil de gamificación.');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [userId, tick]);
+
+  const refetch = useCallback(() => setTick((t) => t + 1), []);
+  return { data, loading, error, refetch };
+}
+
+/** Fetches the full badge catalog. */
+export function useApiBadges(): UseApiState<ApiBadge[]> {
+  const [data, setData]       = useState<ApiBadge[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [tick, setTick]       = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    gamificationService.listBadges()
+      .then((badges) => { if (!cancelled) setData(badges); })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof ApiRequestError ? err.message : 'Error cargando insignias.');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [tick]);
+
+  const refetch = useCallback(() => setTick((t) => t + 1), []);
+  return { data, loading, error, refetch };
+}
+
+/** Fetches a user's unlocked badges. Defaults to current user. */
+export function useApiUserBadges(userId?: number): UseApiState<ApiUserBadge[]> {
+  const [data, setData]       = useState<ApiUserBadge[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [tick, setTick]       = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    gamificationService.listUserBadges(userId)
+      .then((badges) => { if (!cancelled) setData(badges); })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof ApiRequestError ? err.message : 'Error cargando insignias del usuario.');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [userId, tick]);
+
+  const refetch = useCallback(() => setTick((t) => t + 1), []);
+  return { data, loading, error, refetch };
+}
+
+/** Fetches the leaderboard, optionally scoped to a project/sprint. */
+export function useApiLeaderboard(filters?: { project?: number; sprint?: number; scope?: 'individual' | 'team' }): UseApiState<ApiLeaderboardEntry[]> {
+  const [data, setData]       = useState<ApiLeaderboardEntry[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [tick, setTick]       = useState(0);
+
+  const filterKey = JSON.stringify(filters ?? {});
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    gamificationService.getLeaderboard(filters)
+      .then((entries) => { if (!cancelled) setData(entries); })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof ApiRequestError ? err.message : 'Error cargando el ranking.');
       })
       .finally(() => { if (!cancelled) setLoading(false); });
 

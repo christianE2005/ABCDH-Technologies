@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Calendar, Users, Clock, CheckCircle2,
   AlertTriangle, UserPlus, RefreshCw, List, Trash2, Settings2, Pencil, Flag, Check, X as XIcon, Plus,
-  GripVertical, TrendingDown, Gauge,
+  GripVertical, TrendingDown, Gauge, Trophy, Loader2,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -25,8 +25,9 @@ import { ProgressBar } from '../components/ProgressBar';
 import { AssignResponsibleModal, type AssignCandidate } from '../components/AssignResponsibleModal';
 import { AddMemberModal } from '../components/AddMemberModal';
 import {
-  useApiBoards, useApiBoardColumns, useApiProjectMembers, useApiUsers, useApiTasks, useApiRoles, useApiSprints, useApiMilestones,
+  useApiBoards, useApiBoardColumns, useApiProjectMembers, useApiUsers, useApiTasks, useApiRoles, useApiSprints, useApiMilestones, useApiLeaderboard,
 } from '../hooks/useProjectData';
+import { Leaderboard } from '../components/Gamification';
 import { projectsService, tasksService, usersService } from '../../services';
 import type { ApiProject, ApiTask, ApiTaskAssignment, ApiUserAccount } from '../../services';
 import { getProjectHealth, type ProjectHealth } from '../utils/projectHealth';
@@ -115,6 +116,13 @@ export default function ProjectDetail() {
   }, [boards, selectedBoardId]);
   // ── Sprints (for project end date validation) ─────────────────────────────
   const { data: sprints } = useApiSprints(projectId);
+
+  // ── Gamification leaderboard (Team tab) ───────────────────────────────────
+  const { data: leaderboard, loading: loadingLeaderboard } = useApiLeaderboard({ project: projectId });
+  const currentUserNumericId = useMemo(() => {
+    const parsed = Number(user?.id ?? 0);
+    return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
+  }, [user]);
 
   // ── Board columns (to detect "done" tasks sitting in a final column) ───────
   const { data: boardColumns } = useApiBoardColumns();
@@ -1330,6 +1338,7 @@ export default function ProjectDetail() {
               canCreateBoards={canManageTasks}
               canEditTasks={canManageTasks}
               canDeleteTasks={canManageTasks}
+              canMoveTasks={capabilities.canMoveTasks}
               projectEndDate={project?.end_date ?? null}
               projectStartDate={project?.start_date ?? null}
               forcedTab={activeTab}
@@ -1383,6 +1392,7 @@ export default function ProjectDetail() {
 
         {/* EQUIPO */}
         {activeTab === 'equipo' && (
+          <div className="space-y-3">
           <div className="bg-card border border-border rounded-[4px] p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
@@ -1482,6 +1492,22 @@ export default function ProjectDetail() {
                 })}
               </div>
             )}
+          </div>
+
+          {/* Project leaderboard */}
+          <div className="bg-card border border-border rounded-[4px] overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+              <Trophy className="w-3.5 h-3.5 text-primary" />
+              <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Ranking del proyecto</h2>
+            </div>
+            {loadingLeaderboard ? (
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground px-4 py-4">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando ranking…
+              </div>
+            ) : (
+              <Leaderboard entries={leaderboard ?? []} currentUserId={currentUserNumericId} />
+            )}
+          </div>
           </div>
         )}
 

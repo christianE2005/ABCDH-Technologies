@@ -2,10 +2,11 @@
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { User, Mail, Shield, Moon, Sun } from 'lucide-react';
+import { User, Mail, Shield, Moon, Sun, Trophy, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useApiProjectMembers, useApiProjects } from '../hooks/useProjectData';
+import { useApiProjectMembers, useApiProjects, useApiBadges, useApiUserBadges, useApiGamificationProfile } from '../hooks/useProjectData';
 import { StatusBadge } from '../components/StatusBadge';
+import { LevelProgress, BadgeGrid } from '../components/Gamification';
 import { GitHubConnectSection } from '../components/GitHubConnectSection';
 import { getUserRoleLabel } from '../utils/roles';
 import { compareProjectsForGenericPriority, getProjectStatusBadge, getProjectStatusLabel, shouldShowInGenericProjectDisplays } from '../utils/projectStatus';
@@ -19,6 +20,9 @@ export default function Profile() {
   const userId = Number(user?.id ?? 0);
   const { data: projects, loading: loadingProjects } = useApiProjects();
   const { data: memberRows, loading: loadingMemberRows } = useApiProjectMembers(undefined, userId > 0 ? userId : undefined);
+  const { data: gamificationProfile, loading: loadingGamification } = useApiGamificationProfile();
+  const { data: badgeCatalog } = useApiBadges();
+  const { data: userBadges } = useApiUserBadges();
   const visibleProjects = useMemo(() => {
     const allowedProjectIds = new Set((memberRows ?? []).map((member) => member.project));
     return (projects ?? []).filter((project) => allowedProjectIds.has(project.id_project));
@@ -84,6 +88,40 @@ export default function Profile() {
               </div>
             </div>
           </div>
+
+          {/* Gamification / Logros */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.05 }}
+            className="bg-card border border-border rounded-[4px] p-4"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <Trophy className="w-3.5 h-3.5 text-primary" />
+              <h2 className="text-[12px] font-semibold text-foreground">Logros</h2>
+            </div>
+            {loadingGamification ? (
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground py-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando…
+              </div>
+            ) : !gamificationProfile ? (
+              <p className="text-[11px] text-muted-foreground">No se pudo cargar tu progreso.</p>
+            ) : !gamificationProfile.is_eligible ? (
+              <p className="text-[11px] text-muted-foreground">
+                Tu rol tiene acceso de consulta y no participa en el sistema de puntos e insignias.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                <LevelProgress profile={gamificationProfile} />
+                <div>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-2">
+                    Insignias ({(userBadges ?? []).filter((b) => b.unlocked_at).length}/{(badgeCatalog ?? []).filter((b) => b.is_active).length})
+                  </p>
+                  <BadgeGrid catalog={badgeCatalog ?? []} userBadges={userBadges ?? []} />
+                </div>
+              </div>
+            )}
+          </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 12 }}

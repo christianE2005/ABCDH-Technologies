@@ -13,7 +13,9 @@ import { KPICard } from '../components/KPICard';
 import {
   useApiBoards, useApiBoardColumns, useApiProjectMembers, useApiProjects, useApiTasks,
   useApiTaskAssignments, useApiTaskWarnings, useApiGithubPushes, useApiSprints,
+  useApiGamificationProfile, useApiUserBadges,
 } from '../hooks/useProjectData';
+import { LevelProgress } from '../components/Gamification';
 import { useAuth } from '../context/AuthContext';
 import { shouldShowInGenericProjectDisplays, compareProjectsForGenericPriority } from '../utils/projectStatus';
 import { formatProjectDate } from '../utils/projectDates';
@@ -80,6 +82,8 @@ export default function Dashboard() {
   const { data: taskAssignments } = useApiTaskAssignments(taskIds);
   const { data: warnings } = useApiTaskWarnings({ status: 'active' });
   const { data: pushes } = useApiGithubPushes();
+  const { data: gamificationProfile } = useApiGamificationProfile();
+  const { data: userBadges } = useApiUserBadges();
 
   const isStakeholderUser = user?.role === 'stakeholder';
   const isAdminUser = user?.role === 'admin';
@@ -296,6 +300,25 @@ export default function Dashboard() {
         </button>
       </div>
 
+      {/* ───────── Gamification strip ───────── */}
+      {gamificationProfile?.is_eligible && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, ease: 'easeOut' }}
+          className="bg-card border border-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-4"
+        >
+          <div className="flex-1 min-w-0">
+            <LevelProgress profile={gamificationProfile} />
+          </div>
+          <Link
+            to="/profile"
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-secondary/40 px-3 py-1.5 text-[11px] font-medium text-foreground hover:bg-accent transition-colors"
+          >
+            🏅 {(userBadges ?? []).filter((b) => b.unlocked_at).length} insignia{(userBadges ?? []).filter((b) => b.unlocked_at).length === 1 ? '' : 's'}
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+        </motion.div>
+      )}
+
       {/* ───────── KPI Row ───────── */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
         {loading
@@ -472,7 +495,7 @@ export default function Dashboard() {
                 <button
                   key={task.id_task}
                   type="button"
-                  onClick={() => projectId && navigate(`/projects/${projectId}?task=${task.id_task}`)}
+                  onClick={() => projectId && navigate(`/projects/${projectId}?tab=${task.sprint == null ? 'backlog' : 'sprints'}&task=${task.id_task}`)}
                   className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/30 transition-colors text-left"
                 >
                   <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
@@ -565,7 +588,7 @@ export default function Dashboard() {
                       <button
                         key={task.id_task}
                         type="button"
-                        onClick={() => projectId && navigate(`/projects/${projectId}?task=${task.id_task}`)}
+                        onClick={() => projectId && navigate(`/projects/${projectId}?tab=${task.sprint == null ? 'backlog' : 'sprints'}&task=${task.id_task}`)}
                         className="w-full px-4 py-2.5 hover:bg-accent/30 transition-colors flex items-center gap-3 text-left"
                       >
                         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: statusCol }} />

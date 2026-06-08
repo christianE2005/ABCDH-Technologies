@@ -138,6 +138,7 @@ interface ProjectTasksWorkspaceProps {
   canCreateBoards: boolean;
   canEditTasks: boolean;
   canDeleteTasks: boolean;
+  canMoveTasks?: boolean;
   projectEndDate?: string | null;
   projectStartDate?: string | null;
   forcedTab?: WorkspaceTab;
@@ -233,6 +234,7 @@ export function ProjectTasksWorkspace({
   canCreateBoards,
   canEditTasks,
   canDeleteTasks,
+  canMoveTasks = false,
   projectEndDate = null,
   projectStartDate = null,
   forcedTab,
@@ -270,7 +272,9 @@ export function ProjectTasksWorkspace({
     tags: [] as number[],
     assignedTo: [] as number[],
     sprint: null as number | null,
+    subtasks: [] as string[],
   });
+  const [newSubtaskInput, setNewSubtaskInput] = useState('');
   const [newBoard, setNewBoard] = useState({
     name: '', description: '',
     coding_style: 'standard', review_focus: 'strict', tech_stack: 'mixed',
@@ -559,7 +563,16 @@ export function ProjectTasksWorkspace({
 
       await Promise.all(newTask.assignedTo.map((assignedId) => tasksService.createAssignment({ task: created.id_task, assigned_to: assignedId })));
 
+      // Create any subtasks added in the modal, preserving their order.
+      const subtaskTitles = newTask.subtasks.map((s) => s.trim()).filter(Boolean);
+      if (subtaskTitles.length > 0) {
+        await Promise.all(subtaskTitles.map((title, i) =>
+          tasksService.createSubtask({ parent_task: created.id_task, title, order: i + 1 }),
+        ));
+      }
+
       setShowTaskModal(false);
+      setNewSubtaskInput('');
       setNewTask({
         title: '',
         description: '',
@@ -569,6 +582,7 @@ export function ProjectTasksWorkspace({
         tags: [],
         assignedTo: [],
         sprint: null,
+        subtasks: [],
       });
       refetchTasks();
       refetchTaskAssignments();
@@ -898,7 +912,7 @@ export function ProjectTasksWorkspace({
 
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveDragId(null);
-    if (!canEditTasks) return;
+    if (!canMoveTasks) return;
     const { active, over } = event;
     if (!over) return;
     const draggedTask = (tasks ?? []).find((task) => task.id_task === Number(active.id));
@@ -931,6 +945,7 @@ export function ProjectTasksWorkspace({
   };
 
   const handleColumnDragEnd = async (event: DragEndEvent) => {
+    if (!canCreateBoards) return; // read-only roles (e.g. stakeholder) cannot reorder columns
     const { active, over } = event;
     if (!over || String(active.id) === String(over.id) || !selectedBoardId) return;
     // A board with tasks is locked — no column reordering.
@@ -1161,7 +1176,7 @@ export function ProjectTasksWorkspace({
                 <th className="text-left px-4 py-2">Titulo</th>
                 <th className="text-left px-4 py-2">Prioridad</th>
                 <th className="text-left px-4 py-2">Tags</th>
-                {canEditTasks && <th className="text-left px-4 py-2 w-[140px]">Sprint</th>}
+                {canMoveTasks && <th className="text-left px-4 py-2 w-[140px]">Sprint</th>}
               </tr>
             </thead>
             <tbody>
@@ -1209,7 +1224,7 @@ export function ProjectTasksWorkspace({
                       </div>
                     )}
                   </td>
-                  {canEditTasks && (
+                  {canMoveTasks && (
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
@@ -1388,8 +1403,8 @@ export function ProjectTasksWorkspace({
                                         key={task.id_task}
                                         task={task}
                                         onOpen={setSelectedTask}
-                                        onMove={canEditTasks ? (t) => startMoveTask(t.id_task) : undefined}
-                                        draggable={canEditTasks}
+                                        onMove={canMoveTasks ? (t) => startMoveTask(t.id_task) : undefined}
+                                        draggable={canMoveTasks}
                                         tagById={tagById}
                                       />
                                     ))}
@@ -1415,13 +1430,13 @@ export function ProjectTasksWorkspace({
                           <tr className="border-b border-border bg-surface-secondary/50">
                             <th className="text-left px-3 py-2">Titulo</th>
                             <th className="text-left px-3 py-2">Tags</th>
-                            {canEditTasks && <th className="text-left px-3 py-2 w-[100px]">Sprint</th>}
+                            {canMoveTasks && <th className="text-left px-3 py-2 w-[100px]">Sprint</th>}
                           </tr>
                         </thead>
                         <tbody>
                           {sprintTasks.length === 0 ? (
                             <tr>
-                              <td colSpan={canEditTasks ? 3 : 2} className="px-3 py-6 text-center text-muted-foreground">Sin tareas en este sprint</td>
+                              <td colSpan={canMoveTasks ? 3 : 2} className="px-3 py-6 text-center text-muted-foreground">Sin tareas en este sprint</td>
                             </tr>
                           ) : (
                             sprintTasks.map((task) => {
@@ -1456,7 +1471,7 @@ export function ProjectTasksWorkspace({
                                       )}
                                     </div>
                                   </td>
-                                  {canEditTasks && (
+                                  {canMoveTasks && (
                                     <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                                       <button
                                         type="button"
@@ -1743,7 +1758,7 @@ export function ProjectTasksWorkspace({
                               })()}
                               onEditCancel={() => setEditingColumnId(null)}
                               onDelete={() => void handleDeleteColumn(column.id_column, selectedBoard.id_board)}
-                              locked={selectedBoardLocked}
+                              locked={selectedBoardLocked || !canCreateBoards}
                             />
                           );
                         })}
@@ -1830,13 +1845,59 @@ export function ProjectTasksWorkspace({
               </div>
             )}
 
+            <div>
+              <p className="text-[11px] text-muted-foreground mb-1">Subtareas</p>
+              {newTask.subtasks.length > 0 && (
+                <div className="space-y-1 mb-2">
+                  {newTask.subtasks.map((st, i) => (
+                    <div key={i} className="flex items-center gap-2 rounded-[3px] border border-border bg-surface-secondary/40 px-2 py-1.5 text-[11px]">
+                      <span className="flex-1 text-foreground break-words">{st}</span>
+                      <button
+                        type="button"
+                        onClick={() => setNewTask((prev) => ({ ...prev, subtasks: prev.subtasks.filter((_, idx) => idx !== i) }))}
+                        className="shrink-0 text-muted-foreground hover:text-destructive"
+                        title="Quitar subtarea"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-1.5">
+                <input
+                  value={newSubtaskInput}
+                  onChange={(e) => setNewSubtaskInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const v = newSubtaskInput.trim();
+                      if (v) { setNewTask((prev) => ({ ...prev, subtasks: [...prev.subtasks, v] })); setNewSubtaskInput(''); }
+                    }
+                  }}
+                  placeholder="Nueva subtarea…"
+                  className="flex-1 h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px] placeholder:text-muted-foreground/60"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const v = newSubtaskInput.trim();
+                    if (v) { setNewTask((prev) => ({ ...prev, subtasks: [...prev.subtasks, v] })); setNewSubtaskInput(''); }
+                  }}
+                  className="h-8 px-2.5 rounded-[3px] border border-border text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" /> Agregar
+                </button>
+              </div>
+            </div>
+
             <div className="flex justify-end gap-2 pt-2">
               <p className="flex-1 text-[10px] text-muted-foreground self-center">
                 {newTask.sprint != null
                   ? 'La tarea se creara y asignara al sprint seleccionado.'
                   : 'Se creara en Product Backlog (sin sprint, sin milestone).'}
               </p>
-              <button type="button" onClick={() => { setNewTask((prev) => ({ ...prev, sprint: null })); setShowTaskModal(false); }} className="h-8 px-3 rounded-[3px] border border-border text-[11px]">Cancelar</button>
+              <button type="button" onClick={() => { setNewTask((prev) => ({ ...prev, sprint: null, subtasks: [] })); setNewSubtaskInput(''); setShowTaskModal(false); }} className="h-8 px-3 rounded-[3px] border border-border text-[11px]">Cancelar</button>
               <button type="submit" className="h-8 px-3 rounded-[3px] bg-primary text-primary-foreground text-[11px]">Crear</button>
             </div>
           </form>

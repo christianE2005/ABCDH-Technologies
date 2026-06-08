@@ -14,6 +14,8 @@ export interface ProjectCapabilities {
   canManageMembers: boolean;
   canEditMemberRoles: boolean;
   canManageTasks: boolean;
+  /** Move tasks across columns/sprints — any project member except stakeholders (includes developers). */
+  canMoveTasks: boolean;
   canCreateRepos: boolean;
   isProjectManager: boolean;
   isProductOwner: boolean;
@@ -112,6 +114,7 @@ export function getProjectCapabilities(
     canManageMembers: isLeadRole,
     canEditMemberRoles: isLeadRole,
     canManageTasks: isLeadRole,
+    canMoveTasks: Boolean(currentUserMember) && !isStakeholder,
     canCreateRepos: !isStakeholder,
     isProjectManager,
     isProductOwner,
