@@ -9,8 +9,10 @@ import type {
   ApiTaskAssignment,
   ApiBoardColumn,
   ApiSprint,
+  ApiSprintBoard,
   ApiMilestone,
   ApiTag,
+  ApiSubtask,
 } from './types';
 
 export interface CreateTaskPayload {
@@ -22,10 +24,12 @@ export interface CreateTaskPayload {
   priority?: number;
   created_by?: number;
   assigned_to?: number;
-  due_date?: string;   // YYYY-MM-DD
+  start_date?: string;  // YYYY-MM-DD
+  due_date?: string;    // YYYY-MM-DD
   sprint?: number | null;
   milestone?: number | null;
   tags?: number[];
+  scrum_number?: string;
 }
 
 export interface UpdateTaskPayload {
@@ -34,12 +38,14 @@ export interface UpdateTaskPayload {
   status?: number | null;
   priority?: number | null;
   assigned_to?: number | null;
+  start_date?: string | null;
   due_date?: string | null;
   completed_at?: string | null;
   sprint?: number | null;
   board_column?: number | null;
   milestone?: number | null;
   tags?: number[];
+  scrum_number?: string | null;
 }
 
 export interface UpdateTaskCommentPayload {
@@ -135,8 +141,30 @@ export const tasksService = {
     return api.get<ApiBoard[]>(url);
   },
 
-  createBoard(projectId: number, name: string, description?: string): Promise<ApiBoard> {
-    return api.post<ApiBoard>('/boards/', { project: projectId, name, description });
+  createBoard(projectId: number, payload: {
+    name: string;
+    description?: string;
+    coding_style?: string;
+    review_focus?: string;
+    tech_stack?: string;
+    naming_convention?: string;
+    response_language?: string;
+    custom_instructions?: string;
+  }): Promise<ApiBoard> {
+    return api.post<ApiBoard>('/boards/', { project: projectId, ...payload });
+  },
+
+  updateBoard(id: number, payload: {
+    name?: string;
+    description?: string | null;
+    coding_style?: string;
+    review_focus?: string;
+    tech_stack?: string;
+    naming_convention?: string;
+    response_language?: string;
+    custom_instructions?: string | null;
+  }): Promise<ApiBoard> {
+    return api.patch<ApiBoard>(`/boards/${id}/`, payload);
   },
 
   deleteBoard(id: number): Promise<void> {
@@ -186,6 +214,24 @@ export const tasksService = {
     return api.patch<ApiSprint>(`/sprints/${id}/`, payload);
   },
 
+  deleteSprint(id: number): Promise<void> {
+    return api.delete<void>(`/sprints/${id}/`);
+  },
+
+  // ── Sprint boards ─────────────────────────────────────────────
+  listSprintBoards(sprintId?: number): Promise<ApiSprintBoard[]> {
+    const url = sprintId ? `/sprint-boards/?sprint=${sprintId}` : '/sprint-boards/';
+    return api.get<ApiSprintBoard[]>(url);
+  },
+
+  createSprintBoard(payload: { sprint: number; board: number }): Promise<ApiSprintBoard> {
+    return api.post<ApiSprintBoard>('/sprint-boards/', payload);
+  },
+
+  deleteSprintBoard(id: number): Promise<void> {
+    return api.delete<void>(`/sprint-boards/${id}/`);
+  },
+
   // ── Milestones ────────────────────────────────────────────────
   listMilestones(projectId?: number): Promise<ApiMilestone[]> {
     const url = projectId ? `/milestones/?project=${projectId}` : '/milestones/';
@@ -209,6 +255,10 @@ export const tasksService = {
     is_completed?: boolean;
   }): Promise<ApiMilestone> {
     return api.patch<ApiMilestone>(`/milestones/${id}/`, payload);
+  },
+
+  deleteMilestone(id: number): Promise<void> {
+    return api.delete<void>(`/milestones/${id}/`);
   },
 
   // ── Tags ──────────────────────────────────────────────────────
@@ -263,8 +313,34 @@ export const tasksService = {
     return api.get<ApiTaskWarning[]>(`/task-warnings/${qs ? `?${qs}` : ''}`);
   },
 
+  /** PATCH /api/task-warnings/:id — e.g. mark resolved */
+  updateWarning(id: number, payload: { status?: 'active' | 'resolved'; resolved_at?: string | null }): Promise<ApiTaskWarning> {
+    return api.patch<ApiTaskWarning>(`/task-warnings/${id}/`, payload);
+  },
+
   /** DELETE /api/task-warnings/:id */
   deleteWarning(id: number): Promise<void> {
     return api.delete<void>(`/task-warnings/${id}/`);
+  },
+
+  // ── Subtasks ───────────────────────────────────────────────────
+  /** GET /api/subtasks/ — optionally filter by parent task */
+  listSubtasks(parentTaskId?: number): Promise<ApiSubtask[]> {
+    const url = parentTaskId ? `/subtasks/?parent_task=${parentTaskId}` : '/subtasks/';
+    return api.get<ApiSubtask[] | { results: ApiSubtask[] }>(url).then(
+      (res) => Array.isArray(res) ? res : ((res as { results?: ApiSubtask[] }).results ?? []),
+    );
+  },
+
+  createSubtask(payload: { parent_task: number; title: string; description?: string; order?: number; is_completed?: boolean }): Promise<ApiSubtask> {
+    return api.post<ApiSubtask>('/subtasks/', payload);
+  },
+
+  updateSubtask(id: number, payload: { title?: string; description?: string | null; order?: number; is_completed?: boolean }): Promise<ApiSubtask> {
+    return api.patch<ApiSubtask>(`/subtasks/${id}/`, payload);
+  },
+
+  deleteSubtask(id: number): Promise<void> {
+    return api.delete<void>(`/subtasks/${id}/`);
   },
 };

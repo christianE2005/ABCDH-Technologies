@@ -10,7 +10,9 @@ export interface ProjectProgress {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NEAR_DEADLINE_DAYS = 14;
-const ELAPSED_THRESHOLD = 0.75;
+// How far behind the expected (time-based) progress a project may fall before it is flagged.
+const AT_RISK_SHORTFALL = 15;   // behind by this many points → "en riesgo"
+const CRITICAL_SHORTFALL = 35;  // behind by this many points → "crítico"
 
 export function computeProjectProgress(
   projectId: number,
@@ -35,35 +37,42 @@ export function computeProjectProgress(
   return { completed, total, percentage };
 }
 
+/**
+ * Health is judged by comparing how far through the schedule the project is
+ * against how much of the work is done. A project that is keeping pace with its
+ * timeline is healthy — being early-stage with low completion is NOT "at risk".
+ */
 export function getProjectHealth(
   project: Pick<ApiProject, 'created_at' | 'end_date' | 'status'>,
   progress: ProjectProgress,
   now: Date = new Date(),
 ): ProjectHealth {
-  if (progress.total === 0) return 'yellow';
-
   const pct = progress.percentage;
-  if (pct >= 100) return 'green';
+
+  // Work is finished → healthy.
+  if (progress.total > 0 && pct >= 100) return 'green';
 
   const nowTime = now.getTime();
   const endTime = project.end_date ? new Date(project.end_date).getTime() : null;
   const startTime = project.created_at ? new Date(project.created_at).getTime() : null;
 
+  // Past the deadline without finishing → critical.
   if (endTime !== null && endTime < nowTime) return 'red';
 
-  if (pct < 40 && endTime !== null && startTime !== null) {
-    const span = endTime - startTime;
-    if (span > 0) {
-      const elapsedRatio = (nowTime - startTime) / span;
-      if (elapsedRatio >= ELAPSED_THRESHOLD) return 'red';
-    }
-  }
+  // No usable schedule to judge against → we can't infer timing risk, treat as healthy.
+  if (endTime === null || startTime === null || endTime <= startTime) return 'green';
 
-  if (endTime !== null) {
-    const daysRemaining = (endTime - nowTime) / DAY_MS;
-    if (daysRemaining < NEAR_DEADLINE_DAYS && pct < 75) return 'yellow';
-  }
+  // Expected progress if the project advanced linearly across its timeline.
+  const elapsedRatio = Math.min(1, Math.max(0, (nowTime - startTime) / (endTime - startTime)));
+  const expectedPct = elapsedRatio * 100;
+  const shortfall = expectedPct - pct; // positive = behind schedule
 
-  if (pct >= 75) return 'green';
-  return 'yellow';
+  if (shortfall >= CRITICAL_SHORTFALL) return 'red';
+  if (shortfall >= AT_RISK_SHORTFALL) return 'yellow';
+
+  // Deadline is near and a meaningful chunk of work still remains → at risk.
+  const daysRemaining = (endTime - nowTime) / DAY_MS;
+  if (daysRemaining < NEAR_DEADLINE_DAYS && pct < 80) return 'yellow';
+
+  return 'green';
 }

@@ -10,6 +10,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { DatePickerField } from '../components/DatePickerField';
 import { ProgressBar } from '../components/ProgressBar';
 import { useApiBoards, useApiProjectMembers, useApiProjects, useApiTasks } from '../hooks/useProjectData';
+import { usePreventDoubleClick } from '../hooks/usePreventDoubleClick';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useAuth } from '../context/AuthContext';
 import { projectsService, usersService } from '../../services';
@@ -88,7 +89,10 @@ export default function Projects() {
   // Form state
   const [formName, setFormName] = useState('');
   const [formDesc, setFormDesc] = useState('');
+  const [formStart, setFormStart] = useState('');
   const [formEnd, setFormEnd] = useState('');
+
+  const endMinDate = formStart || tomorrowDate;
 
   const visibleProjects = useMemo(() => {
     if (!projects) return [];
@@ -185,6 +189,7 @@ export default function Projects() {
       const createdProject = await projectsService.create({
         name: formName,
         description: formDesc || undefined,
+        start_date: formStart || undefined,
         end_date: formEnd,
       });
       if (user?.id) {
@@ -206,7 +211,7 @@ export default function Projects() {
       }
       toast.success('Proyecto creado exitosamente');
       setShowCreateModal(false);
-      setFormName(''); setFormDesc(''); setFormEnd('');
+      setFormName(''); setFormDesc(''); setFormStart(''); setFormEnd('');
       setSearchTerm('');
       setStatusFilter('all');
       setCurrentPage(0);
@@ -218,6 +223,8 @@ export default function Projects() {
       setCreating(false);
     }
   };
+
+  const handleShowCreateModal = usePreventDoubleClick(() => setShowCreateModal(true));
 
   return (
     <div className="px-4 pb-6 pt-3 max-w-[1600px] min-h-full flex flex-col gap-4">
@@ -286,7 +293,7 @@ export default function Projects() {
               <Button
                 type="button"
                 variant="primary-brand"
-                onClick={() => setShowCreateModal(true)}
+                onClick={() => handleShowCreateModal()}
                 className="shrink-0"
               >
                 <Plus className="w-4 h-4" />
@@ -549,14 +556,27 @@ export default function Projects() {
                 />
               </div>
 
-              <div>
-                <label className="block text-[11px] font-medium text-foreground mb-1">Fecha de entrega</label>
-                <DatePickerField
-                  value={formEnd}
-                  onChange={setFormEnd}
-                  minDate={tomorrowDate}
-                  placeholder="Selecciona la fecha de entrega"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-medium text-foreground mb-1">Fecha de inicio</label>
+                  <DatePickerField
+                    value={formStart}
+                    onChange={setFormStart}
+                    minDate={tomorrowDate}
+                    maxDate={formEnd || undefined}
+                    placeholder="Fecha de inicio"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-foreground mb-1">Fecha de entrega</label>
+                  <DatePickerField
+                    value={formEnd}
+                    onChange={setFormEnd}
+                    disabled={!formStart}
+                    minDate={endMinDate}
+                    placeholder="Fecha de entrega"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-2 pt-2">

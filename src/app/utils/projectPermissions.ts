@@ -14,9 +14,12 @@ export interface ProjectCapabilities {
   canManageMembers: boolean;
   canEditMemberRoles: boolean;
   canManageTasks: boolean;
+  /** Move tasks across columns/sprints — any project member except stakeholders (includes developers). */
+  canMoveTasks: boolean;
   canCreateRepos: boolean;
   isProjectManager: boolean;
   isProductOwner: boolean;
+  isScrumMaster: boolean;
   isStakeholder: boolean;
 }
 
@@ -99,18 +102,23 @@ export function getProjectCapabilities(
   const memberRoleId = currentUserMember?.role ?? null;
   const isProjectManager = memberRoleId != null && memberRoleId === roleIds.projectManagerId;
   const isProductOwner = memberRoleId != null && memberRoleId === roleIds.productOwnerId;
+  const isScrumMaster = memberRoleId != null && memberRoleId === roleIds.scrumMasterId;
   const isStakeholder = isStakeholderSystemUser(currentUserAccount)
     || (roleIds.stakeholderId != null && memberRoleId === roleIds.stakeholderId);
 
+  const isLeadRole = isProjectManager || isProductOwner || isScrumMaster;
+
   return {
     canAccessProject: Boolean(currentUserMember),
-    canManageProject: isProjectManager,
-    canManageMembers: isProjectManager,
-    canEditMemberRoles: isProjectManager,
-    canManageTasks: isProjectManager || isProductOwner,
+    canManageProject: isLeadRole,
+    canManageMembers: isLeadRole,
+    canEditMemberRoles: isLeadRole,
+    canManageTasks: isLeadRole,
+    canMoveTasks: Boolean(currentUserMember) && !isStakeholder,
     canCreateRepos: !isStakeholder,
     isProjectManager,
     isProductOwner,
+    isScrumMaster,
     isStakeholder,
   };
 }

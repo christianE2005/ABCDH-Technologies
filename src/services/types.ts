@@ -24,8 +24,9 @@ export interface ApiProject {
   name: string;
   description: string | null;
   created_at: string;
-  end_date: string | null;   // ISO date YYYY-MM-DD
-  status: string | null;     // free-text e.g. "active", "on_hold", "completed"
+  start_date?: string | null;  // ISO date YYYY-MM-DD
+  end_date: string | null;     // ISO date YYYY-MM-DD
+  status: string | null;       // free-text e.g. "active", "on_hold", "completed"
   created_by: number | null;
   github_repo_full_name: string | null;
 }
@@ -50,6 +51,12 @@ export interface ApiBoard {
   name: string;
   description: string | null;
   created_at: string;
+  coding_style: string | null;
+  review_focus: string | null;
+  tech_stack: string | null;
+  naming_convention: string | null;
+  response_language: string | null;
+  custom_instructions: string | null;
 }
 
 export interface ApiTaskStatus {
@@ -85,6 +92,7 @@ export interface ApiTask {
   start_date?: string | null; // ISO date
   due_date: string | null;   // ISO date
   completed_at: string | null;
+  scrum_number?: string | null;
 
   // Legacy compatibility fields retained while frontend migrates.
   board?: number;
@@ -106,6 +114,12 @@ export interface ApiSprint {
   end_date: string | null;
   status: 'planned' | 'active' | 'closed';
   project: number;
+}
+
+export interface ApiSprintBoard {
+  id: number;
+  sprint: number;
+  board: number;
 }
 
 export interface ApiMilestone {
@@ -138,6 +152,58 @@ export interface ApiTaskComment {
   user: number | null;
   content: string;
   created_at: string;
+}
+
+export interface ApiSubtask {
+  id_subtask: number;
+  title: string;
+  description: string | null;
+  order: number;
+  is_completed: boolean;
+  created_at: string;
+  parent_task: number;
+}
+
+// ─── Gamification ────────────────────────────────────────────────────────────
+
+export interface ApiBadge {
+  id_badge: number;
+  code: string;
+  name: string;
+  description: string;
+  category: string;          // 'delivery' | 'quality' | 'teamwork' | 'milestone'
+  tier: number;              // 1–3 (bronze/silver/gold)
+  icon: string;
+  xp_reward: number;
+  is_active: boolean;
+}
+
+export interface ApiUserBadge {
+  id_user_badge: number;
+  badge: ApiBadge;
+  project: number | null;
+  unlocked_at: string;
+  progress: number | null;
+}
+
+export interface ApiGamificationProfile {
+  user: number;
+  username: string;
+  total_xp: number;
+  level: number;
+  xp_into_level: number;
+  xp_for_next_level: number;
+  current_streak: number;
+  longest_streak: number;
+  is_eligible: boolean;
+}
+
+export interface ApiLeaderboardEntry {
+  user: number;
+  username: string;
+  total_xp: number;
+  level: number;
+  rank: number;
 }
 
 export interface ApiActivityLog {

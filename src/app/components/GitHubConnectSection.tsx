@@ -2,9 +2,35 @@ import { useState, useEffect } from 'react';
 import { Github, Shield, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { githubService } from '../../services/github.service';
+import { ApiRequestError } from '../../services';
 import { useAuth } from '../context/AuthContext';
 
 const ORG_OWNER = 'ABCDH-Technologies';
+
+/** Builds a clear, specific message for OAuth-completion failures. */
+function describeOAuthError(err: unknown): { title: string; description: string } {
+  const raw = err instanceof Error ? err.message : '';
+  const status = err instanceof ApiRequestError ? err.status : undefined;
+  const lower = raw.toLowerCase();
+  // The most common failure: that GitHub identity is already linked to a different platform user.
+  const alreadyLinked =
+    status === 409 ||
+    /already|in use|en uso|ya (esta|está)|vinculad|asociad|linked|another|otro usuario|exist/.test(lower);
+  if (alreadyLinked) {
+    return {
+      title: 'Esa cuenta de GitHub ya está vinculada',
+      description:
+        'La cuenta de GitHub que intentas conectar ya pertenece a otro usuario de la plataforma. '
+        + 'Desvincúlala desde esa cuenta (o pide a un administrador que lo haga) y vuelve a intentar, '
+        + 'o conéctate con una cuenta de GitHub distinta.'
+        + (raw ? ` (Detalle del servidor: ${raw})` : ''),
+    };
+  }
+  return {
+    title: 'Error al completar la conexión con GitHub',
+    description: raw || 'Ocurrió un error desconocido. Intenta de nuevo.',
+  };
+}
 
 /**
  * Reusable GitHub connection section.
@@ -43,8 +69,8 @@ export function GitHubConnectSection() {
           });
         })
         .catch((err) => {
-          const detail = err instanceof Error ? err.message : 'Error desconocido';
-          toast.error('Error al completar la conexion con GitHub', { description: detail });
+          const { title, description } = describeOAuthError(err);
+          toast.error(title, { description });
         })
         .finally(() => { setBusy(false); setLoading(false); });
       return;

@@ -30,8 +30,9 @@ export function AddMemberModal({
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [selectedUserDetails, setSelectedUserDetails] = useState<ApiUserAccount | null>(null);
-  const [loadingUserDetails, setLoadingUserDetails] = useState(false);
+  // Reliable GitHub status per candidate, fetched fresh on open (list payloads can omit github fields).
+  const [connectedMap, setConnectedMap] = useState<Map<number, boolean>>(new Map());
+  const [loadingConnections, setLoadingConnections] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
@@ -45,46 +46,45 @@ export function AddMemberModal({
   }, [candidates, query]);
 
   useEffect(() => {
-    if (open) {
-      setQuery('');
-      setSelectedUserId(null);
-      setSelectedRoleId(null);
-      setSelectedUserDetails(null);
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
-  }, [open]);
-
-  useEffect(() => {
-    if (!selectedUserId) {
-      setSelectedUserDetails(null);
-      setLoadingUserDetails(false);
-      return;
-    }
+    if (!open) return;
+    setQuery('');
+    setSelectedUserId(null);
+    setSelectedRoleId(null);
+    setTimeout(() => inputRef.current?.focus(), 50);
 
     let cancelled = false;
-    setLoadingUserDetails(true);
-
-    usersService.get(selectedUserId)
-      .then((user) => {
-        if (!cancelled) setSelectedUserDetails(user);
+    setLoadingConnections(true);
+    Promise.allSettled(candidates.map((c) => usersService.get(c.id_user)))
+      .then((results) => {
+        if (cancelled) return;
+        const map = new Map<number, boolean>();
+        results.forEach((res, i) => {
+          const candidate = candidates[i];
+          const detail = res.status === 'fulfilled' ? res.value : candidate;
+          map.set(candidate.id_user, getUserGithubConnectionState(detail).connected === true);
+        });
+        setConnectedMap(map);
       })
-      .catch(() => {
-        if (!cancelled) setSelectedUserDetails(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingUserDetails(false);
-      });
+      .finally(() => { if (!cancelled) setLoadingConnections(false); });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedUserId]);
+    return () => { cancelled = true; };
+  }, [open, candidates]);
 
-  const selectedCandidate = useMemo(
+  // Connection per candidate: prefer freshly-fetched data, fall back to whatever the list carried.
+  const isCandidateConnected = (candidate: ApiUserAccount) => {
+    const fromMap = connectedMap.get(candidate.id_user);
+    if (fromMap !== undefined) return fromMap;
+    return getUserGithubConnectionState(candidate).connected === true;
+  };
+  const candidateNeedsGithub = (candidate: ApiUserAccount) => !isStakeholderSystemUser(candidate);
+  // Blocked = GitHub required, not connected, and the bypass flag is off.
+  const isCandidateBlocked = (candidate: ApiUserAccount) =>
+    !bypassGithubCheck && candidateNeedsGithub(candidate) && !isCandidateConnected(candidate);
+
+  const selectedUser = useMemo(
     () => candidates.find((candidate) => candidate.id_user === selectedUserId) ?? null,
     [candidates, selectedUserId],
   );
-  const selectedUser = selectedUserDetails ?? selectedCandidate;
   const allowedRoleIds = useMemo(
     () => getAllowedProjectRoleIdsForUser(selectedUser, roleIds),
     [roleIds, selectedUser],
@@ -93,12 +93,9 @@ export function AddMemberModal({
     () => roles.filter((role) => allowedRoleIds.includes(role.id_role)),
     [allowedRoleIds, roles],
   );
-  const githubState = useMemo(
-    () => getUserGithubConnectionState(selectedUser),
-    [selectedUser],
-  );
+  const selectedConnected = selectedUser ? isCandidateConnected(selectedUser) : false;
   const githubRequired = selectedUser ? !isStakeholderSystemUser(selectedUser) : false;
-  const githubIsUnavailable = !bypassGithubCheck && githubRequired && githubState.connected !== true;
+  const githubIsUnavailable = !bypassGithubCheck && githubRequired && !selectedConnected;
 
   useEffect(() => {
     if (!selectedUser) return;
@@ -148,6 +145,19 @@ export function AddMemberModal({
           </div>
         </div>
 
+        {/* Status banner: shows whether GitHub is required or the bypass is active */}
+        <div className="px-4 pb-2">
+          {bypassGithubCheck ? (
+            <p className="text-[10px] rounded-[3px] border border-warning/40 bg-warning/10 text-warning px-2.5 py-1.5">
+              Verificación de GitHub desactivada — puedes agregar personas aunque no tengan GitHub conectado.
+            </p>
+          ) : (
+            <p className="text-[10px] rounded-[3px] border border-border bg-surface-secondary/40 text-muted-foreground px-2.5 py-1.5">
+              Solo puedes agregar personas con GitHub conectado. Las demás aparecen en gris.
+            </p>
+          )}
+        </div>
+
         <div className="max-h-[240px] overflow-y-auto scrollbar-app px-1 pb-2">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center py-8 text-muted-foreground">
@@ -159,13 +169,18 @@ export function AddMemberModal({
           ) : (
             filtered.map((u) => {
               const isSelected = u.id_user === selectedUserId;
+              const blocked = isCandidateBlocked(u);
+              const connected = isCandidateConnected(u);
+              const isStakeholder = isStakeholderSystemUser(u);
               return (
                 <button
                   key={u.id_user}
                   type="button"
+                  disabled={blocked}
                   onClick={() => setSelectedUserId(u.id_user)}
+                  title={blocked ? 'Sin GitHub conectado — activa la excepción en Configuración para agregarlo' : undefined}
                   className={`w-full flex items-center gap-3 px-3 py-2 text-left rounded-[3px] transition-colors ${
-                    isSelected ? 'bg-primary/10 ring-1 ring-primary/40' : 'hover:bg-accent/40'
+                    blocked ? 'opacity-50 cursor-not-allowed' : isSelected ? 'bg-primary/10 ring-1 ring-primary/40' : 'hover:bg-accent/40'
                   }`}
                 >
                   <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0">
@@ -180,6 +195,21 @@ export function AddMemberModal({
                       {getSystemRoleLabel(u.system_role, u.system_role_name)}
                     </p>
                   </div>
+                  {!isStakeholder && (
+                    <span
+                      className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-medium ${
+                        connected
+                          ? 'bg-success/15 text-success'
+                          : bypassGithubCheck
+                            ? 'bg-warning/15 text-warning'
+                            : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {loadingConnections && connectedMap.get(u.id_user) === undefined
+                        ? '…'
+                        : connected ? 'GitHub' : 'Sin GitHub'}
+                    </span>
+                  )}
                 </button>
               );
             })
@@ -195,15 +225,15 @@ export function AddMemberModal({
               </p>
               {isStakeholderSystemUser(selectedUser) ? (
                 <p>El rol del proyecto queda fijado en Stakeholder para este usuario.</p>
-              ) : loadingUserDetails ? (
+              ) : loadingConnections ? (
                 <p>Verificando conexión de GitHub…</p>
-              ) : githubState.connected === true ? (
-                <p>
-                  GitHub conectado{githubState.login ? ` como ${githubState.login}` : ''}.
-                </p>
+              ) : selectedConnected ? (
+                <p className="text-success">GitHub conectado.</p>
+              ) : bypassGithubCheck ? (
+                <p className="text-warning">Sin GitHub, pero la verificación está desactivada — puedes agregarlo.</p>
               ) : (
                 <p className="text-destructive">
-                  No puedes agregarlo porque GitHub no esta conectado o no se pudo verificar localmente.
+                  No puedes agregarlo porque no tiene GitHub conectado. Actívalo en Configuración para permitir excepciones.
                 </p>
               )}
             </div>
