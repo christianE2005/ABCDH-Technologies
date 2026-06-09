@@ -205,7 +205,7 @@ export default function Profile() {
                 </div>
               </div>
               <div className={`w-9 h-5 rounded-full transition-colors flex items-center shadow-inner ${theme === 'dark' ? 'bg-primary' : 'bg-muted'}`}>
-                <div className={`w-4 h-4 bg-white rounded-full shadow transition-all ${theme === 'dark' ? 'ml-auto mr-0.5' : 'ml-0.5 mr-auto'}`} />
+                <div className={`w-4 h-4 bg-card rounded-full shadow transition-all ${theme === 'dark' ? 'ml-auto mr-0.5' : 'ml-0.5 mr-auto'}`} />
               </div>
             </button>
           </div>

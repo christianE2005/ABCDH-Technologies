@@ -97,7 +97,7 @@ function SortableColumnItem({ column, index, totalCount, isEditing, editName, sa
       )}
       <div className="flex items-center gap-1 shrink-0">
         {isRevision && !isEditing && (
-          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-medium">Revisión</span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-warning/20 text-warning font-medium">Revisión</span>
         )}
         {isLast && !isEditing && (
           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-success/20 text-success font-medium">Final</span>
@@ -1310,7 +1310,7 @@ export function ProjectTasksWorkspace({
                           <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${
                             derived === 'active' ? 'bg-success/20 text-success' :
                             derived === 'closed' ? 'bg-muted text-muted-foreground' :
-                            'bg-amber-500/20 text-amber-600 dark:text-amber-400'
+                            'bg-warning/20 text-warning'
                           }`}>
                             {SPRINT_STATUS_LABEL[derived]}
                           </span>
@@ -2218,7 +2218,7 @@ export function ProjectTasksWorkspace({
               <p className="text-[11px] text-muted-foreground mt-0.5">Se creara como <span className="font-medium text-foreground">Sprint {(sprints ?? []).length + 1}</span></p>
             </div>
             {latestSprintEndDate && (
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-[3px] px-2.5 py-1.5">
+              <p className="text-[10px] text-warning bg-warning/10 rounded-[3px] px-2.5 py-1.5">
                 El sprint anterior termina el <strong>{latestSprintEndDate}</strong>. Este sprint debe iniciar el <strong>{sprintStartMinDate}</strong> o despues.
               </p>
             )}

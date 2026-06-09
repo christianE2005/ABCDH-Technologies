@@ -26,19 +26,19 @@ import { TaskStatusDonut } from '../components/charts/TaskStatusDonut';
 import { VelocityChart } from '../components/charts/VelocityChart';
 
 const HEALTH_DOT: Record<ProjectHealth, string> = {
-  green: 'bg-emerald-500',
-  yellow: 'bg-amber-500',
-  red: 'bg-red-500',
+  green: 'bg-success',
+  yellow: 'bg-warning',
+  red: 'bg-destructive',
 };
 const HEALTH_BAR: Record<ProjectHealth, string> = {
-  green: 'bg-emerald-500',
-  yellow: 'bg-amber-500',
-  red: 'bg-red-500',
+  green: 'bg-success',
+  yellow: 'bg-warning',
+  red: 'bg-destructive',
 };
 const HEALTH_BORDER: Record<ProjectHealth, string> = {
-  green: 'border-l-emerald-500',
-  yellow: 'border-l-amber-500',
-  red: 'border-l-red-500',
+  green: 'border-l-success',
+  yellow: 'border-l-warning',
+  red: 'border-l-destructive',
 };
 const HEALTH_LABEL: Record<ProjectHealth, string> = {
   green: 'Saludable',
@@ -329,28 +329,28 @@ export default function Dashboard() {
     },
     {
       title: 'Tareas', value: kpis.totalTasks, subtitle: 'en tus proyectos',
-      icon: <ListChecks className="w-4 h-4" />, accent: 'bg-sky-500',
-      iconBg: 'bg-sky-500/10', iconColor: 'text-sky-500',
+      icon: <ListChecks className="w-4 h-4" />, accent: 'bg-info',
+      iconBg: 'bg-info/10', iconColor: 'text-info',
     },
     {
       title: 'Completadas', value: kpis.completed, subtitle: 'tareas terminadas',
-      icon: <CheckCircle2 className="w-4 h-4" />, accent: 'bg-emerald-500',
-      iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500',
+      icon: <CheckCircle2 className="w-4 h-4" />, accent: 'bg-success',
+      iconBg: 'bg-success/10', iconColor: 'text-success',
     },
     {
       title: 'Pendientes', value: kpis.open, subtitle: 'tareas abiertas',
-      icon: <Timer className="w-4 h-4" />, accent: 'bg-amber-500',
-      iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500',
+      icon: <Timer className="w-4 h-4" />, accent: 'bg-warning',
+      iconBg: 'bg-warning/10', iconColor: 'text-warning',
     },
     {
       title: 'Vencidas', value: kpis.overdue, subtitle: 'requieren atención',
-      icon: <AlertTriangle className="w-4 h-4" />, accent: 'bg-red-500',
-      iconBg: 'bg-red-500/10', iconColor: 'text-red-500',
+      icon: <AlertTriangle className="w-4 h-4" />, accent: 'bg-destructive',
+      iconBg: 'bg-destructive/10', iconColor: 'text-destructive',
     },
     {
       title: 'Warnings', value: activeWarningsCount, subtitle: 'alertas activas',
-      icon: <TrendingUp className="w-4 h-4" />, accent: 'bg-violet-500',
-      iconBg: 'bg-violet-500/10', iconColor: 'text-violet-500',
+      icon: <TrendingUp className="w-4 h-4" />, accent: 'bg-ai-accent',
+      iconBg: 'bg-ai-accent/10', iconColor: 'text-ai-accent',
     },
   ];
 
@@ -405,7 +405,7 @@ export default function Dashboard() {
           <ChartCard
             eyebrow="ESTADO"
             title="Estado de las tareas"
-            icon={<Layers className="w-3.5 h-3.5 text-violet-500" />}
+            icon={<Layers className="w-3.5 h-3.5 text-ai-accent" />}
             className="h-full"
             right={<span className="text-[10px] text-muted-foreground">{kpis.totalTasks} total</span>}
           >
@@ -422,7 +422,7 @@ export default function Dashboard() {
           <ChartCard
             eyebrow="VELOCIDAD"
             title="Completadas por semana"
-            icon={<Activity className="w-3.5 h-3.5 text-sky-500" />}
+            icon={<Activity className="w-3.5 h-3.5 text-info" />}
             className="h-full"
             right={
               <div className="text-right">
@@ -454,7 +454,7 @@ export default function Dashboard() {
           {upcomingDueTasks.length === 0 ? (
             <div className="flex-1 flex items-center justify-center py-8">
               <div className="text-center">
-                <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-2" />
+                <CheckCircle2 className="w-6 h-6 text-success mx-auto mb-2" />
                 <p className="text-[12px] text-muted-foreground">
                   Sin tareas próximas a vencer.
                 </p>
@@ -473,15 +473,15 @@ export default function Dashboard() {
                     ? (projectById.get(projectId) ?? `Proyecto #${projectId}`)
                     : 'Sin proyecto';
                   const dotColor =
-                    rel.tone === 'overdue' ? 'bg-red-500'
-                    : rel.tone === 'today' ? 'bg-amber-500'
-                    : rel.tone === 'tomorrow' ? 'bg-sky-500'
-                    : 'bg-emerald-500';
+                    rel.tone === 'overdue' ? 'bg-destructive'
+                    : rel.tone === 'today' ? 'bg-warning'
+                    : rel.tone === 'tomorrow' ? 'bg-info'
+                    : 'bg-success';
                   const pillCls =
-                    rel.tone === 'overdue' ? 'text-red-600 bg-red-500/10 border-red-500/30'
-                    : rel.tone === 'today' ? 'text-amber-700 bg-amber-500/10 border-amber-500/30'
-                    : rel.tone === 'tomorrow' ? 'text-sky-700 bg-sky-500/10 border-sky-500/30'
-                    : 'text-emerald-700 bg-emerald-500/10 border-emerald-500/30';
+                    rel.tone === 'overdue' ? 'text-destructive bg-destructive/10 border-destructive/30'
+                    : rel.tone === 'today' ? 'text-warning bg-warning/10 border-warning/30'
+                    : rel.tone === 'tomorrow' ? 'text-info bg-info/10 border-info/30'
+                    : 'text-success bg-success/10 border-success/30';
                   return (
                     <button
                       key={task.id_task}
@@ -567,12 +567,12 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                   <span>{progress.completed} de {progress.total} tareas</span>
                   {overdue > 0 ? (
-                    <span className="text-red-600 font-medium inline-flex items-center gap-1">
+                    <span className="text-destructive font-medium inline-flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3" />
                       {overdue} {overdue === 1 ? 'vencida' : 'vencidas'}
                     </span>
                   ) : (
-                    <span className="text-emerald-600">Al día</span>
+                    <span className="text-success">Al día</span>
                   )}
                 </div>
               </button>
@@ -646,7 +646,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                         {task.due_date && (
-                          <span className={`text-[10px] whitespace-nowrap ${isOverdue ? 'text-red-600 font-semibold' : 'text-muted-foreground'}`}>
+                          <span className={`text-[10px] whitespace-nowrap ${isOverdue ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
                             {formatProjectDate(task.due_date)}
                           </span>
                         )}

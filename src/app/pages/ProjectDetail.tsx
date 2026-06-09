@@ -1063,7 +1063,7 @@ export default function ProjectDetail() {
                       return (
                         <div className="mb-5">
                           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                            <div className="h-full bg-success rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
                           </div>
                           <p className="text-[10px] text-muted-foreground mt-1">{pct}% completado</p>
                         </div>
@@ -1114,15 +1114,15 @@ export default function ProjectDetail() {
                                 <div className="flex flex-col items-center w-4 shrink-0">
                                   <div className={`w-4 h-4 rounded-full border-2 shrink-0 mt-0.5 flex items-center justify-center transition-all duration-300 ${
                                     ms.is_completed
-                                      ? 'bg-green-500 border-green-500'
+                                      ? 'bg-success border-success'
                                       : idx === firstUnfinishedIdx
                                         ? 'bg-card border-primary ring-2 ring-primary/20'
                                         : 'bg-card border-border'
                                   }`}>
-                                    {ms.is_completed && <Check className="w-2.5 h-2.5 text-white" />}
+                                    {ms.is_completed && <Check className="w-2.5 h-2.5 text-success-foreground" />}
                                   </div>
                                   {!isLast && (
-                                    <div className={`w-0.5 flex-1 min-h-[24px] mt-1 transition-colors duration-300 ${ms.is_completed ? 'bg-green-500' : 'bg-border'}`} />
+                                    <div className={`w-0.5 flex-1 min-h-[24px] mt-1 transition-colors duration-300 ${ms.is_completed ? 'bg-success' : 'bg-border'}`} />
                                   )}
                                 </div>
 
@@ -1243,8 +1243,8 @@ export default function ProjectDetail() {
                                                   }}
                                                   className={`h-6 px-2 rounded-[3px] border text-[10px] font-medium inline-flex items-center gap-1 transition-colors disabled:opacity-50 ${
                                                     ms.is_completed
-                                                      ? 'border-amber-500/40 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20'
-                                                      : 'border-green-500/40 bg-green-500/10 text-green-600 hover:bg-green-500/20'
+                                                      ? 'border-warning/40 bg-warning/10 text-warning hover:bg-warning/20'
+                                                      : 'border-success/40 bg-success/10 text-success hover:bg-success/20'
                                                   }`}
                                                 >
                                                   {milestoneSaving === ms.id_milestone ? (
@@ -1296,7 +1296,7 @@ export default function ProjectDetail() {
                                               </button>
                                             </>
                                           ) : (
-                                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${ms.is_completed ? 'bg-green-500/10 text-green-600' : 'bg-muted/60 text-muted-foreground'}`}>
+                                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${ms.is_completed ? 'bg-success/10 text-success' : 'bg-muted/60 text-muted-foreground'}`}>
                                               {ms.is_completed ? 'Completado' : 'Pendiente'}
                                             </span>
                                           )}
@@ -1609,7 +1609,7 @@ export default function ProjectDetail() {
                 type="button"
                 onClick={handleDeleteProject}
                 disabled={!canManageProject || deletingProject}
-                className="h-8 px-3 bg-destructive hover:bg-destructive/90 text-white rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+                className="h-8 px-3 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 {deletingProject ? 'Eliminando…' : 'Eliminar proyecto'}

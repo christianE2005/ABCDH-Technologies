@@ -41,12 +41,12 @@ function statusFromHealthMix(reds: number, yellows: number): StatusLevel {
 
 function statusBadge(level: StatusLevel) {
   if (level === 'risk') {
-    return { dot: 'bg-red-500', ring: 'ring-red-500/30', pill: 'bg-red-500/10 text-red-600 border-red-500/30', label: 'EN RIESGO' };
+    return { dot: 'bg-destructive', ring: 'ring-destructive/30', pill: 'bg-destructive/10 text-destructive border-destructive/30', label: 'EN RIESGO' };
   }
   if (level === 'attention') {
-    return { dot: 'bg-amber-500', ring: 'ring-amber-500/30', pill: 'bg-amber-500/10 text-amber-600 border-amber-500/30', label: 'REQUIERE ATENCIÓN' };
+    return { dot: 'bg-warning', ring: 'ring-warning/30', pill: 'bg-warning/10 text-warning border-warning/30', label: 'REQUIERE ATENCIÓN' };
   }
-  return { dot: 'bg-emerald-500', ring: 'ring-emerald-500/30', pill: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30', label: 'SALUDABLE' };
+  return { dot: 'bg-success', ring: 'ring-success/30', pill: 'bg-success/10 text-success border-success/30', label: 'SALUDABLE' };
 }
 
 function statusLabelByLevel(l: StatusLevel) {
@@ -349,7 +349,7 @@ export default function Reports() {
                   <div className="text-[12px] text-muted-foreground">Sin insights disponibles.</div>
                 ) : (
                   insights.map((ins, i) => {
-                    const toneColor = ins.tone === 'bad' ? 'text-red-600' : ins.tone === 'warn' ? 'text-amber-600' : 'text-emerald-600';
+                    const toneColor = ins.tone === 'bad' ? 'text-destructive' : ins.tone === 'warn' ? 'text-warning' : 'text-success';
                     const Icon = ins.tone === 'bad' ? AlertTriangle : ins.tone === 'warn' ? TrendingDown : TrendingUp;
                     return (
                       <div key={i} className="flex items-start gap-2 text-[12px]">
@@ -368,9 +368,9 @@ export default function Reports() {
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{portfolioStats.count === 1 ? 'proyecto' : 'proyectos'}</div>
               </div>
               <div className="flex items-center gap-3 text-[11px]">
-                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" /><span className="text-muted-foreground">{portfolioStats.greens} ok</span></div>
-                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500" /><span className="text-muted-foreground">{portfolioStats.yellows} atención</span></div>
-                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" /><span className="text-muted-foreground">{portfolioStats.reds} riesgo</span></div>
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-success" /><span className="text-muted-foreground">{portfolioStats.greens} ok</span></div>
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warning" /><span className="text-muted-foreground">{portfolioStats.yellows} atención</span></div>
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-destructive" /><span className="text-muted-foreground">{portfolioStats.reds} riesgo</span></div>
               </div>
             </div>
           </div>
@@ -425,7 +425,7 @@ export default function Reports() {
               <ForecastStat label="Restantes" value={burndown.remaining} tone={burndown.remaining > 0 ? 'warn' : 'good'} />
               <ForecastStat label="Ideal hoy" value={burndown.idealNow} tone="neutral" />
             </div>
-            <div className={`mt-4 rounded-[6px] border px-3 py-2.5 text-[12px] ${burndown.onTrack ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700' : 'border-amber-500/30 bg-amber-500/10 text-amber-700'}`}>
+            <div className={`mt-4 rounded-[6px] border px-3 py-2.5 text-[12px] ${burndown.onTrack ? 'border-success/30 bg-success/10 text-success' : 'border-warning/30 bg-warning/10 text-warning'}`}>
               <div className="flex items-center gap-1.5 font-semibold">
                 {burndown.onTrack ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
                 {burndown.onTrack ? 'En ritmo' : 'Atrasado'}
@@ -447,19 +447,19 @@ export default function Reports() {
             className="lg:col-span-2"
             eyebrow={`VELOCIDAD · ${throughput.data.length} ${throughput.data.length === 1 ? 'SEMANA' : 'SEMANAS'}`}
             title="Tareas completadas por semana"
-            icon={<Activity className="w-3.5 h-3.5 text-sky-500" />}
+            icon={<Activity className="w-3.5 h-3.5 text-info" />}
             subtitle={`Promedio ${throughput.avgPerWeek}/sem · mejor semana ${throughput.bestWeek}`}
             right={
               <div className="text-right">
                 <div className="text-[20px] font-bold text-foreground leading-none tabular-nums">{throughput.recent}</div>
-                <div className={`text-[11px] font-medium ${throughput.recent >= throughput.prior ? 'text-emerald-600' : 'text-red-600'}`}>{throughput.deltaPct} vs anterior</div>
+                <div className={`text-[11px] font-medium ${throughput.recent >= throughput.prior ? 'text-success' : 'text-destructive'}`}>{throughput.deltaPct} vs anterior</div>
               </div>
             }
           >
             <VelocityChart result={throughput} />
           </ChartCard>
 
-          <ChartCard eyebrow="ESTADO" title="Distribución de tareas" icon={<Layers className="w-3.5 h-3.5 text-violet-500" />}>
+          <ChartCard eyebrow="ESTADO" title="Distribución de tareas" icon={<Layers className="w-3.5 h-3.5 text-ai-accent" />}>
             <TaskStatusDonut data={statusDist} total={kpis.total} size={150} />
           </ChartCard>
         </div>
@@ -470,13 +470,13 @@ export default function Reports() {
             className="lg:col-span-2"
             eyebrow="FLUJO ACUMULADO (CFD)"
             title="Llegadas vs completadas en el tiempo"
-            icon={<Layers className="w-3.5 h-3.5 text-emerald-600" />}
+            icon={<Layers className="w-3.5 h-3.5 text-success" />}
             subtitle="La banda ámbar es trabajo en curso (WIP): si crece, se está acumulando trabajo"
           >
             <CumulativeFlowChart data={cfd} />
           </ChartCard>
 
-          <ChartCard eyebrow="PRIORIDAD" title="Tareas abiertas por prioridad" icon={<Flame className="w-3.5 h-3.5 text-orange-500" />}>
+          <ChartCard eyebrow="PRIORIDAD" title="Tareas abiertas por prioridad" icon={<Flame className="w-3.5 h-3.5 text-warning" />}>
             <DistributionBars data={priorityDist} emptyMessage="Sin tareas abiertas con prioridad." />
           </ChartCard>
         </div>
@@ -500,7 +500,7 @@ export default function Reports() {
             ) : (
               <div className="space-y-2">
                 {projectRanking.map(({ project, progress, health, overdue }) => {
-                  const dotColor = health === 'red' ? 'bg-red-500' : health === 'yellow' ? 'bg-amber-500' : 'bg-emerald-500';
+                  const dotColor = health === 'red' ? 'bg-destructive' : health === 'yellow' ? 'bg-warning' : 'bg-success';
                   return (
                     <div key={project.id_project} className="flex items-center gap-2.5 py-1.5 border-b border-border last:border-b-0">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
@@ -522,7 +522,7 @@ export default function Reports() {
 }
 
 function ForecastStat({ label, value, tone }: { label: string; value: number; tone: 'good' | 'warn' | 'neutral' }) {
-  const color = tone === 'good' ? 'text-emerald-600' : tone === 'warn' ? 'text-amber-600' : 'text-foreground';
+  const color = tone === 'good' ? 'text-success' : tone === 'warn' ? 'text-warning' : 'text-foreground';
   return (
     <div className="rounded-[6px] bg-secondary/40 border border-border px-3 py-2">
       <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</div>
