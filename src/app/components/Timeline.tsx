@@ -242,8 +242,8 @@ export function Timeline({ projectId, projectStartDate, projectEndDate }: { proj
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
                     {isDone
-                      ? <CheckCircle2 className="w-3 h-3 shrink-0 text-ai-accent" />
-                      : <Circle       className="w-3 h-3 shrink-0 text-success" />
+                      ? <CheckCircle2 className="w-3 h-3 shrink-0 text-success" />
+                      : <Circle       className="w-3 h-3 shrink-0 text-muted-foreground" />
                     }
                     <span className="text-[11px] font-medium text-foreground truncate">{task.title}</span>
                   </div>
