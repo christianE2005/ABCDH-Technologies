@@ -194,17 +194,17 @@ export function Timeline({ projectId, projectStartDate, projectEndDate }: { proj
             <div className="relative flex" style={{ minWidth: trackW, flex: '1 0 auto' }}>
               {showToday && (
                 <div
-                  className="absolute inset-y-0 z-10 w-px bg-red-500/70"
+                  className="absolute inset-y-0 z-10 w-px bg-primary/70"
                   style={{ left: `${todayLeftPct}%` }}
                 />
               )}
               {headerDays.map((day, i) => (
                 <div
                   key={i}
-                  className={`flex-1 py-1.5 text-center border-r border-border/20 ${day.getTime() === today.getTime() ? 'bg-red-500/5' : ''}`}
+                  className={`flex-1 py-1.5 text-center border-r border-border/20 ${day.getTime() === today.getTime() ? 'bg-primary/5' : ''}`}
                   style={{ minWidth: dayW }}
                 >
-                  <div className={`text-[10px] leading-tight ${day.getTime() === today.getTime() ? 'text-red-400 font-semibold' : 'text-muted-foreground'}`}>
+                  <div className={`text-[10px] leading-tight ${day.getTime() === today.getTime() ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
                     {format(day, 'dd')}
                   </div>
                   <div className="text-[9px] leading-tight uppercase text-muted-foreground/60">
@@ -242,8 +242,8 @@ export function Timeline({ projectId, projectStartDate, projectEndDate }: { proj
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
                     {isDone
-                      ? <CheckCircle2 className="w-3 h-3 shrink-0 text-violet-400" />
-                      : <Circle       className="w-3 h-3 shrink-0 text-emerald-400" />
+                      ? <CheckCircle2 className="w-3 h-3 shrink-0 text-ai-accent" />
+                      : <Circle       className="w-3 h-3 shrink-0 text-success" />
                     }
                     <span className="text-[11px] font-medium text-foreground truncate">{task.title}</span>
                   </div>
@@ -262,7 +262,7 @@ export function Timeline({ projectId, projectStartDate, projectEndDate }: { proj
                 <div className="relative" style={{ minWidth: trackW, flex: '1 0 auto' }}>
                   {showToday && (
                     <div
-                      className="absolute inset-y-0 z-10 w-px bg-red-500/70"
+                      className="absolute inset-y-0 z-10 w-px bg-primary/70"
                       style={{ left: `${todayLeftPct}%` }}
                     />
                   )}
