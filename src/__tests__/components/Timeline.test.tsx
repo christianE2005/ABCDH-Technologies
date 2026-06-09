@@ -8,6 +8,12 @@ vi.mock('../../app/hooks/useProjectData', () => ({
   useApiTasks: (...args: unknown[]) => useApiTasksMock(...args),
 }));
 
+// Timeline ahora consume useAuth (filtro "mis tareas"); se mockea para que no
+// requiera AuthProvider en el render aislado del test.
+vi.mock('../../app/context/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 1, name: 'Test', role: 'user' } }),
+}));
+
 describe('Timeline', () => {
   beforeAll(() => {
     vi.useFakeTimers();
@@ -43,10 +49,8 @@ describe('Timeline', () => {
 
     expect(screen.getByText('Timeline')).toBeInTheDocument();
 
-    const todayMarkers = Array.from(container.querySelectorAll('div[style]')).filter((element) => {
-      const htmlElement = element as HTMLElement;
-      return htmlElement.style.width === '2px' && htmlElement.style.backgroundColor.includes('239, 68, 68');
-    }) as HTMLElement[];
+    // El marcador "hoy" es una línea vertical de 1px (w-px) posicionada por `left` inline.
+    const todayMarkers = Array.from(container.querySelectorAll('div.w-px')) as HTMLElement[];
 
     expect(todayMarkers.length).toBeGreaterThan(0);
     todayMarkers.forEach((marker) => {
