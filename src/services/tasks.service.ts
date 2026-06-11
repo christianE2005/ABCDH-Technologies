@@ -177,11 +177,11 @@ export const tasksService = {
     return api.get<ApiBoardColumn[]>(url);
   },
 
-  createBoardColumn(payload: { board: number; name: string; order: number; is_final?: boolean }): Promise<ApiBoardColumn> {
+  createBoardColumn(payload: { board: number; name: string; order: number; is_final?: boolean; is_review?: boolean }): Promise<ApiBoardColumn> {
     return api.post<ApiBoardColumn>('/board-columns/', payload);
   },
 
-  updateBoardColumn(id: number, payload: { name?: string; order?: number; is_final?: boolean }): Promise<ApiBoardColumn> {
+  updateBoardColumn(id: number, payload: { name?: string; order?: number; is_final?: boolean; is_review?: boolean }): Promise<ApiBoardColumn> {
     return api.patch<ApiBoardColumn>(`/board-columns/${id}/`, payload);
   },
 

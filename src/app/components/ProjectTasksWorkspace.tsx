@@ -32,6 +32,12 @@ import { DatePickerField } from './DatePickerField';
 import { TaskAssigneePicker } from './TaskAssigneePicker';
 import { TagColorPicker } from './TagColorPicker';
 
+// The "review" column is positional — always the second-to-last column (the penultimate),
+// mirroring how the last column is always the final one.
+function isReviewIndex(index: number, total: number): boolean {
+  return total > 1 && index === total - 2;
+}
+
 type SprintStatus = 'planned' | 'active' | 'closed';
 
 // Sprint status is derived purely from its dates: before start = planned,
@@ -629,6 +635,7 @@ export function ProjectTasksWorkspace({
           name: newBoardColumns[i].name,
           order: i + 1,
           is_final: i === newBoardColumns.length - 1,
+          is_review: isReviewIndex(i, newBoardColumns.length),
         });
       }
       if (newBoardColumns.length > 0) refetchColumns();
@@ -681,6 +688,8 @@ export function ProjectTasksWorkspace({
         name: newColumn.name.trim(),
         order: 1,
         is_final: existingCols.length === 0,
+        // Inserted at the top, so it's the penultimate (review) column only when it lands second-to-last.
+        is_review: existingCols.length === 1,
       });
       setNewColumn({ name: '', is_final: false });
       setShowColumnModal(false);
@@ -982,7 +991,7 @@ export function ProjectTasksWorkspace({
     try {
       await Promise.all(
         reordered.map((col, i) =>
-          tasksService.updateBoardColumn(col.id_column, { order: i + 1, is_final: i === reordered.length - 1 }),
+          tasksService.updateBoardColumn(col.id_column, { order: i + 1, is_final: i === reordered.length - 1, is_review: isReviewIndex(i, reordered.length) }),
         ),
       );
       refetchColumns();
@@ -1003,7 +1012,7 @@ export function ProjectTasksWorkspace({
       const remaining = [...cols].filter((c) => c.id_column !== columnId).sort((a, b) => a.order - b.order);
       await Promise.all(
         remaining.map((col, i) =>
-          tasksService.updateBoardColumn(col.id_column, { order: i + 1, is_final: i === remaining.length - 1 }),
+          tasksService.updateBoardColumn(col.id_column, { order: i + 1, is_final: i === remaining.length - 1, is_review: isReviewIndex(i, remaining.length) }),
         ),
       );
       refetchColumns();
@@ -1025,10 +1034,10 @@ export function ProjectTasksWorkspace({
         naming_convention: 'default',
         response_language: 'es',
       });
-      await tasksService.createBoardColumn({ board: created.id_board, name: 'To Do', order: 1, is_final: false });
-      await tasksService.createBoardColumn({ board: created.id_board, name: 'In Progress', order: 2, is_final: false });
-      await tasksService.createBoardColumn({ board: created.id_board, name: 'Review', order: 3, is_final: false });
-      await tasksService.createBoardColumn({ board: created.id_board, name: 'Done', order: 4, is_final: true });
+      await tasksService.createBoardColumn({ board: created.id_board, name: 'To Do', order: 1, is_final: false, is_review: false });
+      await tasksService.createBoardColumn({ board: created.id_board, name: 'In Progress', order: 2, is_final: false, is_review: false });
+      await tasksService.createBoardColumn({ board: created.id_board, name: 'Review', order: 3, is_final: false, is_review: true });
+      await tasksService.createBoardColumn({ board: created.id_board, name: 'Done', order: 4, is_final: true, is_review: false });
       setNewSprintBoardIds((prev) => [...prev, created.id_board]);
       setNewBoardInSprintName('');
       setShowCreateBoardInSprint(false);
@@ -2163,10 +2172,12 @@ export function ProjectTasksWorkspace({
               <div className="space-y-1 mb-2">
                 {newBoardColumns.map((col, i) => {
                   const isLast = i === newBoardColumns.length - 1;
+                  const isReview = isReviewIndex(i, newBoardColumns.length);
                   return (
                     <div key={col.tempId} className="flex items-center gap-1.5 rounded-[3px] border border-border bg-surface-secondary/40 px-2 py-1.5 text-[11px]">
                       <span className="text-[10px] text-muted-foreground w-5 shrink-0 text-right">{i + 1}.</span>
                       <span className="flex-1 text-foreground">{col.name}</span>
+                      {isReview && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-medium">Revisión</span>}
                       {isLast && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-success/20 text-success font-medium">Final</span>}
                       <button
                         type="button"
