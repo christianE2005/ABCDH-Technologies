@@ -597,7 +597,7 @@ function TaskTable({
                     <p className="text-[12px] font-medium text-foreground">{task.title}</p>
                     {task.completed_at && <span className="inline-flex items-center rounded-full bg-success/20 px-2 py-0.5 text-[9px] font-medium text-success">Completada</span>}
                   </div>
-                  {task.description && <p className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed line-clamp-1">{task.description}</p>}
+                  {task.description && <p className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed line-clamp-1 break-words">{task.description}</p>}
                 </td>
                 {!hideProject && (
                   <td className="px-4 py-3 text-[11px] text-muted-foreground">{projectById.get(task.project) ?? `#${task.project}`}</td>

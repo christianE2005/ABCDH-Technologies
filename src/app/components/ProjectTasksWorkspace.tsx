@@ -195,7 +195,7 @@ function TaskCard({
               </button>
             )}
           </div>
-          {task.description && <p className="mt-1 text-muted-foreground line-clamp-2">{task.description}</p>}
+          {task.description && <p className="mt-1 text-muted-foreground line-clamp-2 break-words">{task.description}</p>}
           {task.due_date && (
             <div className="mt-2 flex items-center gap-2 text-muted-foreground">
               <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" />{task.due_date}</span>
@@ -1208,9 +1208,9 @@ export function ProjectTasksWorkspace({
             <tbody>
               {backlogTagFilteredTasks.map((task) => (
                 <tr key={task.id_task} className="border-b border-border/60 hover:bg-accent/20 cursor-pointer align-top" onClick={() => setSelectedTask(task)}>
-                  <td className="px-4 py-3 min-w-[360px]">
+                  <td className="px-4 py-3 min-w-[360px] max-w-[520px]">
                     <p className="text-[12px] font-semibold text-foreground">{task.title}</p>
-                    {task.description && <p className="mt-1 text-muted-foreground leading-relaxed">{task.description}</p>}
+                    {task.description && <p className="mt-1 text-muted-foreground leading-relaxed line-clamp-2 break-words">{task.description}</p>}
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-[11px] font-medium text-foreground">
