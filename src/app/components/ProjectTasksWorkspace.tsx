@@ -195,7 +195,7 @@ function TaskCard({
               </button>
             )}
           </div>
-          {task.description && <p className="mt-1 text-muted-foreground line-clamp-2">{task.description}</p>}
+          {task.description && <p className="mt-1 text-muted-foreground line-clamp-2 break-words">{task.description}</p>}
           {task.due_date && (
             <div className="mt-2 flex items-center gap-2 text-muted-foreground">
               <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" />{task.due_date}</span>
@@ -351,6 +351,13 @@ export function ProjectTasksWorkspace({
     return next.toISOString().slice(0, 10);
   }, []);
 
+  // Earliest selectable date for tasks: not in the past, but never before the project starts
+  // (a project can start in the future, in which case "tomorrow" is too early).
+  const taskMinDate = useMemo(
+    () => (projectStartDate && projectStartDate > tomorrowDate ? projectStartDate : tomorrowDate),
+    [projectStartDate, tomorrowDate],
+  );
+
   // Latest end_date among sprints that have one, used to enforce sequential sprint creation
   const latestSprintEndDate = useMemo(() => {
     const dates = (sprints ?? [])
@@ -363,13 +370,15 @@ export function ProjectTasksWorkspace({
   // True when the latest sprint already reaches the project end - no room for more
   const noMoreSprintsAllowed = !!(latestSprintEndDate && projectEndDate && latestSprintEndDate >= projectEndDate);
 
-  // Minimum start date for a new sprint: day AFTER latest sprint end (or tomorrow)
+  // Minimum start date for a new sprint: day AFTER the latest sprint end, otherwise the
+  // project start (when it's in the future) or tomorrow.
   const sprintStartMinDate = useMemo(() => {
-    if (!latestSprintEndDate) return tomorrowDate;
+    const base = projectStartDate && projectStartDate > tomorrowDate ? projectStartDate : tomorrowDate;
+    if (!latestSprintEndDate) return base;
     const d = new Date(latestSprintEndDate);
     d.setDate(d.getDate() + 1);
     return d.toISOString().slice(0, 10);
-  }, [latestSprintEndDate, tomorrowDate]);
+  }, [latestSprintEndDate, projectStartDate, tomorrowDate]);
 
   const sortedSprints = useMemo(
     () => [...(sprints ?? [])].sort((a, b) => {
@@ -493,7 +502,9 @@ export function ProjectTasksWorkspace({
 
   const filteredTagOptions = useMemo(() => {
     const query = tagFilterSearch.trim().toLowerCase();
-    const source = (tags ?? []).filter((tag) => query ? tag.name.toLowerCase().includes(query) : true);
+    // Options always come from the full project tag list (never from the filtered task set), and
+    // already-selected tags are always kept — so selecting a tag never removes the others.
+    const source = (tags ?? []).filter((tag) => selectedTagIds.includes(tag.id_tag) || (query ? tag.name.toLowerCase().includes(query) : true));
     return source.sort((a, b) => {
       const aSelected = selectedTagIds.includes(a.id_tag) ? 0 : 1;
       const bSelected = selectedTagIds.includes(b.id_tag) ? 0 : 1;
@@ -515,6 +526,12 @@ export function ProjectTasksWorkspace({
       setActiveTab(forcedTab);
     }
   }, [forcedTab]);
+
+  // Reset task filters when the project changes so per-project tag ids/search don't leak over.
+  useEffect(() => {
+    setSelectedTagIds([]);
+    setBacklogSearch('');
+  }, [projectId]);
 
   const selectedTaskAssignments = useMemo(() => taskAssignments ?? [], [taskAssignments]);
 
@@ -677,19 +694,26 @@ export function ProjectTasksWorkspace({
   const saveSprintEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSprint) return;
+    // Grandfather pre-existing out-of-range dates: only enforce the project/next-sprint bounds on
+    // a date the user actually changed, so an out-of-range sprint (e.g. after the project was
+    // rescheduled) can still be edited toward a valid range or have its boards/status updated.
+    const original = (sprints ?? []).find((s) => s.id_sprint === editingSprint.id);
+    const startChanged = editingSprint.start_date !== (original?.start_date ?? '');
+    const endChanged = editingSprint.end_date !== (original?.end_date ?? '');
+
     if (editingSprint.start_date && editingSprint.end_date && editingSprint.start_date > editingSprint.end_date) {
       toast.error('La fecha de inicio no puede ser posterior a la fecha de fin.');
       return;
     }
-    if (projectStartDate && editingSprint.start_date && editingSprint.start_date < projectStartDate) {
+    if (startChanged && projectStartDate && editingSprint.start_date && editingSprint.start_date < projectStartDate) {
       toast.error(`El sprint no puede iniciar antes del inicio del proyecto (${projectStartDate}).`);
       return;
     }
-    if (projectEndDate && editingSprint.end_date && editingSprint.end_date > projectEndDate) {
+    if (endChanged && projectEndDate && editingSprint.end_date && editingSprint.end_date > projectEndDate) {
       toast.error(`El sprint no puede terminar después del fin del proyecto (${projectEndDate}).`);
       return;
     }
-    if (editingSprintBounds.nextStart && editingSprint.end_date && editingSprint.end_date >= editingSprintBounds.nextStart) {
+    if (endChanged && editingSprintBounds.nextStart && editingSprint.end_date && editingSprint.end_date >= editingSprintBounds.nextStart) {
       toast.error(`El sprint debe terminar antes del inicio del siguiente sprint (${editingSprintBounds.nextStart}).`);
       return;
     }
@@ -1039,7 +1063,7 @@ export function ProjectTasksWorkspace({
           </div>
         )}
 
-        {/* Left: search + tag filter (backlog & sprints) */}
+        {/* Left: search + tag filter dropdown (backlog & sprints) */}
         {(activeTab === 'backlog' || activeTab === 'sprints') && (
           <>
             <div className="relative">
@@ -1054,7 +1078,7 @@ export function ProjectTasksWorkspace({
             <div className="relative">
               <button
                 type="button"
-                onClick={() => setShowTagFilter((v) => !v)}
+                onClick={() => { setShowTagFilter((v) => !v); setTagFilterSearch(''); }}
                 className={`h-8 px-2.5 rounded-[3px] border text-[11px] inline-flex items-center gap-1.5 transition-colors ${
                   selectedTagIds.length > 0
                     ? 'border-primary bg-primary/10 text-primary'
@@ -1071,15 +1095,17 @@ export function ProjectTasksWorkspace({
               </button>
               {showTagFilter && (
                 <div className="absolute left-0 top-full mt-1 z-20 rounded-[8px] border border-border bg-card shadow-md p-2.5 w-[320px] flex flex-col gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                    <input
-                      value={tagFilterSearch}
-                      onChange={(e) => setTagFilterSearch(e.target.value)}
-                      placeholder="Buscar tags..."
-                      className="h-7 w-full rounded-[4px] border border-border bg-surface-secondary pl-7 pr-2 text-[11px] placeholder:text-muted-foreground/60"
-                    />
-                  </div>
+                  {(tags ?? []).length > 3 && (
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                      <input
+                        value={tagFilterSearch}
+                        onChange={(e) => setTagFilterSearch(e.target.value)}
+                        placeholder="Buscar tags..."
+                        className="h-7 w-full rounded-[4px] border border-border bg-surface-secondary pl-7 pr-2 text-[11px] placeholder:text-muted-foreground/60"
+                      />
+                    </div>
+                  )}
 
                   {(tags ?? []).length === 0 ? (
                     <span className="text-[10px] text-muted-foreground px-1 py-1">Sin tags en este proyecto</span>
@@ -1182,9 +1208,9 @@ export function ProjectTasksWorkspace({
             <tbody>
               {backlogTagFilteredTasks.map((task) => (
                 <tr key={task.id_task} className="border-b border-border/60 hover:bg-accent/20 cursor-pointer align-top" onClick={() => setSelectedTask(task)}>
-                  <td className="px-4 py-3 min-w-[360px]">
+                  <td className="px-4 py-3 min-w-[360px] max-w-[520px]">
                     <p className="text-[12px] font-semibold text-foreground">{task.title}</p>
-                    {task.description && <p className="mt-1 text-muted-foreground leading-relaxed">{task.description}</p>}
+                    {task.description && <p className="mt-1 text-muted-foreground leading-relaxed line-clamp-2 break-words">{task.description}</p>}
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-[11px] font-medium text-foreground">
@@ -1791,7 +1817,7 @@ export function ProjectTasksWorkspace({
               <DatePickerField
                 value={newTask.start_date}
                 onChange={(value) => setNewTask((prev) => ({ ...prev, start_date: value, due_date: value && prev.due_date && prev.due_date < value ? '' : prev.due_date }))}
-                minDate={tomorrowDate}
+                minDate={taskMinDate}
                 maxDate={projectEndDate ?? undefined}
                 placeholder="Fecha inicio"
               />
@@ -1799,7 +1825,7 @@ export function ProjectTasksWorkspace({
                 value={newTask.due_date}
                 onChange={(value) => setNewTask((prev) => ({ ...prev, due_date: value }))}
                 disabled={!newTask.start_date}
-                minDate={newTask.start_date || tomorrowDate}
+                minDate={newTask.start_date || taskMinDate}
                 maxDate={projectEndDate ?? undefined}
                 placeholder="Fecha limite"
               />
@@ -2387,7 +2413,7 @@ export function ProjectTasksWorkspace({
         statuses={[]}
         priorities={priorities}
         tags={tags ?? []}
-        minDueDate={tomorrowDate}
+        minDueDate={taskMinDate}
         maxDueDate={projectEndDate ?? undefined}
         userMap={userMap}
         assignableUsers={assignableUsers}
